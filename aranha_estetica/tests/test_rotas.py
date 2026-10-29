@@ -184,6 +184,8 @@ ROTAS = {
     'aranha:admin_calendar': (SEM, '', STAFF),
     'aranha:admin_calendar_events': (SEM, lambda d: f"start={d['hoje']}&end={d['semana']}", OUTRA),
     'aranha:admin_calendar_mover': (SEM, '', SO_POST),
+    'aranha:painel_api': (SEM, '', STAFF),
+    'aranha:painel_api_spec': (SEM, '', OUTRA),   # YAML (test_openapi confere o 200 da equipe)
     'aranha:admin_email_preview': (SEM, '', OUTRA),
     'aranha:admin_email_preview_nome': (_d(nome='confirmacao'), '', OUTRA),
     'aranha:admin_anamneses': (SEM, '', STAFF),

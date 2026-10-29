@@ -648,6 +648,9 @@ class ProntuarioSalvarTests(_AdminBase):
         resp = self.client.post(reverse('aranha:anotacao_sessao_salvar', args=[at.pk]), {'texto': 'ok'})
         self.assertEqual(resp.status_code, 200)
         anot = AnotacaoSessao.objects.get(atendimento=at)
+        self.assertEqual(resp.json(), {'ok': True, 'anotacao_id': anot.pk, 'texto': 'ok', 'data': resp.json()['data']})
+        vazio = self.client.post(reverse('aranha:anotacao_sessao_salvar', args=[at.pk]), {'texto': '  '})
+        self.assertEqual((vazio.status_code, vazio.json()['codigo']), (400, 'texto_obrigatorio'))
         self.assertTrue(LogAuditoria.objects.filter(
             tabela='anotacao_sessao', registro_id=anot.pk, acao='Criou anotacao').exists())
 

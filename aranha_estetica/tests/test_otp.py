@@ -399,7 +399,7 @@ class OtpSoParaCelularTests(TestCase):
     def test_portal_fixo_digitado_e_erro_de_formato(self):
         resp = self.client.post(reverse('aranha:meus_agendamentos_enviar_otp'), {'identificador': '1733221100'})
         self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.json()['erro'], 'identificador_invalido')
+        self.assertEqual(resp.json()['codigo'], 'identificador_invalido')
 
     def test_portal_cadastro_com_fixo_responde_neutro_sem_sms(self):
         # Cadastro da recepcao com fixo: login por e-mail nao manda SMS p/ o fixo

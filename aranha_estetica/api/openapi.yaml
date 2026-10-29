@@ -1,0 +1,1543 @@
+# Contrato HTTP das rotas de maquina do Shiva Zen (OpenAPI 3.1).
+#
+# Fonte unica, mantida a mao junto do codigo: tests/test_openapi.py reprova rota JSON sem entrada
+# aqui, caminho que nao resolve para o `x-url-name` declarado, `$ref` quebrado e lista de jobs do
+# cron diferente de jobs.JOB_MAP. Servido so p/ a equipe em /painel/api/ (Swagger UI) e
+# /painel/api/openapi.yaml. Telas HTML e formularios do painel ficam de fora: sao paginas, nao API.
+openapi: 3.1.0
+info:
+  title: Shiva Zen — API interna
+  version: '1.0'
+  summary: Rotas JSON, webhooks, cron, feed de calendário e saúde do monólito Django.
+  description: |
+    O Shiva Zen é um monólito Django com telas renderizadas no servidor. Esta API **não é pública
+    nem versionada para terceiros**: são as rotas de máquina que o próprio sistema usa —
+
+    * o **wizard de agendamento** do site (calendário, horários e código por SMS);
+    * a área **"Meus agendamentos"** da cliente (login por SMS, reagendar, cancelar, baixar os dados);
+    * o **painel da equipe** (status na agenda, calendário com arrastar e soltar, anotação clínica);
+    * **integrações**: webhooks da Meta (WhatsApp) e da Zenvia (SMS), o **cron** externo dos jobs,
+      o **feed ICS** da agenda da profissional, o **Web Push** e os **healthchecks** do Railway.
+
+    ## Contrato das respostas JSON
+
+    Toda view JSON do app responde no mesmo envelope (`aranha_estetica/utils/respostas.py`):
+
+    | Caso    | Corpo                                                              |
+    |---------|--------------------------------------------------------------------|
+    | Sucesso | `{"ok": true, ...dados}`                                           |
+    | Erro    | `{"ok": false, "codigo": "<estável>", "mensagem": "<para a pessoa>", ...extra}` |
+
+    `codigo` é para o código (o front decide o que fazer por ele, nunca pelo texto) e não muda sem
+    aviso; `mensagem` é para a pessoa e pode mudar. Ficam **fora do envelope**, de propósito:
+    os webhooks (respondem no formato que o provedor espera), os healthchecks (formato do Railway),
+    os eventos do calendário (lista crua que o FullCalendar lê), o feed ICS e os manifests do PWA.
+
+    ## Autenticação
+
+    | Quem | Como | Rotas |
+    |------|------|-------|
+    | Equipe (ADMIN) | cookie de sessão após `/admin-login/` (+ 2FA TOTP quando cadastrado ou obrigatório) | `/painel/...` |
+    | Profissional | mesma sessão, papel PROFISSIONAL | anotação do próprio atendimento |
+    | Cliente | cookie de sessão aberto pelo código SMS (1 h, preso ao telefone do cadastro) | `/meus-agendamentos/...`, `/ajax/cancelar-agendamento/` |
+    | Cron | header `X-Cron-Token` (tempo constante) | `/cron/run/{job}/` |
+    | Meta | assinatura HMAC `X-Hub-Signature-256` do corpo | `/api/whatsapp/webhook/` |
+    | Zenvia | allowlist de IP e/ou segredo `X-Zenvia-Signature` | `/api/zenvia/webhook/` |
+    | Calendário externo | `?token=` do link de acesso (guardado só como SHA-256) | `/agenda/{slug}/feed.ics` |
+
+    Sessão da equipe que ainda deve o desafio 2FA recebe **403** com `codigo = "2fa_required"`
+    nas rotas JSON (`/api/`, `/webpush/`) e redirect para o desafio nas demais.
+
+    **CSRF:** todo `POST` com sessão exige o token do Django no header `X-CSRFToken` (ou no campo
+    `csrfmiddlewaretoken`). O cookie `csrftoken` é `HttpOnly`: o token vem do formulário renderizado
+    na própria página (tag `csrf_token` do template). Cron e webhooks são `csrf_exempt` (autenticam
+    pelo header).
+
+    ## Limites de requisição
+
+    Cada rota declara o seu limite em `x-limite` (django-ratelimit, cache compartilhado, falha
+    fechada). Estourou: **429** com a página HTML amigável de limite (o front trata resposta não-JSON
+    403/429 como "aguarde um minuto"). As escritas do painel têm teto de 30/min por usuário.
+
+    ## Privacidade (LGPD)
+
+    * Respostas de login e de código **não revelam** se o telefone/e-mail é cliente (texto e tempo iguais).
+    * Rotas privadas saem com `Cache-Control: no-store` e `X-Robots-Tag: noindex`.
+    * O feed ICS leva só o primeiro nome e a inicial da cliente; o export de dados do site não
+      leva a ficha de saúde (vai ao e-mail cadastrado ou é entregue na clínica).
+    * Datas e horas: ISO 8601 com fuso; "hoje" é sempre o dia em America/Sao_Paulo.
+
+    ## Experimentar
+
+    No Swagger UI do painel, **"Try it out" só está liberado para `GET`** (leitura). As escritas
+    mudam dados reais da clínica: use as telas do sistema ou os testes automatizados.
+  contact:
+    name: Shiva Zen — projeto de TCC
+  license:
+    name: Uso interno (UNLICENSED)
+    identifier: UNLICENSED
+tags:
+  - name: Agendamento online
+    description: Wizard público de agendamento (sem login). O código por SMS é a única identidade.
+  - name: Portal da cliente
+    description: Área "Meus agendamentos" — sessão aberta pelo código SMS, presa ao telefone do cadastro (anti-IDOR).
+  - name: LGPD
+    description: Direitos do titular (art. 18) — exportação dos dados sem a ficha de saúde.
+  - name: Painel da equipe
+    description: Rotas AJAX das telas da equipe (ADMIN). Escritas com teto de 30/min por usuário.
+  - name: Web Push
+    description: Notificações do navegador para a equipe (VAPID).
+  - name: Agenda externa
+    description: Feed ICS que a profissional assina no Google, Apple ou Outlook.
+  - name: Integrações
+    description: Webhooks dos provedores de mensagem. Respondem no formato do provedor.
+  - name: Jobs
+    description: Disparo HTTP dos jobs periódicos (sem Celery). O serviço Cron do Railway usa `rodar_jobs_devidos`.
+  - name: Saúde
+    description: Liveness e readiness para o Railway/Docker.
+  - name: PWA
+    description: Manifests dos três apps instaláveis (site, Painel, Minha agenda).
+  - name: Documentação
+    description: Esta especificação.
+
+paths:
+  # ─── Agendamento online ─────────────────────────────────────────────────────────────────────
+  /ajax/dias-disponiveis/:
+    x-url-name: aranha:api_dias_disponiveis
+    get:
+      tags: [Agendamento online]
+      operationId: diasDisponiveis
+      summary: Dias do mês com expediente para o procedimento
+      description: |
+        Dias de hoje até o limite de antecedência (`max_advance`) em que alguma profissional
+        habilitada tem expediente — descontados feriados, recessos, folgas e bloqueios do dia
+        inteiro. Não garante horário livre: os horários vêm de `/ajax/horarios-disponiveis/`.
+      x-limite: 30/min por IP
+      parameters:
+        - name: mes
+          in: query
+          required: true
+          description: Mês no formato `AAAA-MM`.
+          schema: {type: string, pattern: '^\d{4}-\d{2}$'}
+          example: '2026-11'
+        - $ref: '#/components/parameters/ProcedimentoId'
+        - $ref: '#/components/parameters/ProfissionalIdFiltro'
+      responses:
+        '200':
+          description: Dias disponíveis (ordem crescente).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    required: [mes, dias_disponiveis]
+                    properties:
+                      mes: {type: string, example: '2026-11'}
+                      dias_disponiveis:
+                        type: array
+                        items: {type: string, format: date}
+              example:
+                ok: true
+                mes: '2026-11'
+                dias_disponiveis: ['2026-11-03', '2026-11-04', '2026-11-06']
+        '400':
+          $ref: '#/components/responses/ErroParametros'
+        '404':
+          $ref: '#/components/responses/ProcedimentoNaoEncontrado'
+        '429':
+          $ref: '#/components/responses/Limite'
+
+  /ajax/horarios-disponiveis/:
+    x-url-name: aranha:api_horarios_disponiveis
+    get:
+      tags: [Agendamento online]
+      operationId: horariosDisponiveis
+      summary: Horários livres de um dia, agrupados por horário
+      description: |
+        Horários livres (hora local) para o procedimento na data, com as profissionais que atendem
+        em cada um e o **preço na data** (promoção inclusa) — o mesmo valor que o agendamento grava.
+        Mesma regra do `SlotService` usada pelo painel e pelo reagendamento: ocupação no intervalo
+        inteiro, intervalo entre atendimentos, antecedência mínima e bloqueios.
+      x-limite: 30/min por IP
+      parameters:
+        - name: data
+          in: query
+          required: true
+          description: Data no formato `AAAA-MM-DD`.
+          schema: {type: string, format: date}
+          example: '2026-11-04'
+        - $ref: '#/components/parameters/ProcedimentoId'
+        - $ref: '#/components/parameters/ProfissionalIdFiltro'
+      responses:
+        '200':
+          description: Horários do dia (vazio = sem vaga).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    required: [data, procedimento, duracao, horarios]
+                    properties:
+                      data: {type: string, format: date}
+                      procedimento: {type: string, description: Nome do procedimento.}
+                      duracao: {type: integer, description: Duração em minutos.}
+                      horarios:
+                        type: array
+                        items: {$ref: '#/components/schemas/HorarioComPreco'}
+              example:
+                ok: true
+                data: '2026-11-04'
+                procedimento: Limpeza de pele
+                duracao: 60
+                horarios:
+                  - horario: '09:00'
+                    datetime_iso: '2026-11-04T09:00:00-03:00'
+                    profissionais:
+                      - {id: 1, nome: Jaqueline, valor: '180.00', valor_cheio: null, promocao: ''}
+        '400':
+          $ref: '#/components/responses/ErroParametros'
+        '404':
+          $ref: '#/components/responses/ProcedimentoNaoEncontrado'
+        '429':
+          $ref: '#/components/responses/Limite'
+
+  /agendamento/otp/solicitar/:
+    x-url-name: aranha:solicitar_otp_agendamento
+    post:
+      tags: [Agendamento online]
+      operationId: solicitarCodigoAgendamento
+      summary: Envia o código de 6 dígitos por SMS
+      description: |
+        Envia o código ao celular informado — a única identidade do agendamento (e-mail digitado
+        nunca vira identidade). A resposta é a mesma seja o telefone cliente ou não. Fixo é recusado
+        antes de gastar a cota de SMS. Cooldown de 1 minuto e cota por hora; o código vale 10 minutos.
+      x-limite: 5/min por IP
+      security:
+        - csrf: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [telefone]
+              properties:
+                telefone: {type: string, description: 'Celular com DDD (só dígitos ou formatado).', example: '17991234567'}
+                cf-turnstile-response: {type: string, description: Token do Cloudflare Turnstile (obrigatório quando o captcha está ligado).}
+      responses:
+        '200':
+          description: Código enviado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      canal: {type: string, enum: [sms]}
+              example: {ok: true, canal: sms}
+        '400':
+          description: '`captcha` ou `telefone_invalido`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+              example: {ok: false, codigo: telefone_invalido, mensagem: 'Informe um celular com DDD (9 dígitos, começando com 9).'}
+        '429':
+          description: '`aguarde` (cooldown de 1 min) ou `limite_sms` (cota da hora; o último código continua valendo) — ou a página HTML de limite por IP.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+              example: {ok: false, codigo: aguarde, mensagem: Aguarde um minuto antes de pedir outro código.}
+        '503':
+          description: '`sms_falha` — provedor de SMS indisponível.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+
+  /agendamento/otp/verificar/:
+    x-url-name: aranha:verificar_otp_agendamento
+    post:
+      tags: [Agendamento online]
+      operationId: verificarCodigoAgendamento
+      summary: Confere o código e devolve o pré-preenchimento do cadastro
+      description: |
+        Valida o código **daquele telefone** e marca a sessão como verificada para o
+        `POST /agendamento/confirmar/`. Se o telefone já é cliente, devolve os dados do cadastro e o
+        estado atual dos consentimentos (o wizard mostra as caixas como estão: desmarcar = revogar)
+        e as fichas de anamnese que estão em dia no horário escolhido.
+      x-limite: 10/min por IP
+      security:
+        - csrf: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [telefone, codigo]
+              properties:
+                telefone: {type: string, example: '17991234567'}
+                codigo: {type: string, pattern: '^\d{6}$', example: '482913'}
+                inicio:
+                  type: string
+                  format: date-time
+                  description: '`datetime_iso` do horário escolhido (as fichas precisam estar em dia nele).'
+      responses:
+        '200':
+          description: Código correto.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    required: [prefill, aviso, aviso_mensagem, fichas_em_dia]
+                    properties:
+                      prefill:
+                        oneOf:
+                          - $ref: '#/components/schemas/PreenchimentoCliente'
+                          - type: 'null'
+                        description: '`null` = telefone sem cadastro (cliente nova).'
+                      aviso:
+                        type: string
+                        enum: ['', bloqueado_online]
+                        description: '`bloqueado_online` = cadastro inativo ou bloqueado para agendar pelo site.'
+                      aviso_mensagem: {type: string}
+                      fichas_em_dia:
+                        type: object
+                        description: '{id do formulário: "dd/mm/aaaa"} das fichas em dia.'
+                        additionalProperties: {type: string}
+              example:
+                ok: true
+                prefill:
+                  nome: Ana Souza
+                  telefone: '17991234567'
+                  email: ana@example.com
+                  data_nascimento: '1990-05-12'
+                  consents: {consent_email_marketing: false, consent_whatsapp_nps: true, consent_whatsapp_confirmacao: true}
+                aviso: ''
+                aviso_mensagem: ''
+                fichas_em_dia: {'3': '12/10/2026'}
+        '400':
+          $ref: '#/components/responses/ErroCodigo'
+        '429':
+          $ref: '#/components/responses/Limite'
+
+  # ─── Portal da cliente ──────────────────────────────────────────────────────────────────────
+  /meus-agendamentos/otp/enviar/:
+    x-url-name: aranha:meus_agendamentos_enviar_otp
+    post:
+      tags: [Portal da cliente]
+      operationId: enviarCodigoPortal
+      summary: Envia o código de login do portal
+      description: |
+        Aceita o celular **ou** o e-mail do cadastro; com e-mail, o código vai sempre ao telefone do
+        cadastro (nunca a um número informado). Resposta e tempo idênticos exista ou não o cadastro
+        (anti-enumeração).
+      x-limite: 5/min por IP
+      security:
+        - csrf: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [identificador]
+              properties:
+                identificador: {type: string, description: Celular com DDD ou e-mail do cadastro., example: ana@example.com}
+                cf-turnstile-response: {type: string}
+      responses:
+        '200':
+          description: Pedido aceito (não diz se havia cadastro).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      mensagem: {type: string}
+              example: {ok: true, mensagem: 'Se houver cadastro, o código chegará por SMS no celular cadastrado.'}
+        '400':
+          description: '`captcha` ou `identificador_invalido` (formato; fixo não recebe SMS).'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '429':
+          $ref: '#/components/responses/Limite'
+        '503':
+          description: '`sms_falha` — canal de SMS indisponível (checagem global, não depende do cadastro).'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+
+  /meus-agendamentos/otp/verificar/:
+    x-url-name: aranha:meus_agendamentos_verificar_otp
+    post:
+      tags: [Portal da cliente]
+      operationId: verificarCodigoPortal
+      summary: Confere o código e abre a sessão do portal
+      description: |
+        Abre a sessão da cliente (troca a chave da sessão, vale 1 hora) presa ao telefone do cadastro.
+        Identificador sem cadastro responde como código expirado.
+      x-limite: 10/min por IP
+      security:
+        - csrf: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [identificador, codigo]
+              properties:
+                identificador: {type: string, example: '17991234567'}
+                codigo: {type: string, pattern: '^\d{6}$', example: '482913'}
+      responses:
+        '200':
+          description: Sessão aberta; o front segue para `redirect`.
+          headers:
+            Set-Cookie:
+              description: Cookie de sessão (`HttpOnly`, `SameSite=Lax`, `Secure` em produção).
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      redirect: {type: string, example: /meus-agendamentos/}
+        '400':
+          $ref: '#/components/responses/ErroCodigo'
+        '429':
+          $ref: '#/components/responses/Limite'
+
+  /meus-agendamentos/{pk}/horarios/:
+    x-url-name: aranha:reagendar_horarios_portal
+    get:
+      tags: [Portal da cliente]
+      operationId: horariosReagendamento
+      summary: Horários livres para reagendar um atendimento
+      description: |
+        Mesmas regras do `POST` do reagendamento: o horário atual do próprio atendimento **não** conta
+        como ocupado (dá para empurrar alguns minutos) e o preço combinado é mantido (sem preço na
+        resposta). Só atendimento futuro, ativo e com 24 h de antecedência.
+      x-limite: 30/min por IP
+      security:
+        - sessaoCliente: []
+      parameters:
+        - $ref: '#/components/parameters/AtendimentoPk'
+        - name: data
+          in: query
+          required: true
+          schema: {type: string, format: date}
+          example: '2026-11-05'
+      responses:
+        '200':
+          description: Horários do dia.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    required: [data, horarios]
+                    properties:
+                      data: {type: string, format: date}
+                      horarios:
+                        type: array
+                        items: {$ref: '#/components/schemas/Horario'}
+        '400':
+          description: '`reagendamento_indisponivel` (passado, finalizado, menos de 24 h ou cadastro bloqueado) ou `data_invalida`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+              example: {ok: false, codigo: data_invalida, mensagem: Data inválida}
+        '404':
+          description: '`nao_encontrado` — atendimento inexistente ou de outra sessão (anti-IDOR).'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '429':
+          $ref: '#/components/responses/Limite'
+
+  /ajax/cancelar-agendamento/:
+    x-url-name: aranha:cancelar_agendamento
+    post:
+      tags: [Portal da cliente]
+      operationId: cancelarAgendamento
+      summary: Cancela um agendamento pela cliente
+      description: |
+        Só atendimento de cliente com o telefone da sessão. Com menos de 24 h, o cancelamento é
+        **tardio** e conta como falta (o modal avisa antes; a resposta confirma). Avisa a clínica.
+      x-limite: 10/min por IP
+      security:
+        - sessaoCliente: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [atendimento_id]
+              properties:
+                atendimento_id: {type: integer, example: 42}
+      responses:
+        '200':
+          description: Cancelado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    required: [mensagem, tardio]
+                    properties:
+                      mensagem: {type: string}
+                      tardio: {type: boolean, description: true = menos de 24 h (conta como falta).}
+              example: {ok: true, mensagem: Agendamento de Limpeza de pele cancelado., tardio: false}
+        '400':
+          description: '`dados_invalidos`, `sem_atendimento`, `passado` ou `nao_cancelavel`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '404':
+          description: '`nao_encontrado` — inexistente ou de outra sessão.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '429':
+          $ref: '#/components/responses/Limite'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
+  /meus-agendamentos/meus-dados/:
+    x-url-name: aranha:portal_meus_dados
+    post:
+      tags: [Portal da cliente, LGPD]
+      operationId: baixarMeusDadosPortal
+      summary: '"Baixar meus dados" pela sessão do portal'
+      description: |
+        Exporta os dados da titular **sem a ficha de saúde** e registra a trilha
+        "DSAR: exportação de dados". Exige código confirmado há até 10 minutos; sessão mais antiga
+        é encerrada e a cliente volta ao login para um código novo.
+      x-limite: 10/h por IP
+      security:
+        - sessaoCliente: []
+          csrf: []
+      responses:
+        '200':
+          $ref: '#/components/responses/ExportDados'
+        '302':
+          description: Sem sessão ou sessão com mais de 10 min — volta ao login do portal.
+        '429':
+          $ref: '#/components/responses/Limite'
+
+  # ─── LGPD ──────────────────────────────────────────────────────────────────────────────────
+  /lgpd/meus-dados/:
+    x-url-name: aranha:lgpd_meus_dados
+    post:
+      tags: [LGPD]
+      operationId: baixarMeusDados
+      summary: '"Meus dados" do site: pede o código e baixa o export'
+      description: |
+        Formulário em dois passos na mesma rota: sem `codigo`, envia o código por SMS (mesma cota do
+        portal; resposta e tempo iguais exista ou não o cadastro) e devolve a página pedindo o código;
+        com `codigo` válido, devolve o arquivo JSON. O `GET` mostra o formulário (HTML).
+      security:
+        - csrf: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [telefone]
+              properties:
+                telefone: {type: string, example: '17991234567'}
+                codigo: {type: string, pattern: '^\d{6}$'}
+                cf-turnstile-response: {type: string}
+      responses:
+        '200':
+          description: Com código válido, o export (JSON); senão, a página HTML com o próximo passo ou o erro.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExportDados'}
+            text/html:
+              schema: {type: string}
+        '400':
+          description: Captcha recusado (página HTML).
+
+  # ─── Painel da equipe ──────────────────────────────────────────────────────────────────────
+  /painel/atualizar-status/:
+    x-url-name: aranha:admin_atualizar_status
+    post:
+      tags: [Painel da equipe]
+      operationId: atualizarStatus
+      summary: Muda o status de um atendimento (select das listas)
+      description: |
+        Uma porta por destino: pedido `PENDENTE` → aprovação/recusa (`AgendamentoService`, avisa a
+        cliente); `REALIZADO` → caso de uso próprio (termo do procedimento, comissão, cashback);
+        `CONFIRMADO`, `CANCELADO`, `FALTOU` → máquina de estados. Tudo vai para a auditoria.
+
+        Termo do procedimento não aceito → **409 `termo_pendente`** com os ids dos termos; o front
+        pede confirmação e reenvia com `sem_termo: true` (fica registrado na trilha).
+      x-limite: 30/min por usuário
+      security:
+        - sessaoEquipe: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [atendimento_id, status]
+              properties:
+                atendimento_id: {type: integer, example: 42}
+                status:
+                  type: string
+                  enum: [AGENDADO, CONFIRMADO, REALIZADO, CANCELADO, FALTOU]
+                  description: '`AGENDADO` só como aprovação de pedido pendente.'
+                sem_termo:
+                  type: boolean
+                  default: false
+                  description: Só o booleano `true` confirma realizar sem o termo aceito.
+      responses:
+        '200':
+          description: Status alterado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      status_anterior: {$ref: '#/components/schemas/StatusAtendimento'}
+                      status_novo: {$ref: '#/components/schemas/StatusAtendimento'}
+              example: {ok: true, status_anterior: AGENDADO, status_novo: CONFIRMADO}
+        '400':
+          description: '`dados_invalidos`, `atendimento_invalido`, `status_invalido`, `transicao_invalida` ou `status_nao_suportado`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '404':
+          description: '`nao_encontrado`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '405':
+          $ref: '#/components/responses/MetodoNaoPermitido'
+        '409':
+          description: '`termo_pendente` (com `termos`) ou `desfecho_antes_do_inicio` (realizado/faltou antes do horário).'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Erro'
+                  - type: object
+                    properties:
+                      termos: {type: array, items: {type: integer}}
+              example: {ok: false, codigo: termo_pendente, mensagem: O termo do procedimento ainda não foi aceito., termos: [7]}
+        '429':
+          $ref: '#/components/responses/Limite'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
+  /painel/calendario/eventos/:
+    x-url-name: aranha:admin_calendar_events
+    get:
+      tags: [Painel da equipe]
+      operationId: eventosCalendario
+      summary: Eventos do calendário (formato FullCalendar)
+      description: |
+        Atendimentos do intervalo e, como eventos de fundo, bloqueios (recorrentes expandidos) e
+        folgas/feriados. **Lista crua**, fora do envelope `{ok}`: é o que a biblioteca lê.
+        Intervalo inválido devolve lista vazia; filtro de profissional não numérico é ignorado.
+      security:
+        - sessaoEquipe: []
+      parameters:
+        - name: start
+          in: query
+          required: true
+          description: Início do intervalo (ISO 8601, enviado pelo FullCalendar).
+          schema: {type: string, format: date-time}
+          example: '2026-11-02T00:00:00-03:00'
+        - name: end
+          in: query
+          required: true
+          schema: {type: string, format: date-time}
+          example: '2026-11-09T00:00:00-03:00'
+        - name: profissional
+          in: query
+          required: false
+          description: Só a agenda desta profissional (+ bloqueios e feriados globais).
+          schema: {type: integer}
+      responses:
+        '200':
+          description: Eventos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/EventoCalendario'}
+        '302':
+          $ref: '#/components/responses/RedirectLogin'
+
+  /painel/calendario/mover/:
+    x-url-name: aranha:admin_calendar_mover
+    post:
+      tags: [Painel da equipe]
+      operationId: moverAtendimento
+      summary: Reagenda pelo arrastar e soltar do calendário
+      description: |
+        Edita o horário no lugar (`services.agenda.mover`) com a mesma validação do site e do portal,
+        e devolve o **motivo** da recusa para a equipe (conflito, bloqueio, folga, feriado, fora do
+        expediente). Duração e preço combinado são mantidos.
+      x-limite: 30/min por usuário
+      security:
+        - sessaoEquipe: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, start, end]
+              properties:
+                id: {type: integer, example: 42}
+                start: {type: string, format: date-time, example: '2026-11-04T13:00:00.000Z'}
+                end: {type: string, format: date-time, example: '2026-11-04T14:00:00.000Z'}
+      responses:
+        '200':
+          description: Movido.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      nova_data: {type: string, description: Novo início no fuso da clínica (dd/mm/aaaa HH:MM).}
+              example: {ok: true, nova_data: '04/11/2026 10:00'}
+        '400':
+          description: '`dados_invalidos`, `fim_antes_do_inicio` ou `transicao_invalida` (atendimento finalizado).'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '404':
+          description: '`nao_encontrado`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '405':
+          $ref: '#/components/responses/MetodoNaoPermitido'
+        '409':
+          description: '`horario_ocupado`, `horario_passado`, `feriado` ou `horario_indisponivel` (com o motivo).'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '429':
+          $ref: '#/components/responses/Limite'
+
+  /painel/anotacao/{atendimento_id}/salvar/:
+    x-url-name: aranha:anotacao_sessao_salvar
+    post:
+      tags: [Painel da equipe]
+      operationId: salvarAnotacao
+      summary: Adiciona anotação clínica a um atendimento
+      description: |
+        ADMIN ou a profissional do próprio atendimento. Tentativa negada fica na auditoria.
+        Anotações não são editadas nem apagadas (prontuário).
+      security:
+        - sessaoEquipe: []
+          csrf: []
+        - sessaoProfissional: []
+          csrf: []
+      parameters:
+        - name: atendimento_id
+          in: path
+          required: true
+          schema: {type: integer}
+          example: 42
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [texto]
+              properties:
+                texto: {type: string, example: Pele sensível na região malar; usar protocolo suave.}
+      responses:
+        '200':
+          description: Anotação criada.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    required: [anotacao_id, texto, data]
+                    properties:
+                      anotacao_id: {type: integer}
+                      texto: {type: string}
+                      data: {type: string, description: Criação no fuso da clínica (dd/mm/aaaa HH:MM).}
+        '400':
+          description: '`texto_obrigatorio`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '403':
+          description: '`sem_permissao` — profissional de outro atendimento.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '404':
+          description: Atendimento inexistente (página HTML).
+        '405':
+          description: '`metodo_nao_permitido`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+
+  # ─── Web Push ──────────────────────────────────────────────────────────────────────────────
+  /webpush/public-key/:
+    x-url-name: aranha:webpush_public_key
+    get:
+      tags: [Web Push]
+      operationId: chavePublicaVapid
+      summary: Chave pública VAPID
+      description: Vazia quando o push não está configurado (o painel não oferece ativar).
+      responses:
+        '200':
+          description: Chave (base64url).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      public_key: {type: string}
+
+  /webpush/subscribe/:
+    x-url-name: aranha:webpush_subscribe
+    post:
+      tags: [Web Push]
+      operationId: assinarPush
+      summary: Registra (ou reativa) a assinatura do navegador
+      description: |
+        Exige sessão com o 2FA em dia (o push leva nome de cliente e horário). Só endpoint `https://`
+        de até 600 caracteres (evita requisição do servidor para URL arbitrária).
+      security:
+        - sessaoEquipe: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AssinaturaPush'}
+      responses:
+        '200':
+          description: Assinatura salva.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      created: {type: boolean}
+                      id: {type: integer}
+        '400':
+          description: '`payload_invalido`, `campos_ausentes` ou `endpoint_invalido`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '302':
+          $ref: '#/components/responses/RedirectLogin'
+        '403':
+          $ref: '#/components/responses/DoisFatores'
+
+  /webpush/unsubscribe/:
+    x-url-name: aranha:webpush_unsubscribe
+    post:
+      tags: [Web Push]
+      operationId: cancelarPush
+      summary: Remove a assinatura do navegador
+      security:
+        - sessaoEquipe: []
+          csrf: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint: {type: string, format: uri}
+      responses:
+        '200':
+          description: Removida (só as do próprio usuário).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      deleted: {type: integer}
+        '400':
+          description: '`payload_invalido` ou `campos_ausentes`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '302':
+          $ref: '#/components/responses/RedirectLogin'
+        '403':
+          $ref: '#/components/responses/DoisFatores'
+
+  # ─── Agenda externa ────────────────────────────────────────────────────────────────────────
+  /agenda/{slug}/feed.ics:
+    x-url-name: aranha:ics_feed_profissional
+    get:
+      tags: [Agenda externa]
+      operationId: feedIcsProfissional
+      summary: Agenda da profissional como calendário (RFC 5545)
+      description: |
+        Atendimentos de 30 dias atrás a 90 dias à frente (agendados, confirmados e realizados).
+        O token é procurado pelo SHA-256 (índice único); link revogado no painel ou de outra
+        profissional → 404. O evento leva só o primeiro nome e a inicial da cliente e o procedimento.
+      security:
+        - tokenFeed: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: {type: string}
+          example: jaqueline
+      responses:
+        '200':
+          description: Calendário.
+          headers:
+            Content-Disposition:
+              schema: {type: string, example: 'inline; filename="jaqueline-agenda.ics"'}
+          content:
+            text/calendar:
+              schema: {type: string}
+              example: |
+                BEGIN:VCALENDAR
+                VERSION:2.0
+                PRODID:-//aranha-estetica//agenda profissional//PT-BR
+                BEGIN:VEVENT
+                UID:atend-42@aranha-estetica
+                DTSTART:20261104T120000Z
+                DTEND:20261104T130000Z
+                SUMMARY:Ana S. - Limpeza de pele
+                STATUS:CONFIRMED
+                END:VEVENT
+                END:VCALENDAR
+        '404':
+          description: Profissional inativa, token inválido, revogado ou de outra profissional.
+
+  # ─── Integracoes ───────────────────────────────────────────────────────────────────────────
+  /api/whatsapp/webhook/:
+    x-url-name: aranha:whatsapp_webhook
+    get:
+      tags: [Integrações]
+      operationId: whatsappHandshake
+      summary: Verificação do webhook pela Meta
+      description: Ecoa `hub.challenge` quando `hub.verify_token` confere (tempo constante).
+      parameters:
+        - {name: hub.mode, in: query, required: true, schema: {type: string, enum: [subscribe]}}
+        - {name: hub.verify_token, in: query, required: true, schema: {type: string}}
+        - {name: hub.challenge, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Desafio ecoado.
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          description: Token não confere.
+    post:
+      tags: [Integrações]
+      operationId: whatsappEventos
+      summary: Mensagens recebidas no WhatsApp (Meta Cloud API)
+      description: |
+        Processa as respostas das clientes:
+
+        * **nota 0–10** → avaliação do último NPS enviado por WhatsApp àquele telefone (até 7 dias);
+        * **"PARAR", "SAIR", "STOP"...** (mensagem inteira) → revoga lembrete e pesquisa por WhatsApp
+          (LGPD art. 8 §5) e responde como voltar.
+
+        O telefone casa **exatamente** com o cadastro (nunca por sufixo). Evento assinado sempre
+        recebe 200 — 4xx/5xx faria a Meta reenviar e, persistindo, desativar o webhook.
+      x-limite: 60/min por IP
+      security:
+        - assinaturaMeta: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EventoWhatsApp'}
+            example:
+              object: whatsapp_business_account
+              entry:
+                - changes:
+                    - value:
+                        messages:
+                          - {from: '5517991234567', type: text, text: {body: '9'}}
+      responses:
+        '200':
+          $ref: '#/components/responses/ProvedorOk'
+        '400':
+          $ref: '#/components/responses/ProvedorJsonInvalido'
+        '403':
+          $ref: '#/components/responses/ProvedorRecusado'
+        '429':
+          $ref: '#/components/responses/Limite'
+
+  /api/zenvia/webhook/:
+    x-url-name: aranha:zenvia_sms_webhook
+    post:
+      tags: [Integrações]
+      operationId: zenviaStatus
+      summary: Status de entrega do SMS (Zenvia)
+      description: |
+        Defesa em camadas: allowlist de IP/CIDR (`ZENVIA_ALLOWED_IPS`), segredo estático no header
+        `X-Zenvia-Signature` (`ZENVIA_WEBHOOK_SECRET`, comparado em tempo constante) e, sem nenhum
+        dos dois fora de DEBUG, recusa (503). O status é só registrado em log com o telefone mascarado.
+      x-limite: 120/min por IP
+      security:
+        - segredoZenvia: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messageId: {type: string}
+                id: {type: string}
+                to: {type: string}
+                status: {type: string}
+                messageStatus:
+                  type: object
+                  properties:
+                    code: {type: string, example: DELIVERED}
+      responses:
+        '200':
+          $ref: '#/components/responses/ProvedorOk'
+        '400':
+          $ref: '#/components/responses/ProvedorJsonInvalido'
+        '403':
+          $ref: '#/components/responses/ProvedorRecusado'
+        '503':
+          description: Webhook sem segredo e sem allowlist em produção.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RespostaProvedor'}
+              example: {error: webhook nao configurado}
+
+  # ─── Jobs ──────────────────────────────────────────────────────────────────────────────────
+  /cron/run/{job_name}/:
+    x-url-name: aranha:cron_run_job
+    post:
+      tags: [Jobs]
+      operationId: rodarJob
+      summary: Executa um job periódico
+      description: |
+        Roda o job **uma vez** (sem retry na hora: jobs de mensagem não são todos idempotentes) e
+        avisa o monitor (`CRON_MONITOR_URL`, ok ou falha). O que o job mudar entra nas trilhas com
+        origem `cron:<job>`. Falha responde 500 só com o **tipo** da exceção e uma referência (`ref`,
+        a mesma do log): o agendador guarda o corpo, e a mensagem poderia ter dado pessoal.
+
+        Uso: `curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<domínio>/cron/run/emails/`
+      x-limite: 30/h por IP
+      security:
+        - cronToken: []
+      parameters:
+        - name: job_name
+          in: path
+          required: true
+          schema: {$ref: '#/components/schemas/Job'}
+          example: emails
+      responses:
+        '200':
+          description: Job concluído.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Ok'
+                  - type: object
+                    properties:
+                      job: {$ref: '#/components/schemas/Job'}
+                      resultado: {type: string}
+              example: {ok: true, job: emails, resultado: '3 e-mails enviados; 0 na fila'}
+        '403':
+          description: '`token_invalido`.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '404':
+          description: '`job_desconhecido` (com `disponiveis`).'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Erro'
+                  - type: object
+                    properties:
+                      disponiveis: {type: array, items: {$ref: '#/components/schemas/Job'}}
+        '405':
+          $ref: '#/components/responses/MetodoNaoPermitido'
+        '409':
+          description: '`job_ja_executado` — job de mensagem que só roda uma vez por dia (aniversario, pacote_expirando, nps_24h).'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Erro'}
+        '429':
+          $ref: '#/components/responses/Limite'
+        '500':
+          description: '`job_falhou` — `mensagem` = tipo da exceção; `ref` = referência no log.'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Erro'
+                  - type: object
+                    properties:
+                      job: {$ref: '#/components/schemas/Job'}
+                      ref: {type: string, example: 9f2c41ab}
+
+  # ─── Saude ─────────────────────────────────────────────────────────────────────────────────
+  /health/:
+    x-url-name: aranha:healthcheck
+    get:
+      tags: [Saúde]
+      operationId: readiness
+      summary: Readiness — banco, cache e bundle do front
+      responses:
+        '200':
+          description: Tudo ok.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Readiness'}
+              example: {status: ok, db: true, cache: true, front: true, timestamp: '2026-10-29T20:00:00+00:00'}
+        '503':
+          description: Alguma dependência falhou.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Readiness'}
+              example: {status: degraded, db: false, cache: true, front: true, timestamp: '2026-10-29T20:00:00+00:00'}
+
+  /healthz/:
+    x-url-name: aranha:liveness
+    get:
+      tags: [Saúde]
+      operationId: liveness
+      summary: Liveness — processo vivo (healthcheck do Railway)
+      description: Não toca banco nem cache; só confere que o bundle do Vite existe (sem ele o site inteiro daria 500).
+      responses:
+        '200':
+          description: Vivo.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Liveness'}
+              example: {status: alive, timestamp: '2026-10-29T20:00:00+00:00'}
+        '503':
+          description: Build do front ausente — o deploy não pode ser promovido.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Liveness'}
+              example: {status: front_build_ausente, timestamp: '2026-10-29T20:00:00+00:00'}
+
+  # ─── PWA ───────────────────────────────────────────────────────────────────────────────────
+  /manifest.json:
+    x-url-name: aranha:manifest
+    get:
+      tags: [PWA]
+      operationId: manifestSite
+      summary: Manifest do site (app da clínica)
+      responses:
+        '200':
+          $ref: '#/components/responses/Manifest'
+
+  /painel/manifest.json:
+    x-url-name: aranha:manifest_admin
+    get:
+      tags: [PWA]
+      operationId: manifestPainel
+      summary: Manifest do app "Painel" (escopo /painel/)
+      description: Público mesmo dentro de /painel/ (o navegador busca o manifest sem cookie).
+      responses:
+        '200':
+          $ref: '#/components/responses/Manifest'
+
+  /profissional/manifest.json:
+    x-url-name: aranha:manifest_profissional
+    get:
+      tags: [PWA]
+      operationId: manifestProfissional
+      summary: Manifest do app "Minha agenda" (escopo /profissional/)
+      responses:
+        '200':
+          $ref: '#/components/responses/Manifest'
+
+  # ─── Documentacao ──────────────────────────────────────────────────────────────────────────
+  /painel/api/openapi.yaml:
+    x-url-name: aranha:painel_api_spec
+    get:
+      tags: [Documentação]
+      operationId: especificacaoOpenApi
+      summary: Esta especificação (OpenAPI 3.1, YAML)
+      description: A interface navegável fica em `/painel/api/`.
+      security:
+        - sessaoEquipe: []
+      responses:
+        '200':
+          description: Arquivo `aranha_estetica/api/openapi.yaml`.
+          content:
+            application/yaml:
+              schema: {type: string}
+        '302':
+          $ref: '#/components/responses/RedirectLogin'
+
+components:
+  securitySchemes:
+    sessaoEquipe:
+      type: apiKey
+      in: cookie
+      name: sessionid
+      description: Sessão da equipe (papel ADMIN) após `/admin-login/` e, quando exigido, o desafio 2FA (TOTP).
+    sessaoProfissional:
+      type: apiKey
+      in: cookie
+      name: sessionid
+      description: Sessão de usuária com papel PROFISSIONAL (portal "Minha agenda").
+    sessaoCliente:
+      type: apiKey
+      in: cookie
+      name: sessionid
+      description: Sessão do portal da cliente aberta pelo código SMS (1 h, presa ao telefone do cadastro).
+    csrf:
+      type: apiKey
+      in: header
+      name: X-CSRFToken
+      description: Token CSRF do Django, lido do formulário da própria página (o cookie `csrftoken` é HttpOnly).
+    cronToken:
+      type: apiKey
+      in: header
+      name: X-Cron-Token
+      description: Segredo `CRON_TOKEN`. Nunca na URL (vazaria em log).
+    assinaturaMeta:
+      type: apiKey
+      in: header
+      name: X-Hub-Signature-256
+      description: '`sha256=<HMAC-SHA256 do corpo com WHATSAPP_APP_SECRET>`. Sem o segredo configurado, toda requisição é recusada.'
+    segredoZenvia:
+      type: apiKey
+      in: header
+      name: X-Zenvia-Signature
+      description: Segredo estático `ZENVIA_WEBHOOK_SECRET` (o corpo não é assinado).
+    tokenFeed:
+      type: apiKey
+      in: query
+      name: token
+      description: Token do link de calendário gerado no portal da profissional ou no painel (revogável).
+
+  parameters:
+    ProcedimentoId:
+      name: procedimento_id
+      in: query
+      required: true
+      description: Id de um procedimento ativo.
+      schema: {type: integer}
+      example: 1
+    ProfissionalIdFiltro:
+      name: profissional_id
+      in: query
+      required: false
+      description: |
+        Restringe à profissional (link "Agendar com X"). Se ela não realiza o procedimento, o filtro é
+        ignorado (mostra todas) em vez de deixar o calendário vazio.
+      schema: {type: integer}
+    AtendimentoPk:
+      name: pk
+      in: path
+      required: true
+      description: Id do atendimento — só os da sessão (anti-IDOR).
+      schema: {type: integer}
+      example: 42
+
+  responses:
+    ErroParametros:
+      description: '`parametros_ausentes`, `parametro_invalido`, `data_invalida` ou `mes_invalido`.'
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Erro'}
+          example: {ok: false, codigo: parametros_ausentes, mensagem: 'Parâmetros obrigatórios: data, procedimento_id'}
+    ProcedimentoNaoEncontrado:
+      description: '`procedimento_nao_encontrado` — inexistente ou inativo.'
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Erro'}
+    ErroCodigo:
+      description: |
+        `dados_ausentes`, `incorreto` (com `restantes`), `bloqueado` (tentativas esgotadas) ou
+        `expirado` (também para identificador sem cadastro).
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Erro'
+              - type: object
+                properties:
+                  restantes: {type: [integer, 'null'], description: Tentativas restantes (só em `incorreto`).}
+          example: {ok: false, codigo: incorreto, mensagem: 'Código incorreto. Tentativas restantes: 2', restantes: 2}
+    ErroInterno:
+      description: '`erro_interno` — falha de banco (registrada no log).'
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Erro'}
+    MetodoNaoPermitido:
+      description: Método diferente de POST (resposta vazia do Django).
+    RedirectLogin:
+      description: Sem sessão da equipe — redirect para `/admin-login/?next=...`.
+    DoisFatores:
+      description: '`2fa_required` — sessão só com senha de quem deve o 2FA.'
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Erro'}
+          example: {ok: false, codigo: 2fa_required, mensagem: Confirme o código de verificação em duas etapas.}
+    Limite:
+      description: Limite de requisições estourado — página HTML amigável (`RATELIMIT_VIEW`).
+      content:
+        text/html:
+          schema: {type: string}
+    ExportDados:
+      description: Export dos dados da titular (download).
+      headers:
+        Content-Disposition:
+          schema: {type: string, example: 'attachment; filename="meus_dados_42.json"'}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ExportDados'}
+    ProvedorOk:
+      description: Recebido.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/RespostaProvedor'}
+          example: {status: ok}
+    ProvedorJsonInvalido:
+      description: Corpo que não é JSON (ou não é objeto).
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/RespostaProvedor'}
+          example: {error: json invalido}
+    ProvedorRecusado:
+      description: Assinatura, segredo ou IP recusado.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/RespostaProvedor'}
+          example: {error: assinatura invalida}
+    Manifest:
+      description: Web App Manifest.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: {type: string}
+              short_name: {type: string, maxLength: 12}
+              start_url: {type: string}
+              scope: {type: string}
+              display: {type: string}
+              lang: {type: string, example: pt-BR}
+              icons: {type: array, items: {type: object}}
+
+  schemas:
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok: {type: boolean, const: true}
+    Erro:
+      type: object
+      required: [ok, codigo, mensagem]
+      properties:
+        ok: {type: boolean, const: false}
+        codigo: {type: string, description: Identificador estável do erro (o front decide por ele).}
+        mensagem: {type: string, description: Texto para a pessoa (pode mudar).}
+    StatusAtendimento:
+      type: string
+      enum: [PENDENTE, AGENDADO, CONFIRMADO, REALIZADO, CANCELADO, FALTOU, REAGENDADO]
+    ProfissionalNoHorario:
+      type: object
+      required: [id, nome]
+      properties:
+        id: {type: integer}
+        nome: {type: string}
+    ProfissionalComPreco:
+      allOf:
+        - $ref: '#/components/schemas/ProfissionalNoHorario'
+        - type: object
+          properties:
+            valor: {type: [string, 'null'], description: 'Preço na data (decimal em texto); `null` = a consultar.'}
+            valor_cheio: {type: [string, 'null'], description: Preço sem a promoção (só quando há promoção).}
+            promocao: {type: string, description: Nome da promoção aplicada ('' = nenhuma).}
+    Horario:
+      type: object
+      required: [horario, datetime_iso, profissionais]
+      properties:
+        horario: {type: string, pattern: '^\d{2}:\d{2}$', example: '09:00'}
+        datetime_iso: {type: string, format: date-time, description: Início com fuso — é o valor que o agendamento envia.}
+        profissionais:
+          type: array
+          items: {$ref: '#/components/schemas/ProfissionalNoHorario'}
+    HorarioComPreco:
+      allOf:
+        - $ref: '#/components/schemas/Horario'
+        - type: object
+          properties:
+            profissionais:
+              type: array
+              items: {$ref: '#/components/schemas/ProfissionalComPreco'}
+    PreenchimentoCliente:
+      type: object
+      properties:
+        nome: {type: string}
+        telefone: {type: string}
+        email: {type: string}
+        data_nascimento: {type: string, description: "AAAA-MM-DD ou ''."}
+        consents:
+          type: object
+          description: Estado vigente de cada consentimento de comunicação.
+          properties:
+            consent_email_marketing: {type: boolean}
+            consent_whatsapp_nps: {type: boolean}
+            consent_whatsapp_confirmacao: {type: boolean}
+    EventoCalendario:
+      type: object
+      description: Evento do FullCalendar — atendimento (com `extendedProps`) ou fundo (bloqueio, folga, feriado).
+      required: [id, title, start, end]
+      properties:
+        id: {type: [integer, string], description: 'Atendimento: id; fundo: `bloq-<id>[-n]` ou `folga-<id>`.'}
+        title: {type: string}
+        start: {type: string}
+        end: {type: string}
+        allDay: {type: boolean}
+        display: {type: string, enum: [background]}
+        editable: {type: boolean}
+        backgroundColor: {type: string, description: Token CSS do status (claro/escuro).}
+        borderColor: {type: string}
+        textColor: {type: string}
+        extendedProps:
+          type: object
+          properties:
+            profissional: {type: string}
+            procedimento: {type: string}
+            cliente_nome: {type: string}
+            cliente_telefone: {type: string}
+            status: {$ref: '#/components/schemas/StatusAtendimento'}
+            valor: {type: [number, 'null']}
+    AssinaturaPush:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint: {type: string, format: uri, maxLength: 600, example: 'https://fcm.googleapis.com/fcm/send/abc'}
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: {type: string}
+            auth: {type: string}
+    Job:
+      type: string
+      description: Job registrado em `jobs.JOB_MAP` (horários em `jobs.JOB_AGENDA`).
+      enum:
+        - aniversario
+        - detrator_alerta
+        - emails
+        - feriados
+        - housekeeping
+        - lembrete_diario
+        - lgpd_purgar
+        - limpeza_status
+        - nps_24h
+        - pacote_expirando
+        - pacote_expirar
+        - sem_desfecho
+    Readiness:
+      type: object
+      required: [status, db, cache, front, timestamp]
+      properties:
+        status: {type: string, enum: [ok, degraded]}
+        db: {type: boolean}
+        cache: {type: boolean}
+        front: {type: boolean, description: Manifest do Vite presente.}
+        timestamp: {type: string, format: date-time}
+    Liveness:
+      type: object
+      required: [status, timestamp]
+      properties:
+        status: {type: string, enum: [alive, front_build_ausente]}
+        timestamp: {type: string, format: date-time}
+    RespostaProvedor:
+      type: object
+      description: Formato livre dos webhooks (fora do envelope `{ok}`).
+      properties:
+        status: {type: string, enum: [ok]}
+        error: {type: string}
+    EventoWhatsApp:
+      type: object
+      description: Payload da Meta Cloud API (só `messages` é lido; `statuses` é ignorado).
+      properties:
+        object: {type: string, example: whatsapp_business_account}
+        entry:
+          type: array
+          items:
+            type: object
+            properties:
+              changes:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value:
+                      type: object
+                      properties:
+                        messages:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              from: {type: string, description: Telefone com DDI (55...).}
+                              type: {type: string, enum: [text, button, interactive]}
+                              text:
+                                type: object
+                                properties:
+                                  body: {type: string}
+    ExportDados:
+      type: object
+      description: |
+        Dados da titular por seção (LGPD art. 18): `gerado_em`, `pessoal`, `preferencias`,
+        `consentimentos`, `atendimentos`, `avaliacoes_nps`, `pacotes`, `carteira`, `lista_espera`,
+        `notificacoes`... A ficha de saúde não sai pelo site: `ficha_de_saude` traz como pedir.
+      required: [gerado_em]
+      properties:
+        gerado_em: {type: string, format: date-time}
+        ficha_de_saude: {type: string}
+        sobre_o_tratamento: {type: object}
+      additionalProperties: true

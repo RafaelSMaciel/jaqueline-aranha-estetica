@@ -12,7 +12,6 @@ from datetime import datetime, timedelta
 from django.contrib import messages
 from django.db import DatabaseError, transaction
 from django.db.models import Q
-from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -130,23 +129,23 @@ def _horarios(request, atendimento):
     aceita (ex.: empurrar 30 min).
     """
     if atendimento is None:
-        return JsonResponse({'erro': 'Agendamento não encontrado'}, status=404)
+        return json_erro('nao_encontrado', 'Agendamento não encontrado.', status=404)
     motivo = _motivo_sem_reagendamento(atendimento, timezone.now())
     if motivo:
-        return JsonResponse({'erro': motivo}, status=400)
+        return json_erro('reagendamento_indisponivel', motivo)
     try:
         dia = ler_data(request.GET.get('data', ''))
     except ValueError:
-        return JsonResponse({'erro': 'Data inválida'}, status=400)
+        return json_erro('data_invalida', 'Data inválida')
 
     procedimento = atendimento.procedimento
-    return JsonResponse({
-        'data': dia.isoformat(),
-        'horarios': horarios_agrupados(
+    return json_ok(
+        data=dia.isoformat(),
+        horarios=horarios_agrupados(
             procedimento, profissionais_para(procedimento), dia,
             ignorar_atendimento_id=atendimento.pk, com_preco=False,
         ),
-    })
+    )
 
 
 @ratelimit(key='ip', rate='30/m', method='GET', block=True)

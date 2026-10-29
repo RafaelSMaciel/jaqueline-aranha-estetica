@@ -3,6 +3,7 @@ from django.urls import path
 
 from ..views.painel import (
     agendamentos,
+    api,
     anamneses,
     aprovacao,
     auditoria,
@@ -137,6 +138,9 @@ urlpatterns = [
     path('painel/calendario/', calendario.admin_calendar, name='admin_calendar'),
     path('painel/calendario/eventos/', calendario.admin_calendar_events, name='admin_calendar_events'),
     path('painel/calendario/mover/', calendario.admin_calendar_mover, name='admin_calendar_mover'),
+    # ─── Documentacao da API (OpenAPI 3.1 + Swagger UI) ───
+    path('painel/api/', api.documentacao, name='painel_api'),
+    path('painel/api/openapi.yaml', api.especificacao, name='painel_api_spec'),
     # ─── Email Preview (staff debug) ───
     path('painel/email-preview/', previa_email.admin_email_preview, name='admin_email_preview'),
     path('painel/email-preview/<str:nome>/', previa_email.admin_email_preview, name='admin_email_preview_nome'),

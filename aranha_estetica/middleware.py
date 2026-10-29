@@ -10,13 +10,13 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db import OperationalError, ProgrammingError
-from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import resolve, reverse
 from django.urls.exceptions import Resolver404
 from django.utils.cache import add_never_cache_headers
 
 from .utils import dois_fatores
+from .utils.respostas import MSG_2FA, json_erro
 from .ator import Ator, atuando
 
 logger = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ class Enforce2FAMiddleware:
 
     def _barrar(self, request, url_name):
         if request.path.startswith(self.JSON_PREFIXES):
-            return JsonResponse({'detail': '2fa_required'}, status=403)
+            return json_erro('2fa_required', MSG_2FA, status=403)
         destino = reverse(url_name)
         return redirect(f'{destino}?{urlencode({"next": request.get_full_path()})}')
 

@@ -8,7 +8,6 @@ import logging
 import time
 from datetime import datetime
 
-from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -52,6 +51,8 @@ MENSAGENS_VERIFICACAO = {
     'bloqueado': 'Muitas tentativas. Solicite um novo código.',
 }
 MSG_CODIGO_EXPIRADO = 'Código expirado. Solicite um novo.'
+MSG_IDENTIFICADOR = 'Informe o celular com DDD ou o e-mail do cadastro.'
+MSG_SE_HOUVER_CADASTRO = 'Se houver cadastro, o código chegará por SMS no celular cadastrado.'
 
 
 def _falha_envio(motivo):
@@ -176,16 +177,16 @@ def meus_agendamentos_enviar_otp(request):
     Resposta identica exista ou nao o cadastro (anti-enumeracao LGPD).
     """
     if _captcha_invalido(request):
-        return JsonResponse({'ok': False, 'erro': 'captcha'}, status=400)
+        return _falha_envio('captcha')
 
     ident = _identificador(request)
     if '@' not in ident and not otp_service.eh_celular_br(otp_service.normalizar_telefone_br(ident)):
         # Erro de formato (nao depende de existir cadastro); fixo nao recebe SMS.
-        return JsonResponse({'ok': False, 'erro': 'identificador_invalido'}, status=400)
+        return json_erro('identificador_invalido', MSG_IDENTIFICADOR)
 
     # Checagem global do canal — nao vaza se o cadastro existe.
     if not sms_disponivel():
-        return JsonResponse({'ok': False, 'erro': 'sms_falha'}, status=503)
+        return _falha_envio('sms_falha')
 
     inicio = time.perf_counter()
     digitos, cliente = _telefone_do_identificador(ident)
@@ -198,31 +199,30 @@ def meus_agendamentos_enviar_otp(request):
                 'telefone': mask_telefone(digitos), 'motivo': motivo,
             })
     otp_service.esperar_latencia_minima(inicio)   # cadastrado e desconhecido levam o mesmo tempo
-    return JsonResponse({
-        'ok': True,
-        'mensagem': 'Se houver cadastro, o código chegará por SMS no celular cadastrado.',
-    })
+    return json_ok(mensagem=MSG_SE_HOUVER_CADASTRO)
 
 
 @require_POST
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def meus_agendamentos_verificar_otp(request):
-    """Valida OTP; cria sessao do portal presa ao TELEFONE do cadastro."""
+    """Valida OTP; cria sessao do portal presa ao TELEFONE do cadastro.
+
+    Identificador sem cadastro responde como codigo expirado (nao revela quem e cliente)."""
     digitos, _cliente = _telefone_do_identificador(_identificador(request))
     codigo = str(request.POST.get('codigo') or '').strip()
     if not codigo:
-        return JsonResponse({'ok': False, 'erro': 'dados_ausentes'}, status=400)
+        return _falha_verificacao('dados_ausentes')
     if not digitos:
-        return JsonResponse({'ok': False, 'erro': 'expirado'}, status=400)
+        return _falha_verificacao('expirado')
 
     ok, motivo = otp_service.verificar_otp_telefone(
         digitos, codigo, proposito=CodigoOtp.PROPOSITO_LOGIN,
     )
     if not ok:
-        return JsonResponse({'ok': False, 'erro': motivo}, status=400)
+        return _falha_verificacao(motivo)
 
     portal_cliente.abrir_sessao(request, digitos)   # cycle_key, 1 h, hora da verificacao
-    return JsonResponse({'ok': True, 'redirect': reverse('aranha:meus_agendamentos')})
+    return json_ok(redirect=reverse('aranha:meus_agendamentos'))
 
 
 @require_POST

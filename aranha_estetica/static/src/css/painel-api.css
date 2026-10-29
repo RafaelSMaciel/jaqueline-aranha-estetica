@@ -1,0 +1,95 @@
+/* Swagger UI no painel (painel/api.html, entrada painel-api do Vite).
+ *
+ * Tema: o proprio do Swagger UI (claro, ou html.dark-mode, ligado pelo painel-api.js conforme o
+ * tema do painel). Aqui: a fonte do painel, o respiro que o preflight do Tailwind zera, o celular
+ * sem rolagem lateral e as cores do tema claro que ficam abaixo de 4.5:1 (texto branco sobre azul,
+ * verde e cinza claros) escurecidas para o contraste AA. O escuro do Swagger ja passa.
+ */
+.swagger-painel {
+  background: var(--cor-superficie);
+  border-radius: inherit;
+}
+
+/* Fonte do painel no texto (codigo e exemplos seguem monoespacados) */
+.swagger-painel .swagger-ui,
+.swagger-painel .swagger-ui :is(.info .title, .info li, .info p, .info table, .info__summary, .opblock-tag,
+  .opblock-summary-description, .markdown p, .renderedMarkdown p, table thead tr th, .parameter__name,
+  .response-col_status, .tab li, .btn, select, input, .model-title) {
+  font-family: var(--body-font);
+}
+
+.swagger-painel .swagger-ui {
+  border-radius: inherit;
+}
+.swagger-painel .swagger-ui .wrapper {
+  max-width: none;
+  padding: 0 1.25rem;
+}
+.swagger-painel .swagger-ui .information-container .info {
+  margin: 1.5rem 0;
+}
+
+/* Preflight do Tailwind zera margens e marcadores; o markdown da descricao volta a ter respiro */
+.swagger-painel .swagger-ui .markdown ul,
+.swagger-painel .swagger-ui .renderedMarkdown ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.swagger-painel .swagger-ui .markdown h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.swagger-painel .swagger-ui .markdown table {
+  display: block;
+  overflow-x: auto;
+  margin: 0.5rem 0 1rem;
+}
+.swagger-painel .swagger-ui .markdown td,
+.swagger-painel .swagger-ui .markdown th {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--cor-borda);
+  vertical-align: top;
+}
+.swagger-painel .swagger-ui svg {
+  display: inline-block;
+}
+.swagger-painel .swagger-ui .opblock .opblock-summary-method {
+  min-width: 4.5rem;
+}
+
+/* Tema claro: contraste >= 4.5:1 */
+html:not(.dark-mode) .swagger-painel .swagger-ui .opblock.opblock-get .opblock-summary-method,
+html:not(.dark-mode) .swagger-painel .swagger-ui .btn.execute {
+  background: #1d5fa8;
+  border-color: #1d5fa8;
+}
+html:not(.dark-mode) .swagger-painel .swagger-ui .opblock.opblock-post .opblock-summary-method {
+  background: #2f7d32;
+}
+html:not(.dark-mode) .swagger-painel .swagger-ui .info .title small {
+  background: #4b5563;
+}
+html:not(.dark-mode) .swagger-painel .swagger-ui .info .title small.version-stamp {
+  background: #3d6b06;
+}
+html:not(.dark-mode) .swagger-painel .swagger-ui .info a {
+  color: #1d5fa8;
+}
+html:not(.dark-mode) .swagger-painel .swagger-ui .btn.authorize {
+  color: #2f7d32;
+  border-color: #2f7d32;
+}
+html:not(.dark-mode) .swagger-painel .swagger-ui .btn.authorize svg {
+  fill: #2f7d32;
+}
+
+/* Celular: caminho longo quebra em vez de empurrar a pagina para o lado */
+@media (max-width: 640px) {
+  .swagger-painel .swagger-ui .wrapper { padding: 0 0.75rem; }
+  .swagger-painel .swagger-ui .opblock .opblock-summary { flex-wrap: wrap; }
+  .swagger-painel .swagger-ui .opblock .opblock-summary-path { max-width: 100%; overflow-wrap: anywhere; }
+  .swagger-painel .swagger-ui .markdown code { overflow-wrap: anywhere; }
+  .swagger-painel .swagger-ui .opblock .opblock-summary-description { flex-basis: 100%; }
+}
