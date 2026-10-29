@@ -230,7 +230,6 @@ class ListaEsperaHandlerTests(TestCase):
             cliente=self.cliente_espera,
             procedimento=self.proc,
             data_desejada=timezone.localdate(atend.data_hora_inicio),
-            notificado=False,
         )
 
     @patch(ENVIAR_WA, return_value=True)
@@ -243,7 +242,7 @@ class ListaEsperaHandlerTests(TestCase):
             atend.cancelar(motivo='teste')
 
         espera = ListaEspera.objects.get(cliente=self.cliente_espera)
-        self.assertTrue(espera.notificado)
+        self.assertIsNotNone(espera.ultimo_aviso_em)   # avisada e continua na fila
         # Reserva por token nunca existiu de fato: colunas legadas removidas na 0049.
         self.assertFalse({'token_reserva', 'expira_em'} & {f.name for f in ListaEspera._meta.fields})
         mock_email.assert_called_once()
@@ -281,17 +280,17 @@ class ListaEsperaHandlerTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             atend.cancelar(motivo='expirado')
         mock_email.assert_not_called()
-        self.assertFalse(ListaEspera.objects.get(cliente=self.cliente_espera).notificado)
+        self.assertIsNone(ListaEspera.objects.get(cliente=self.cliente_espera).ultimo_aviso_em)
 
     @patch(ENVIAR_WA, return_value=False)
     @patch(ENVIAR_EMAIL, return_value=False)
     def test_sem_entrega_continua_na_fila(self, _mock_email, _mock_wa):
-        """Canal nao configurado/falhou: nao marca notificado (equipe avisa manualmente)."""
+        """Canal nao configurado/falhou: aviso nao registrado (equipe avisa manualmente)."""
         atend = self._agendar(timezone.now() + timedelta(days=2))
         self._entrar_na_fila(atend)
         with self.captureOnCommitCallbacks(execute=True):
             atend.cancelar(motivo='teste')
-        self.assertFalse(ListaEspera.objects.get(cliente=self.cliente_espera).notificado)
+        self.assertIsNone(ListaEspera.objects.get(cliente=self.cliente_espera).ultimo_aviso_em)
 
     @patch(ENVIAR_WA, return_value=True)
     @patch(ENVIAR_EMAIL, return_value=True)
@@ -397,7 +396,7 @@ class RetornoTelasTests(TestCase):
     def test_portal_avisa_a_cliente(self):
         from django.urls import reverse
 
-        from aranha_estetica.views.publico.portal import SESSAO_MEUS_AGENDAMENTOS
+        from aranha_estetica.services.portal_cliente import SESSAO_MEUS_AGENDAMENTOS
         cliente = Client()
         sessao = cliente.session
         sessao[SESSAO_MEUS_AGENDAMENTOS] = self.cliente.telefone

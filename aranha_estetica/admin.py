@@ -3,6 +3,7 @@ import json
 
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.utils import unquote
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import BaseUserCreationForm, UserChangeForm
@@ -231,8 +232,17 @@ class ConsentimentoInline(admin.TabularInline):
         return False
 
 
+class ClienteActionForm(ActionForm):
+    """Barra de acoes da lista de clientes com o motivo (obrigatorio na revogacao de saude)."""
+    motivo = forms.CharField(
+        label='Motivo', required=False, max_length=300,
+        help_text='Obrigatório para registrar a revogação do consentimento de saúde.',
+    )
+
+
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
+    action_form = ClienteActionForm
     list_display = (
         'nome', 'telefone', 'email', 'faltas_consecutivas',
         'bloqueado_online', 'ativo', 'criado_em',
@@ -241,7 +251,7 @@ class ClienteAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'telefone', 'email', 'cpf')
     ordering = ('-criado_em',)
     date_hierarchy = 'criado_em'
-    readonly_fields = ('criado_em', 'atualizado_em', 'deletado_em')
+    readonly_fields = ('criado_em', 'atualizado_em', 'deletado_em', 'saude_revogada_em')
     # Consentimentos (LGPD art. 8): historico so leitura; aqui so se revoga
     # (acao abaixo) — conceder e da propria cliente ou do painel com justificativa.
     inlines = [ConsentimentoInline]
@@ -254,7 +264,7 @@ class ClienteAdmin(admin.ModelAdmin):
             'fields': ('email', 'telefone', 'cep', 'endereco'),
         }),
         ('Status', {
-            'fields': ('ativo', 'faltas_consecutivas', 'bloqueado_online'),
+            'fields': ('ativo', 'faltas_consecutivas', 'bloqueado_online', 'saude_revogada_em'),
         }),
         ('Metadados', {
             'classes': ('collapse',),
@@ -262,8 +272,8 @@ class ClienteAdmin(admin.ModelAdmin):
         }),
     )
     actions = [
-        'acao_excluir_soft', 'acao_anonimizar_lgpd', 'acao_revogar_comunicacao',
-        'acao_bloquear_online', 'acao_resetar_faltas',
+        'acao_excluir_soft', 'acao_pseudonimizar_lgpd', 'acao_revogar_comunicacao',
+        'acao_revogar_saude', 'acao_bloquear_online', 'acao_resetar_faltas',
     ]
 
     def get_queryset(self, request):
@@ -291,15 +301,19 @@ class ClienteAdmin(admin.ModelAdmin):
             count += 1
         self.message_user(request, f'{count} cliente(s) desativado(s).', messages.SUCCESS)
 
-    @admin.action(description='Anonimizar (direito ao esquecimento LGPD)')
-    def acao_anonimizar_lgpd(self, request, queryset):
+    @admin.action(description='Pseudonimizar (direito ao esquecimento LGPD)')
+    def acao_pseudonimizar_lgpd(self, request, queryset):
+        """Pseudonimizacao (art. 13 §4), tudo ou nada: uma falha desfaz o lote inteiro."""
         from .services import LgpdService
         count = 0
         with transaction.atomic():
             for cliente in queryset:
                 LgpdService.esquecer_cliente(cliente, usuario=request.user, request=request)
                 count += 1
-        self.message_user(request, f'{count} cliente(s) anonimizado(s).', messages.SUCCESS)
+        self.message_user(
+            request, f'{count} cliente(s) pseudonimizado(s): contato, documento e indicação removidos; '
+                     'o registro de saúde fica pelo prazo legal.', messages.SUCCESS,
+        )
 
     @admin.action(description='Revogar consentimentos de comunicação (todos os canais)')
     def acao_revogar_comunicacao(self, request, queryset):
@@ -319,6 +333,26 @@ class ClienteAdmin(admin.ModelAdmin):
                         request=request,
                     )
         self.message_user(request, f'{revogados} cliente(s) com consentimento revogado.', messages.SUCCESS)
+
+    @admin.action(description='Registrar revogação do consentimento de saúde (pedido da cliente)')
+    def acao_revogar_saude(self, request, queryset):
+        """A cliente pediu (balcao, telefone, e-mail): grava a revogacao com autor, IP e motivo."""
+        from .services import consentimentos
+        motivo = (request.POST.get('motivo') or '').strip()
+        if len(motivo) < consentimentos.MIN_JUSTIFICATIVA:
+            self.message_user(
+                request, 'Informe o motivo (como e quando a cliente pediu) no campo "Motivo".', messages.ERROR,
+            )
+            return
+        revogados = 0
+        with transaction.atomic():
+            for cliente in queryset:
+                if consentimentos.revogar_saude(cliente, origem=Consentimento.ORIGEM_ADMIN, request=request,
+                                                usuario=request.user, motivo=motivo):
+                    revogados += 1
+        self.message_user(
+            request, f'{revogados} cliente(s) com o consentimento de saúde revogado.', messages.SUCCESS,
+        )
 
     @admin.action(description='Bloquear agendamento online')
     def acao_bloquear_online(self, request, queryset):
@@ -779,9 +813,12 @@ class SessaoPacoteAdmin(_SomenteLeituraMixin, admin.ModelAdmin):
 
 @admin.register(ListaEspera)
 class ListaEsperaAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'procedimento', 'profissional_desejado', 'data_desejada', 'turno_desejado', 'notificado', 'criado_em')
-    list_filter = ('notificado', 'turno_desejado')
-    search_fields = ('cliente__nome', 'procedimento__nome')
+    list_display = (
+        'nome', 'procedimento', 'profissional_desejado', 'data_desejada', 'turno_desejado', 'ultimo_aviso_em',
+        'criado_em',
+    )
+    list_filter = (('ultimo_aviso_em', admin.EmptyFieldListFilter), 'turno_desejado')
+    search_fields = ('cliente__nome', 'nome_contato', 'procedimento__nome')
     ordering = ('-criado_em',)
     date_hierarchy = 'data_desejada'
     autocomplete_fields = ('cliente', 'procedimento', 'profissional_desejado')

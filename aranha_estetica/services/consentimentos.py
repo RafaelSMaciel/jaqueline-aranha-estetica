@@ -17,7 +17,13 @@ O ultimo registro manda: quem se descadastrou e depois marca o opt-in de novo
 no agendamento volta a receber (decisao D2 — reconsentimento vale). O antigo
 ``cliente.aceita_comunicacao`` (opt-out geral) virou revogacoes na migracao.
 O painel so revoga; conceder pelo painel exige justificativa registrada
-(``texto``) e autor.
+(``texto``) e autor. A area da cliente (origem PORTAL) concede e revoga os 3 pares
+(``registrar_do_portal``).
+
+Dado de saude (art. 11 I) fica FORA da tabela ``consentimento``: a concessao e o
+AceiteTermo SAUDE (prova com IP e SHA-256 do texto) e a revogacao e
+``Cliente.saude_revogada_em`` (``revogar_saude`` / ``saude_consentida``). Um aceite SAUDE
+novo (nova ficha) reativa (AceiteTermo.registrar limpa a data).
 """
 from __future__ import annotations
 
@@ -238,5 +244,86 @@ def par_da_chave(chave: str) -> tuple[str, str] | None:
     """'MARKETING:EMAIL' (POST do painel) -> par valido ou None."""
     finalidade, _sep, canal = (chave or '').partition(':')
     return (finalidade, canal) if (finalidade, canal) in PARES_VALIDOS else None
+
+
+# ─── Area da cliente (origem PORTAL) ──────────────────────────────────────────
+
+def preferencias_portal(cliente) -> list[dict]:
+    """Linhas da secao "Minhas preferencias": o checkbox mostra o estado vigente (1 query)."""
+    estado = estado_atual(cliente)
+    return [
+        {'campo': campo, 'rotulo': ROTULOS_PAR[par], 'texto': TEXTOS_WIZARD[campo], 'concedido': estado[par]}
+        for campo, par in PARES.items()
+    ]
+
+
+def registrar_do_portal(cliente, marcados: dict[str, bool], *, request) -> list[Consentimento]:
+    """Formulario da area da cliente -> historico (origem PORTAL, IP e user-agent da titular).
+
+    O formulario sempre mostra o estado vigente: marcado concede (texto = o mesmo do agendamento,
+    a prova do que foi lido) e desmarcado revoga. Par sem mudanca nao grava nada.
+    """
+    novas = []
+    for campo, (finalidade, canal) in PARES.items():
+        marcado = bool(marcados.get(campo))
+        texto = TEXTOS_WIZARD[campo] if marcado else f'Revogado na área da cliente: {ROTULOS_PAR[(finalidade, canal)]}.'
+        linha = registrar(cliente, finalidade, canal, marcado, origem=Consentimento.ORIGEM_PORTAL,
+                          texto=texto, request=request)
+        if linha is not None:
+            novas.append(linha)
+    return novas
+
+
+# ─── Dado de saude (art. 11 I): concessao = AceiteTermo SAUDE, revogacao = data ─────────
+
+TEXTO_REVOGACAO_SAUDE = (
+    'Revogo o consentimento para o uso dos meus dados de saúde. Sei que a ficha já preenchida '
+    'fica guardada pelo prazo legal e que um novo atendimento pede uma nova ficha.'
+)
+ORIGENS_REVOGACAO_SAUDE = (
+    Consentimento.ORIGEM_PORTAL, Consentimento.ORIGEM_ADMIN, Consentimento.ORIGEM_PAINEL,
+)
+
+
+def saude_consentida(cliente) -> bool:
+    """Ha um aceite SAUDE vigente: algum aceite e, se houve revogacao, um aceite posterior a ela."""
+    from ..models import AceiteTermo, Cliente
+
+    revogada = (
+        Cliente.all_objects.filter(pk=_cliente_id(cliente)).values_list('saude_revogada_em', flat=True).first()
+    )
+    aceites = AceiteTermo.objects.filter(cliente_id=_cliente_id(cliente), versao_termo__tipo='SAUDE')
+    if revogada is not None:
+        aceites = aceites.filter(criado_em__gt=revogada)
+    return aceites.exists()
+
+
+@transaction.atomic
+def revogar_saude(cliente, *, origem, request=None, usuario=None, motivo='') -> bool:
+    """Revoga o consentimento de dado de saude (art. 8 §5 / art. 18 IX). False = nada a revogar.
+
+    Efeito: Cliente.saude_revogada_em = agora e trilha 'LGPD: consentimento de saude revogado'
+    (autor, IP, origem). Os alertas de saude passam a mostrar a revogacao; a ficha ja preenchida
+    fica pelo prazo de guarda (20 anos) e o proximo atendimento pede ficha e aceite novos.
+    """
+    from ..models import Cliente
+    from ..utils.auditoria import registrar_log
+
+    if origem not in ORIGENS_REVOGACAO_SAUDE:
+        raise ValueError(f'Origem de revogacao de saude invalida: {origem}')
+    cliente_id = _cliente_id(cliente)
+    list(Cliente.all_objects.select_for_update().filter(pk=cliente_id).values_list('pk', flat=True))
+    if not saude_consentida(cliente_id):
+        return False
+    agora = timezone.now()
+    Cliente.all_objects.filter(pk=cliente_id).update(saude_revogada_em=agora, atualizado_em=agora)
+    detalhes = {'origem': origem}
+    if motivo:
+        detalhes['motivo'] = str(motivo).strip()[:300]
+    registrar_log(usuario, 'LGPD: consentimento de saude revogado', 'cliente', cliente_id,
+                  detalhes=detalhes, request=request)
+    if isinstance(cliente, Cliente):
+        cliente.saude_revogada_em = agora
+    return True
 
 

@@ -441,10 +441,14 @@
                             Celular {{ telefone_mascarado }}
                         </small>
                         <span style="color:var(--cor-borda);" aria-hidden="true">|</span>
-                        <a href="{% url 'aranha:meus_agendamentos_logout' %}" class="text-texto-suave" style="font-size:0.78rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.2rem;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                            Sair
-                        </a>
+                        {# sair so por POST com CSRF (GET de outro site nao derruba a sessao) #}
+                        <form method="post" action="{% url 'aranha:meus_agendamentos_logout' %}" class="m-0 inline">
+                            {% csrf_token %}
+                            <button type="submit" class="text-texto-suave inline-flex items-center gap-1 border-0 bg-transparent p-0 text-[0.78rem] cursor-pointer">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                Sair
+                            </button>
+                        </form>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -576,6 +580,7 @@
                             data-id="{{ ag.pk }}"
                             data-nome="{{ ag.procedimento.nome }}"
                             data-data="{{ ag.data_hora_inicio|date:'d/m/Y' }}"
+                            data-tardio="{% if ag.status in status_aprovados and ag.data_hora_inicio < limite_cancelar_sem_falta %}1{% endif %}"
                             type="button">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                         Cancelar
@@ -649,6 +654,69 @@
                 </a>
             </div>
             {% endif %}
+
+            {# ═══ Minhas preferencias (consentimentos, origem PORTAL) ═══ #}
+            {% if preferencias %}
+            <section id="preferencias" class="mt-10 rounded-2xl border border-borda bg-superficie p-5 text-texto" aria-labelledby="titulo-preferencias">
+                <h2 id="titulo-preferencias" class="text-lg font-bold mb-1">Minhas preferências</h2>
+                <p class="text-sm text-texto-suave mb-4">Escolha o que você quer receber. Pode mudar quando quiser.</p>
+                <form method="post" action="{% url 'aranha:portal_preferencias' %}" class="space-y-3">
+                    {% csrf_token %}
+                    {% for p in preferencias %}
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" id="pref-{{ p.campo }}" name="{{ p.campo }}" value="1" class="mt-1 h-4 w-4 accent-marca" {% if p.concedido %}checked{% endif %}>
+                        <label for="pref-{{ p.campo }}" class="text-sm"><strong>{{ p.rotulo }}</strong><br><span class="text-texto-suave">{{ p.texto }}</span></label>
+                    </div>
+                    {% endfor %}
+                    <p class="text-xs text-texto-suave">Confirmações e lembretes por e-mail fazem parte do atendimento e continuam chegando.</p>
+                    <button type="submit" class="btn-gold">Salvar preferências</button>
+                </form>
+            </section>
+            {% endif %}
+
+            {# ═══ Privacidade e dados (LGPD arts. 8 §5, 18 e 19) ═══ #}
+            <section id="privacidade" class="mt-6 rounded-2xl border border-borda bg-superficie p-5 text-texto" aria-labelledby="titulo-privacidade">
+                <h2 id="titulo-privacidade" class="text-lg font-bold mb-4">Privacidade e meus dados</h2>
+
+                <div class="mb-6">
+                    <h3 class="text-base font-bold mb-1">Baixar meus dados</h3>
+                    <p class="text-sm text-texto-suave mb-2">Um arquivo com o que guardamos sobre você. Por segurança, a ficha de saúde vai ao e-mail cadastrado ou é entregue mediante pedido na clínica. Se o seu código foi confirmado há mais de 10 minutos, pedimos um novo.</p>
+                    <form method="post" action="{% url 'aranha:portal_meus_dados' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-earth">Baixar meus dados</button>
+                    </form>
+                </div>
+
+                {% if saude_consentida %}
+                <div class="mb-6">
+                    <h3 class="text-base font-bold mb-1">Consentimento de saúde</h3>
+                    <p class="text-sm text-texto-suave mb-2">Você autorizou o uso dos seus dados de saúde para a segurança dos procedimentos. Ao revogar, a ficha já preenchida continua guardada pelo prazo legal e um novo atendimento pede uma nova ficha.</p>
+                    <form method="post" action="{% url 'aranha:portal_revogar_saude' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-cancel-agend" title="{{ texto_revogacao_saude }}">Revogar consentimento de saúde</button>
+                    </form>
+                </div>
+                {% endif %}
+
+                <div>
+                    <h3 class="text-base font-bold mb-1">Pedir correção ou exclusão</h3>
+                    <p class="text-sm text-texto-suave mb-2">A clínica recebe o pedido e responde em até 15 dias.</p>
+                    <form method="post" action="{% url 'aranha:portal_pedido' %}" class="space-y-3">
+                        {% csrf_token %}
+                        <div>
+                            <label for="pedido-tipo" class="block text-sm font-bold mb-1">Tipo de pedido</label>
+                            <select id="pedido-tipo" name="tipo" required class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-sm text-texto">
+                                {% for valor, rotulo in tipos_pedido.items %}<option value="{{ valor }}">{{ rotulo|capfirst }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="pedido-descricao" class="block text-sm font-bold mb-1">O que precisa ser corrigido ou excluído <span class="font-normal text-texto-suave">(opcional)</span></label>
+                            <textarea id="pedido-descricao" name="descricao" rows="3" maxlength="1000" class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-sm text-texto"></textarea>
+                        </div>
+                        <button type="submit" class="btn-earth">Enviar pedido</button>
+                    </form>
+                </div>
+            </section>
         </div>
 
         <!-- Cancel confirmation modal -->
@@ -660,6 +728,11 @@
                 <h2 class="font-bold mb-2" id="cancelModalTitle" style="font-family:'Playfair Display',serif;color:var(--cor-texto);">Cancelar agendamento?</h2>
                 <p class="text-texto-suave" style="font-size:0.85rem;margin-bottom:0.25rem;" id="cancelModalProcedure"></p>
                 <p class="text-texto-suave" style="font-size:0.85rem;margin-bottom:0.75rem;" id="cancelModalDate"></p>
+                {# decisao 10: com menos de 24 h o cancelamento conta como falta (agenda.cancelar_pela_cliente) #}
+                <p id="cancelModalTardio" hidden class="mb-3 rounded-xl border border-aviso bg-aviso-fundo px-4 py-2 text-sm text-texto">
+                    Faltam menos de 24 horas: o cancelamento conta como falta. Depois de algumas faltas seguidas,
+                    o agendamento online fica suspenso e você agenda pela recepção.
+                </p>
                 <p style="font-size:0.85rem;margin-bottom:1.5rem;color:var(--cor-erro);background:color-mix(in srgb,var(--cor-erro) 8%,transparent);padding:0.5rem 1rem;border-radius:12px;display:inline-block;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:0.2rem;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     Esta ação não pode ser desfeita.
@@ -882,8 +955,10 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     /* ═══ CANCEL APPOINTMENT ═══ */
     var cancelAtendimentoId = null;
 
-    function openCancelModal(id, nome, data) {
+    function openCancelModal(id, nome, data, tardio) {
         cancelAtendimentoId = id;
+        // menos de 24 h: o cancelamento conta como falta (o servidor confirma na resposta)
+        document.getElementById('cancelModalTardio').hidden = !tardio;
         // textContent: nome vem do dataset (texto cru) — nunca innerHTML
         var alvo = document.getElementById('cancelModalProcedure');
         var forte = document.createElement('strong');
@@ -904,7 +979,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     document.addEventListener('click', function(e) {
         var el = e.target.closest('[data-cancel]');
         if (el) {
-            openCancelModal(el.dataset.id, el.dataset.nome, el.dataset.data);
+            openCancelModal(el.dataset.id, el.dataset.nome, el.dataset.data, el.dataset.tardio === '1');
         }
     });
 
@@ -941,7 +1016,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
             .then(function(res) {
                 btn.disabled = false;
                 btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Sim, Cancelar';
-                if (res.ok && res.data.sucesso) {
+                if (res.ok && res.data.ok) {
                     var savedId = cancelAtendimentoId;
                     closeCancelModal();
                     // Remove card with animation
@@ -957,7 +1032,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 } else {
                     closeCancelModal();
                     // Codigos internos do lerJson ('limite', 'rede') viram texto legivel
-                    showToast(MSGS_ERRO[res.data.erro] || res.data.erro || 'Erro ao cancelar. Tente novamente.', true);
+                    showToast(MSGS_ERRO[res.data.codigo] || res.data.mensagem || 'Erro ao cancelar. Tente novamente.', true);
                 }
             })
             .catch(function() {
@@ -995,7 +1070,7 @@ var CSRF_TOKEN = '{{ csrf_token }}';
         return r.text().then(function(t) {
             var d;
             try { d = JSON.parse(t); }
-            catch (e) { d = {erro: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; }
+            catch (e) { d = {erro: (r.status === 403 || r.status === 429) ? 'limite' : 'rede'}; d.codigo = d.erro; }
             return {ok: r.ok, data: d};
         });
     }

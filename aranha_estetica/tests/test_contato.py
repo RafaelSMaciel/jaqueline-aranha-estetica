@@ -17,7 +17,7 @@ class ContatoViewTests(TestCase):
         self.client = Client()
         self.url = reverse('aranha:agenda_contato')
         # Destino vem de settings.CLINIC_EMAIL (Branding/env isolados do ambiente local)
-        p = patch('aranha_estetica.views.publico.site.get_branding', return_value={'CLINIC_EMAIL': ''})
+        p = patch('aranha_estetica.views.publico.contato.get_branding', return_value={'CLINIC_EMAIL': ''})
         p.start()
         self.addCleanup(p.stop)
 
@@ -140,7 +140,7 @@ class ContatoViewTests(TestCase):
 
     @override_settings(CLINIC_EMAIL='', DEFAULT_FROM_EMAIL='noreply@clinica.com.br')
     def test_falha_com_whatsapp_sugere_outro_canal(self):
-        with patch('aranha_estetica.views.publico.site.get_branding',
+        with patch('aranha_estetica.views.publico.contato.get_branding',
                    return_value={'CLINIC_EMAIL': '', 'WHATSAPP_NUMERO': '5517991234567'}):
             resp = self._post()
         msgs = [str(m) for m in resp.context['messages']]
@@ -159,19 +159,13 @@ class ContatoViewTests(TestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertTrue(any('e-mail válido' in str(m) for m in resp.context['messages']))
 
-    # ── LGPD: aceite da politica separado do marketing ─────────────────────
+    # ── LGPD: sem opt-in de marketing no contato (decisao 48) ───────────────
 
-    def test_marketing_e_opcional_e_separado_da_politica(self):
-        resp = self._post()  # so privacy
-        self.assertRedirects(resp, self.url)
-        self.assertIn('novidades e promoções: não', mail.outbox[0].body)
-        self._post(marketing='1')
-        self.assertIn('novidades e promoções: sim', mail.outbox[1].body)
-
-    def test_template_tem_checkbox_de_marketing_separado(self):
+    def test_sem_caixa_de_marketing(self):
         resp = self.client.get(self.url)
-        self.assertContains(resp, 'name="marketing"')
-        self.assertNotContains(resp, 'aceito receber comunicações')
+        self.assertNotContains(resp, 'name="marketing"')
+        self._post(marketing='1')
+        self.assertNotIn('novidades e promoções', mail.outbox[0].body)
 
     # ── Preserva valores no re-render apos erro ───────────────────────────────
 
@@ -194,12 +188,54 @@ class ContatoViewTests(TestCase):
         resp = self.client.get(self.url)
         self.assertContains(resp, 'for="privacy"')
 
-    def test_iframe_mapa_tem_title(self):
-        resp = self.client.get(self.url)
-        self.assertContains(resp, 'title=')
-        # garante que e iframe com title, nao so qualquer tag com title
+    def test_mapa_nao_carrega_o_google(self):
+        with patch('aranha_estetica.context_processors.get_branding',
+                   return_value={'CLINIC_ADDRESS': 'Rua Exemplo, 1', 'CLINIC_NAME': 'Clínica'}):
+            resp = self.client.get(self.url)
         content = resp.content.decode()
-        self.assertIn('<iframe', content)
-        import re
-        iframe_match = re.search(r'<iframe[^>]*title=[^>]*>', content)
-        self.assertIsNotNone(iframe_match, 'iframe do mapa deve ter atributo title')
+        self.assertNotIn('<iframe', content)
+        self.assertNotIn('google.com/maps/embed', content)
+        self.assertIn('Abrir no Google Maps', content)
+
+    # ── anti-abuso: honeypot, captcha, teto diario global ─────────────────────
+
+    def test_honeypot_finge_sucesso_e_nao_envia(self):
+        resp = self._post(website='http://spam.example')
+        self.assertRedirects(resp, self.url)
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(TURNSTILE_SECRET_KEY='segredo-teste')
+    @patch('aranha_estetica.utils.captcha.verificar_turnstile', return_value=False)
+    def test_sem_captcha_valido_da_400(self, _verificar):
+        self.assertEqual(self._post().status_code, 400)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_teto_diario_global_oferece_o_whatsapp_e_nao_envia(self):
+        from django.core.cache import cache
+
+        from aranha_estetica.views.publico import contato
+        cache.clear()
+        with patch.object(contato, 'TETO_DIARIO_GLOBAL', 2), \
+                patch('aranha_estetica.views.publico.contato.get_branding',
+                      return_value={'CLINIC_EMAIL': '', 'WHATSAPP_NUMERO': '5517991234567'}):
+            for _ in range(2):
+                self.assertRedirects(self._post(), self.url)
+            resp = self._post()
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertTrue(resp.context['envio_falhou'])
+        self.assertTrue(any('outro canal' in str(m) for m in resp.context['messages']))
+
+
+class ContatoLimitePorIpTests(TestCase):
+    def test_21o_post_do_dia_da_429(self):
+        from django.core.cache import cache
+        cache.clear()
+        url = reverse('aranha:agenda_contato')
+        dados = {'name': 'Ana', 'email': 'a@b.com', 'subject': 'outros', 'message': 'Oi', 'privacy': '1'}
+        with patch('aranha_estetica.views.publico.contato._enviar', return_value=1):
+            for i in range(20):
+                # o limite de 5/min tambem existe: o relogio do ratelimit anda de minuto em minuto
+                with patch('django_ratelimit.core.time.time', return_value=1_000_000 + i * 61):
+                    self.assertEqual(self.client.post(url, dados).status_code, 302, i)
+            with patch('django_ratelimit.core.time.time', return_value=1_000_000 + 21 * 61):
+                self.assertEqual(self.client.post(url, dados).status_code, 429)

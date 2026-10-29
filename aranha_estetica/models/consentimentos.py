@@ -65,6 +65,7 @@ class Consentimento(models.Model):
     ORIGEM_MIGRACAO = 'MIGRACAO'
     ORIGEM_ADMIN = 'ADMIN'
     ORIGEM_WHATSAPP = 'WHATSAPP'
+    ORIGEM_PORTAL = 'PORTAL'
     ORIGEM_CHOICES = [
         (ORIGEM_AGENDAMENTO_ONLINE, 'Agendamento online (a própria cliente)'),
         (ORIGEM_DESCADASTRO, 'Link de descadastro'),
@@ -73,6 +74,7 @@ class Consentimento(models.Model):
         (ORIGEM_MIGRACAO, 'Migração do cadastro antigo'),
         (ORIGEM_ADMIN, 'Django admin'),
         (ORIGEM_WHATSAPP, 'Resposta no WhatsApp'),
+        (ORIGEM_PORTAL, 'Área da cliente'),
     ]
 
     # FK sem indice automatico: coberta pelo ix_consentimento_cliente_finalidade_canal_registrado_em
@@ -129,6 +131,7 @@ class Consentimento(models.Model):
             models.CheckConstraint(
                 condition=Q(origem__in=[
                     'AGENDAMENTO_ONLINE', 'DESCADASTRO', 'PAINEL', 'ESQUECIMENTO', 'MIGRACAO', 'ADMIN', 'WHATSAPP',
+                    'PORTAL',
                 ]),
                 name='ck_consentimento_origem',
             ),

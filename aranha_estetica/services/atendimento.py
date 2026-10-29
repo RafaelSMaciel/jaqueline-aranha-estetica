@@ -123,8 +123,10 @@ def cancelar_pendentes_vencidos(agora=None) -> int:
 
 
 def ao_criar(at) -> None:
-    """Novo atendimento: push p/ a profissional (on_commit)."""
+    """Novo atendimento: push p/ a profissional (on_commit) e a cliente sai da lista de espera do
+    procedimento (agendou: fim da finalidade da inscricao)."""
     transaction.on_commit(lambda: _push_profissional(at, 'Novo agendamento'))
+    _encerrar_lista_de_espera(at)
 
 
 def debitar_sessao_de_pacote(at) -> None:
@@ -166,12 +168,23 @@ def debitar_sessao_de_pacote(at) -> None:
 def _avisar_lista_de_espera(at) -> None:
     """Vaga liberada: seleciona os compativeis nesta transacao (e-mail/WhatsApp no on_commit do
     service). Savepoint + best-effort: o aviso nunca desfaz o cancelamento."""
-    from .lista_espera import ListaEsperaService
+    from .lista_espera import notificar_compativeis
     try:
         with transaction.atomic():
-            ListaEsperaService.notificar_compativeis(at)
+            notificar_compativeis(at)
     except Exception:  # noqa: BLE001
         logger.exception('lista_espera_falhou', extra={'atendimento_id': at.pk})
+
+
+def _encerrar_lista_de_espera(at) -> None:
+    """Agendou: as inscricoes da cliente p/ o procedimento saem da fila. Savepoint + best-effort:
+    a limpeza da fila nunca desfaz o agendamento."""
+    from .lista_espera import encerrar_atendidas
+    try:
+        with transaction.atomic():
+            encerrar_atendidas(at)
+    except Exception:  # noqa: BLE001
+        logger.exception('lista_espera_encerrar_falhou', extra={'atendimento_id': at.pk})
 
 
 def _push_profissional(at, titulo) -> None:

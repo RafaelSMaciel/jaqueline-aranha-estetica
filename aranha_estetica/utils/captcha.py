@@ -48,3 +48,17 @@ def verificar_turnstile(token, ip=None) -> bool:
         logger.info('turnstile_falha_validacao', extra={'codes': codigos})
         return False
     return True
+
+
+CAMPO_TOKEN = 'cf-turnstile-response'
+
+
+def captcha_invalido(request) -> bool:
+    """POST sem o token do widget (ou com token recusado) quando o captcha esta ligado.
+
+    Sem a chave secreta o captcha esta desligado (dev/testes): nada a conferir.
+    """
+    if not turnstile_enabled():
+        return False
+    from .seguranca import client_ip
+    return not verificar_turnstile(request.POST.get(CAMPO_TOKEN, ''), ip=client_ip(request))

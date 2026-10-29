@@ -1,176 +1,42 @@
 {% extends 'estrutura/base_v2.html' %}
-{% load static %}
 
 {% block titulo %}Política de privacidade | {{ CLINIC_NAME }}{% endblock %}
 {% block meta_description %}Como a {{ CLINIC_NAME }} coleta, usa e protege seus dados pessoais, conforme a LGPD.{% endblock %}
 
 {% comment %}
-Texto alinhado ao que o sistema realmente faz (agendamento sem conta, OTP por SMS,
-ficha de avaliacao, NPS, depoimentos com opt-in, lista de espera, cifragem em repouso,
-retencao de services/lgpd e settings.RETENCAO_*). Revisao juridica final e do dono.
-Contatos, razao social, CNPJ e encarregado vem da tela Branding: vazios somem (sem
-placeholder falso). Mudou o texto? Publique nova versao do termo LGPD (Painel > Termos).
-Inventario e relatorio de impacto: docs/LGPD.md.
+Fonte unica (decisao 47): o corpo e o texto da VersaoTermo LGPD vigente — o MESMO cujo SHA-256 fica
+na prova do aceite (art. 8 §2) —, sanitizado pelo filtro texto_termo. O template so emoldura: versao,
+vigencia, identificacao da controladora e contatos (tela Branding; vazios somem, sem placeholder
+falso). Texto em conteudo/lgpd.py; mudou depois do go-live? Nova versao em Painel > Termos.
 {% endcomment %}
 
 {% block conteudo %}
 <div class="mx-auto max-w-3xl px-6 py-12">
 
-  <!-- Header -->
   <div class="mb-10">
-    <p class="text-xs font-semibold uppercase tracking-widest text-texto-suave mb-2">Vigente desde 27 de outubro de 2026</p>
+    <p class="text-xs font-semibold uppercase tracking-widest text-texto-suave mb-2">
+      Versão {{ termo_versao }}{% if termo_vigente_desde %} · vigente desde {{ termo_vigente_desde|date:"d \d\e F \d\e Y" }}{% endif %}
+    </p>
     <h1 class="text-3xl font-bold text-texto mb-4">Política de privacidade</h1>
-    <p class="text-texto-suave leading-relaxed">
-      Esta política explica quais dados pessoais a {{ CLINIC_NAME }} coleta quando você usa o site,
-      agenda um atendimento ou é atendida no nosso espaço, para que usamos esses dados, com quem
-      eles são compartilhados e como você exerce seus direitos pela Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018).
+  </div>
+
+  <div class="mb-10 rounded-lg border border-borda bg-superficie p-5">
+    <p class="font-semibold text-texto text-sm mb-1">Quem cuida dos seus dados</p>
+    <p class="text-texto-suave text-sm leading-relaxed">
+      {{ CLINIC_NAME }}{% if CLINIC_RAZAO_SOCIAL %} — {{ CLINIC_RAZAO_SOCIAL }}{% endif %}{% if CLINIC_CNPJ %}, {% if CLINIC_CNPJ|length > 14 %}CNPJ{% else %}CPF{% endif %} {{ CLINIC_CNPJ }}{% endif %}{% if CLINIC_ADDRESS %}, {{ CLINIC_ADDRESS }}{% endif %}.
+      {% if ENCARREGADO_NOME %}Encarregado pelo tratamento de dados (art. 41): {{ ENCARREGADO_NOME }}{% if ENCARREGADO_EMAIL %} —
+      <a href="mailto:{{ ENCARREGADO_EMAIL }}" class="underline text-marca">{{ ENCARREGADO_EMAIL }}</a>{% endif %}.{% endif %}
     </p>
   </div>
 
-  <div class="space-y-10">
+  <div class="text-texto-suave [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-texto [&_p]:mb-3 [&_p]:leading-relaxed [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1">
+    {{ termo_conteudo|texto_termo }}
+  </div>
 
-    <!-- 1 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">1. Quem cuida dos seus dados</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">
-        A {{ CLINIC_NAME }}{% if CLINIC_RAZAO_SOCIAL %} ({{ CLINIC_RAZAO_SOCIAL }}{% if CLINIC_CNPJ %}, {% if CLINIC_CNPJ|length > 14 %}CNPJ{% else %}CPF{% endif %} {{ CLINIC_CNPJ }}{% endif %}){% elif CLINIC_CNPJ %} ({% if CLINIC_CNPJ|length > 14 %}CNPJ{% else %}CPF{% endif %} {{ CLINIC_CNPJ }}){% endif %}{% if CLINIC_ADDRESS %}, com endereço em {{ CLINIC_ADDRESS }},{% endif %}
-        é a controladora dos dados pessoais tratados neste site e nos atendimentos.
-      </p>
-      <p class="text-texto-suave leading-relaxed">
-        {% if ENCARREGADO_NOME %}O encarregado pelo tratamento de dados pessoais (LGPD, art. 41) é
-        {{ ENCARREGADO_NOME }}{% if ENCARREGADO_EMAIL %}, pelo e-mail
-        <a href="mailto:{{ ENCARREGADO_EMAIL }}" class="underline text-marca">{{ ENCARREGADO_EMAIL }}</a>{% endif %}.
-        {% else %}Para assuntos de privacidade, fale com a responsável pela clínica pelos canais no fim desta página.{% endif %}
-      </p>
-    </div>
-
-    <!-- 2 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">2. Dados que coletamos</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">Coletamos apenas o necessário para agendar e realizar o seu atendimento:</p>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave mb-4">
-        <li><strong class="text-texto">Identificação e contato:</strong> nome, celular e, quando você informa, e-mail e data de nascimento.</li>
-        <li><strong class="text-texto">Agendamentos:</strong> procedimento, profissional, data e horário, histórico de atendimentos, faltas e cancelamentos.</li>
-        <li><strong class="text-texto">Ficha de avaliação (anamnese):</strong> informações sobre sua saúde e cuidados, preenchidas antes do procedimento. É um dado pessoal sensível e recebe proteção reforçada.</li>
-        <li><strong class="text-texto">Termos e consentimentos:</strong> registro de aceite dos termos do procedimento e das suas preferências de comunicação.</li>
-        <li><strong class="text-texto">Avaliações:</strong> nota e comentário que você envia na pesquisa de satisfação.</li>
-        <li><strong class="text-texto">Mensagens:</strong> o que você escreve no formulário de contato ou na inscrição da lista de espera.</li>
-        <li><strong class="text-texto">Dados técnicos:</strong> endereço IP, data e hora de acesso e registros de segurança, usados para proteger o site contra abusos.</li>
-      </ul>
-      <p class="text-texto-suave leading-relaxed">
-        Não pedimos senha nem dados de cartão no site: o agendamento é feito sem conta, com confirmação por código enviado por SMS.
-        Pagamentos são feitos presencialmente.
-      </p>
-    </div>
-
-    <!-- 3 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">3. Para que usamos e com qual base legal</h2>
-      <ul class="list-disc list-inside space-y-2 text-texto-suave">
-        <li><strong class="text-texto">Agendar, confirmar, lembrar e realizar o atendimento</strong> — execução do serviço que você contratou (art. 7º, V).</li>
-        <li><strong class="text-texto">Ficha de avaliação e histórico de cuidados</strong> — para garantir a segurança do procedimento, com o seu consentimento e para a tutela da sua saúde (art. 11, I e II, "f").</li>
-        <li><strong class="text-texto">Guardar registros de atendimento e de aceite de termos</strong> — cumprimento de obrigação legal e exercício regular de direitos (art. 7º, II e VI).</li>
-        <li><strong class="text-texto">Pesquisa de satisfação</strong> — legítimo interesse em melhorar o atendimento (art. 7º, IX). Você pode não responder.</li>
-        <li><strong class="text-texto">Publicar seu depoimento no site</strong> — só se você marcar a autorização na pesquisa, e somente com seu primeiro nome e a inicial do sobrenome (art. 7º, I). A clínica revisa antes de publicar e você pode pedir a retirada a qualquer momento.</li>
-        <li><strong class="text-texto">Novidades e promoções</strong> — apenas com o seu consentimento (art. 7º, I). Todo e-mail de divulgação tem link para cancelar o recebimento.</li>
-        <li><strong class="text-texto">Segurança do site</strong> — legítimo interesse em prevenir fraudes e abusos (art. 7º, IX).</li>
-      </ul>
-    </div>
-
-    <!-- 4 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">4. Com quem compartilhamos</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">
-        Não vendemos seus dados. Eles são compartilhados apenas com fornecedores que nos ajudam a prestar o serviço
-        (operadores), que só podem usá-los para essa finalidade:
-      </p>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave mb-3">
-        <li>Hospedagem do site e do banco de dados em nuvem (Railway), com servidores que podem ficar fora do Brasil;</li>
-        <li>Envio de SMS com o código de confirmação (Zenvia);</li>
-        <li>Envio de mensagens de WhatsApp de confirmação e lembrete (Meta — WhatsApp Business);</li>
-        <li>Envio de e-mails transacionais{% if provedor_email %} ({{ provedor_email }}){% endif %};</li>
-        <li>Verificação contra robôs no pedido do código de confirmação (Cloudflare Turnstile), que recebe o endereço IP e dados técnicos do navegador;</li>
-        {% if sentry_ativo %}<li>Monitoramento de erros do site (Sentry), sem dados de contato nem de saúde (filtrados antes do envio);</li>{% endif %}
-        <li>Aplicativos de calendário (Google, Apple ou Microsoft) que a profissional usa para ver a própria agenda: recebem data, horário, procedimento e o nome de quem vai ser atendida;</li>
-        <li>Google, ao carregar as fontes do site e o mapa da página de contato.</li>
-      </ul>
-      <p class="text-texto-suave leading-relaxed mb-3">
-        Alguns desses fornecedores tratam dados fora do Brasil; nesses casos a transferência internacional
-        segue o art. 33 da LGPD.
-      </p>
-      <p class="text-texto-suave leading-relaxed">
-        Também podemos compartilhar dados quando exigido por lei ou por ordem de autoridade competente.
-      </p>
-    </div>
-
-    <!-- 5 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">5. Cookies</h2>
-      <p class="text-texto-suave leading-relaxed">
-        Usamos apenas cookies essenciais: sessão, proteção contra envios falsos (CSRF), preferência de tema claro/escuro e
-        o registro de que você viu o aviso de cookies. Não usamos cookies de publicidade nem de análise de navegação.
-      </p>
-    </div>
-
-    <!-- 6 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">6. Segurança</h2>
-      <p class="text-texto-suave leading-relaxed">
-        Os dados trafegam com criptografia (HTTPS) e a ficha de avaliação, o histórico de saúde e as anotações dos
-        atendimentos ficam gravados cifrados no banco de dados. O acesso ao painel da clínica exige login individual
-        com segundo fator (código do aplicativo autenticador) e fica registrado, e a ficha de avaliação só é vista
-        pela equipe que cuida do seu atendimento.
-      </p>
-    </div>
-
-    <!-- 7 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">7. Seus direitos</h2>
-      <p class="text-texto-suave leading-relaxed mb-3">
-        Você pode, a qualquer momento: confirmar se tratamos seus dados, acessá-los, corrigi-los, pedir a portabilidade,
-        a anonimização ou a exclusão do que não for obrigatório guardar, saber com quem compartilhamos, e revogar
-        consentimentos (como o de receber promoções ou o de publicar seu depoimento).
-      </p>
-      <div class="rounded-lg border border-borda bg-superficie p-4">
-        <p class="font-semibold text-texto text-sm mb-1">Como exercer seus direitos</p>
-        <p class="text-texto-suave text-sm leading-relaxed">
-          Consulte e baixe seus dados pela área <a href="{% url 'aranha:lgpd_meus_dados' %}" class="underline text-marca">Meus dados</a>
-          (com confirmação por código no celular). Para correção, exclusão ou qualquer outro pedido, fale com a gente
-          pelos canais abaixo{% if not CLINIC_EMAIL and not WHATSAPP_NUMERO and not CLINIC_PHONE %} ou presencialmente na clínica{% endif %}.
-          Respondemos em até 15 dias.
-        </p>
-      </div>
-    </div>
-
-    <!-- 8 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">8. Por quanto tempo guardamos</h2>
-      <ul class="list-disc list-inside space-y-1 text-texto-suave">
-        <li><strong class="text-texto">Ficha de avaliação, histórico de saúde e registro dos atendimentos realizados</strong>, com os termos aceitos: 20 anos, como registro de saúde.</li>
-        <li><strong class="text-texto">Cadastro e agendamentos</strong>: enquanto você for cliente; sem nenhum atendimento por 5 anos, o cadastro é anonimizado (exceto o que precisa ficar pelo item acima).</li>
-        <li><strong class="text-texto">Ficha preenchida para um agendamento que não aconteceu</strong>: até 90 dias.</li>
-        <li><strong class="text-texto">Texto das mensagens enviadas</strong> (lembretes, confirmações): 12 meses.</li>
-        <li><strong class="text-texto">Código de confirmação por SMS</strong>: 24 horas.</li>
-        <li><strong class="text-texto">Lista de espera</strong>: até a data desejada passar.</li>
-        <li><strong class="text-texto">Registros técnicos de acesso</strong>: até 6 meses.</li>
-      </ul>
-    </div>
-
-    <!-- 9 -->
-    <div>
-      <h2 class="text-xl font-semibold text-texto mb-3">9. Alterações nesta política</h2>
-      <p class="text-texto-suave leading-relaxed">
-        Se esta política mudar, publicaremos a nova versão nesta página com a data de vigência atualizada. Mudanças
-        que dependam do seu consentimento serão pedidas novamente.
-      </p>
-    </div>
-
-  </div><!-- /space-y-10 -->
-
-  <!-- Contact -->
   <div class="mt-14 rounded-lg border border-borda bg-superficie p-6">
     <h2 class="text-lg font-semibold text-texto mb-3">Fale com a gente sobre privacidade</h2>
     <div class="space-y-1 text-texto-suave text-sm">
+      <p><strong class="text-texto">Seus dados e preferências:</strong> <a href="{% url 'aranha:meus_agendamentos' %}" class="underline text-marca">Meus agendamentos</a> (com código por SMS)</p>
       {% if ENCARREGADO_NOME %}<p><strong class="text-texto">Encarregado de dados:</strong> {{ ENCARREGADO_NOME }}{% if ENCARREGADO_EMAIL %} — <a href="mailto:{{ ENCARREGADO_EMAIL }}" class="underline text-marca">{{ ENCARREGADO_EMAIL }}</a>{% endif %}</p>{% endif %}
       {% if CLINIC_EMAIL %}<p><strong class="text-texto">E-mail:</strong> <a href="mailto:{{ CLINIC_EMAIL }}" class="underline text-marca">{{ CLINIC_EMAIL }}</a></p>{% endif %}
       {% if WHATSAPP_NUMERO %}<p><strong class="text-texto">WhatsApp:</strong> <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener" class="underline text-marca">conversar agora</a></p>{% endif %}

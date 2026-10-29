@@ -135,9 +135,19 @@
           </svg>
           Cancelar Agendamento
         </button>
+        {% if cancelamento_tardio %}
+        {# decisao 10: aviso antes de confirmar o cancelamento com menos de 24 h #}
+        <p class="mt-3 rounded-xl border border-aviso bg-aviso-fundo px-4 py-2 text-sm text-texto" role="note">
+          Faltam menos de 24 horas: se cancelar agora, o cancelamento conta como falta. Depois de algumas
+          faltas seguidas, o agendamento online fica suspenso e você agenda pela recepção.
+        </p>
+        {% endif %}
       </form>
 
       {% else %}
+      {% if foi_tardio %}
+      <p class="mb-3 text-sm text-texto-suave" role="note">Como faltavam menos de 24 horas, este cancelamento contou como falta.</p>
+      {% endif %}
       <!-- Links pós-resposta -->
       <div class="flex flex-wrap justify-center gap-3 mt-2">
         <a href="{% url 'aranha:meus_agendamentos' %}"

@@ -23,7 +23,7 @@ from django.utils import timezone
 
 from ..excecoes import HorarioIndisponivel, RegraDeNegocio, TransicaoInvalida, eh_sobreposicao
 from ..models import AgendaExcecao, Atendimento, RespostaAnamnese
-from ..constants import LIMITE_AUTOAPROVACAO
+from ..constants import JANELA_MINIMA_ALTERACAO, LIMITE_AUTOAPROVACAO
 from ..models.agendamentos import STATUS_ATIVOS, STATUS_FINALIZADOS, StatusAtendimento
 from ..utils.precos import preco_com_promocao
 from .atendimento import ao_criar
@@ -182,6 +182,53 @@ def reagendar(antigo, novo_inicio, profissional, *, por=None) -> Atendimento:
         )
         RespostaAnamnese.objects.filter(atendimento=antigo).update(atendimento=novo)
     return novo
+
+
+MSG_CANCELAR_PASSADO = 'Não é possível cancelar agendamentos passados.'
+MSG_NAO_CANCELAVEL = 'Este agendamento não pode mais ser cancelado.'
+STATUS_APROVADOS = (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO)
+
+
+def cancelamento_tardio(at, agora=None) -> bool:
+    """Cancelar agora um atendimento ja aprovado conta como falta? (menos de JANELA_MINIMA_ALTERACAO).
+
+    Pedido ainda PENDENTE nao conta: a clinica nao tinha confirmado o horario.
+    """
+    return (at.status in STATUS_APROVADOS
+            and at.data_hora_inicio - (agora or timezone.now()) < JANELA_MINIMA_ALTERACAO)
+
+
+def cancelar_pela_cliente(atendimento_id, *, origem: str, so_aprovados: bool = False) -> tuple[Atendimento, bool]:
+    """A propria cliente cancela (portal ou link do lembrete) -> (atendimento, tardio). Decisao 10.
+
+    Cancelar online e sempre permitido (a vaga volta p/ a lista de espera); com menos de 24 h e
+    "cancelamento tardio": soma 1 em faltas_consecutivas (pode suspender o agendamento online) sem
+    virar FALTOU. so_aprovados: o link do lembrete so mexe em AGENDADO/CONFIRMADO. Linha travada
+    (select_for_update): duplo clique nao cancela nem conta falta duas vezes.
+    Recusas: RegraDeNegocio(codigo='nao_encontrado' | 'passado' | 'nao_cancelavel').
+    """
+    with transaction.atomic():
+        at = (
+            Atendimento.objects.select_for_update()
+            .select_related('cliente', 'procedimento', 'profissional')
+            .filter(pk=atendimento_id).first()
+        )
+        if at is None:
+            raise RegraDeNegocio('Agendamento não encontrado.', codigo='nao_encontrado')
+        agora = timezone.now()
+        if at.data_hora_inicio <= agora:
+            raise RegraDeNegocio(MSG_CANCELAR_PASSADO, codigo='passado')
+        if at.status not in (STATUS_APROVADOS if so_aprovados else STATUS_ATIVOS):
+            raise RegraDeNegocio(MSG_NAO_CANCELAVEL, codigo='nao_cancelavel')
+        tardio = cancelamento_tardio(at, agora)
+        motivo = f'Cancelado pela cliente ({origem})' + (' — cancelamento tardio, conta como falta' if tardio else '')
+        try:
+            at.cancelar(motivo=motivo, pela_cliente=True)   # FSM: auditoria, lista de espera, push
+        except TransicaoInvalida as exc:
+            raise RegraDeNegocio(MSG_NAO_CANCELAVEL, codigo='nao_cancelavel') from exc
+        if tardio:
+            at.cliente.registrar_cancelamento_tardio()
+    return at, tardio
 
 
 def mover(atendimento_id, novo_inicio) -> tuple[Atendimento, object]:

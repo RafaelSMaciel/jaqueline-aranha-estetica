@@ -49,6 +49,13 @@ class Cliente(models.Model):
         db_comment='Zera ao REALIZADO; ao atingir MAX_FALTAS_BLOQUEIO liga eh_bloqueado_online.',
     )
     bloqueado_online = models.BooleanField(default=False, db_default=False, db_column='eh_bloqueado_online')
+    # Consentimento de dado de saude (LGPD art. 11 I) e revogavel (art. 8 §5): a prova da concessao e o
+    # AceiteTermo SAUDE; a revogacao e esta data (services/consentimentos.revogar_saude). Um aceite SAUDE
+    # dado depois (nova ficha) reativa. O registro ja feito fica pelo prazo de guarda (20 anos).
+    saude_revogada_em = models.DateTimeField(
+        blank=True, null=True,
+        db_comment='Revogacao do consentimento de dado de saude (art. 11 I); NULL = vigente ou nunca dado.',
+    )
 
     # Fidelidade (programa de indicacao)
     indicado_por = models.ForeignKey(
@@ -171,6 +178,11 @@ class Cliente(models.Model):
         except (TypeError, ValueError):
             return MAX_FALTAS_ANTES_BLOQUEIO
         return limite if limite >= 1 else MAX_FALTAS_ANTES_BLOQUEIO
+
+    def registrar_cancelamento_tardio(self):
+        """Cancelamento pela cliente com menos de JANELA_MINIMA_ALTERACAO (decisao 10): conta como
+        falta para o bloqueio do agendamento online (soma 1 e pode bloquear), sem virar FALTOU."""
+        self.registrar_falta()
 
     def registrar_falta(self):
         # Lock da row p/ evitar lost-update sob no-shows concorrentes; grava
