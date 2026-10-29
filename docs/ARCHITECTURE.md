@@ -122,7 +122,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D5 | Painel como PWA app-shell | Uso como app instalado |
 | D6 | Fase 7 do banco em PR dedicada | Mexe no cálculo de slots |
 | D7 | **Todo agendamento público exige OTP do celular**; a identidade é o telefone, e-mail nunca é identidade | Anti-sequestro de cadastro; sem enumeração |
-| D8 | Agendamento público nasce **PENDENTE** (clínica aprova), exceto cliente de confiança (já atendida, sem falta, < 2 horários futuros) que nasce AGENDADO; interno nasce AGENDADO. Toda decisão sobre o pedido passa pelo `AgendamentoService` (botão ou seletor) | Tira o gargalo da aprovação de quem já é cliente sem abrir a agenda a desconhecidos; a cliente sempre recebe a resposta |
+| D8 | Agendamento público nasce **PENDENTE** (clínica aprova), exceto cliente de confiança (já atendida, sem falta, < 2 horários futuros) que nasce AGENDADO; interno nasce AGENDADO. Pelo site, no máximo 3 horários futuros ativos por cliente (`MAX_ATIVOS_ONLINE`; a recepção marca além disso). Toda decisão sobre o pedido passa pelo `AgendamentoService` (botão ou seletor) | Tira o gargalo da aprovação de quem já é cliente sem abrir a agenda a desconhecidos (o PENDENTE trava o horário: sem teto, um celular verificado reservaria a semana); a cliente sempre recebe a resposta |
 | D9 | **2FA obrigatório para ADMIN e PROFISSIONAL** em prod (válvulas `ADMIN_2FA_OBRIGATORIO=false` / `PROFISSIONAL_2FA_OBRIGATORIO=false`, avisos W008/W012); códigos de backup gerados no painel | Painel e portal leem dado de saúde (LGPD art. 11/46) |
 | D10 | Rotas do django-two-factor (`/account/*`) e ReDoc não publicadas | 2ª tela de login burlava o 2FA; ReDoc exige `unsafe-inline` |
 | D11 | ~~RECEPCAO sem login até existirem telas próprias~~ — substituída pela D27 (o papel saiu) | Papel sem superfície própria = acesso indevido ao painel |
@@ -152,6 +152,9 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D35 | **`utils/telefone` é a fonte única do telefone**: forma canônica sem DDI (a do cadastro, do OTP e das buscas), E.164 só para telefone BR válido, máscara de log | O telefone é a identidade da cliente: cópias da normalização em OTP, lista de espera, formulário e webhook divergiam, e número estrangeiro virava destino de SMS |
 | D36 | **Contrato JSON único** (`utils/respostas`): `{"ok": true, ...}` ou `{"ok": false, "codigo", "mensagem"}`; o front decide pelo `codigo` | Cada view respondia num formato; o texto da mensagem não é contrato |
 | D37 | **Logs redigidos e imagem endurecida**: filtro `RedigirLog` (token de link, DETAIL do Postgres, e-mail, CPF, telefone) no log da aplicação; imagem sem `curl`, usuário sem shell, código do root só leitura, testes e scripts fora | O `django.request` levava `/confirmar/<token>/` para o log do Railway em todo 4xx/5xx; um RCE não reescreve código nem baixa ferramenta |
+| D38 | **Pedido online como caso de uso**: `services/agendamento_online.solicitar(PedidoAgendamento)` tem a regra inteira (termo LGPD, horário, fichas válidas por 12 meses, termos, cadastro da titular do celular, teto, reserva, e-mails e provas); `forms/agendamento.AgendamentoPublicoForm` lê o POST e confere o OTP; a view só liga os dois. Recusa = `RegraDeNegocio` com código (`sem_termo_lgpd`, `ficha_invalida`, `consent_saude_ausente`, `termo_pendente`, `email_de_outro_cadastro`, `horario_em_confirmacao`, `bloqueado_online`, `limite_online`, `horario_ocupado`) | A view tinha complexidade ciclomática 71 (hoje 9) e a regra só era testável por HTTP; outra porta (painel, API) reusa o service |
+| D39 | **Regras operacionais em registro tipado** (`models/configuracao.CHAVES`: `email_admin` e `MAX_FALTAS_BLOQUEIO` 1–10), lidas por `Configuracao.ler`; a tela grava só essas chaves (sem chave livre) e a marca tem a tela Identidade visual | A chave-valor livre listava estado interno, aceitava chave inventada e um valor inválido caía no padrão em silêncio |
+| D40 | **Desligamento revoga o feed ICS**: desativar a profissional, o login dela ou trocar o vínculo do login revoga o link na hora (auditado); reativar exige link novo | O calendário de quem saiu continuaria recebendo nome de cliente (o feed é um operador fora da clínica) |
 
 ---
 
@@ -187,8 +190,9 @@ verde em SQLite e Postgres).
   sessão (catálogo editável, 0052), comissão em livro-razão com saldo negativo visível (0053), bloqueio global "Todos os profissionais", alertas de saúde visíveis (portal,
   agendamentos, ficha), prontuário com acesso restrito por vínculo + trilha de leitura +
   histórico de versões, moderação de depoimentos, Branding sem upload de logo (Configuracao >
-  env > padrão), Configurações só com `email_admin` sugerida (as perguntas do prontuário viraram
-  o formulário PRONTUARIO na 0051).
+  env > padrão), Regras operacionais = registro tipado de 2 chaves (`email_admin`,
+  `MAX_FALTAS_BLOQUEIO` 1–10), sem chave livre (D39; as perguntas do prontuário viraram o
+  formulário PRONTUARIO na 0051).
 - **Serviços/LGPD:** canais falham fechado (nada marcado como enviado sem entrega), lista de
   espera em mecanismo único (signal → service, envio no `on_commit`, `notificado` só com
   entrega), retenção efetiva (fichas de pedido não realizado 90 dias, lista de espera vencida,
@@ -273,5 +277,5 @@ verde em SQLite e Postgres).
 
 ---
 
-_Última atualização: 2026-10-28 — decisões D26–D37 dos pacotes de revisão (0062–0074) e
+_Última atualização: 2026-10-29 — decisões D26–D40 dos pacotes de revisão (0062–0074, pedido online e cadastros) e
 pendências da seção 6.2 conferidas no código._
