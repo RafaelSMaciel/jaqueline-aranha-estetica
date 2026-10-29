@@ -54,7 +54,7 @@ class CatalogoNoSiteTests(TestCase):
             resp = self.client.get(reverse('aranha:especialidades'))
         self.assertEqual([g['label'] for g in resp.context['grupos']], ['Facial', 'Corporal'])
         resp = self.client.get(reverse('aranha:especialidades'))
-        self.assertEqual([g['label'] for g in resp.context['grupos']], ['Tratamentos Faciais', 'Tratamentos Corporais'])
+        self.assertEqual([g['label'] for g in resp.context['grupos']], ['Tratamentos faciais', 'Tratamentos corporais'])
 
     @override_settings(DEBUG=False)
     def test_erro_de_banco_nao_vira_catalogo_vazio(self):

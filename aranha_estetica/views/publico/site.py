@@ -130,10 +130,10 @@ def equipe(request):
 
 # Titulo editorial de cada categoria do catalogo; categoria nova sem titulo usa o rotulo do model
 TITULOS_CATEGORIA = {
-    'FACIAL': 'Tratamentos Faciais',
-    'CORPORAL': 'Tratamentos Corporais',
-    'CAPILAR': 'Tratamentos Capilares',
-    'OUTRO': 'Outros Serviços',
+    'FACIAL': 'Tratamentos faciais',
+    'CORPORAL': 'Tratamentos corporais',
+    'CAPILAR': 'Tratamentos capilares',
+    'OUTRO': 'Outros serviços',
 }
 
 

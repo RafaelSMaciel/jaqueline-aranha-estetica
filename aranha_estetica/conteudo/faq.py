@@ -63,7 +63,7 @@ def montar_faq(*, canais_agendar: list[str], canais_exclusao: list[str],
         },
         {
             'slug': 'pagamentos',
-            'nome': 'Pagamentos e Pacotes',
+            'nome': 'Pagamentos e pacotes',
             'itens': [
                 {'q': 'Quais são as formas de pagamento?', 'destaque': True,
                  'a': 'Aceitamos PIX, cartão de débito, cartão de crédito (com parcelamento) e dinheiro.'},
@@ -97,7 +97,7 @@ def montar_faq(*, canais_agendar: list[str], canais_exclusao: list[str],
         },
         {
             'slug': 'privacidade',
-            'nome': 'Privacidade e Dados',
+            'nome': 'Privacidade e dados',
             'itens': [
                 {'q': 'Como meus dados são armazenados?',
                  'a': 'Seguimos a LGPD. Seus dados ficam guardados com segurança, a ficha de saúde é gravada '
