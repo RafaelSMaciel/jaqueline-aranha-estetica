@@ -27,12 +27,14 @@ logger = logging.getLogger(__name__)
 POR_PAGINA = 30
 
 
-def _valores_digitados(post):
-    """O que veio no POST, no formato que o template usa p/ preencher o formulario de volta."""
+def _valores_digitados(form):
+    """O que veio no POST, no formato que o template usa p/ preencher o formulario de volta (texto cru;
+    o checkbox pelo BooleanField do form, que nunca recusa)."""
+    post = form.data
     return {
         'nome': post.get('nome', ''), 'descricao': post.get('descricao', ''),
         'duracao_minutos': post.get('duracao_minutos', ''), 'categoria': post.get('categoria', ''),
-        'preco': post.get('preco', ''), 'ativo': post.get('ativo') == '1',
+        'preco': post.get('preco', ''), 'ativo': bool(form.cleaned_data.get('ativo')),
         'habilitados': {pk for pk in map(id_int, post.getlist('profissionais')) if pk is not None},
     }
 
@@ -71,19 +73,19 @@ def _contexto_lista(request, editar_pk=None):
     }
 
 
-def _devolver_com_erro(request, erros, post, editar=None):
+def _devolver_com_erro(request, erros, form, editar=None):
     """Envio recusado: a lista volta SEM redirect, com o que foi digitado e o erro em cada campo.
 
     Antes o redirect fechava o modal e perdia tudo (e o aviso nao dizia qual campo). editar = o
     procedimento do modal de edicao (reaberto pelo data-erro no template); None = formulario de novo."""
     contexto = _contexto_lista(request, editar_pk=editar.pk if editar else None)
     if editar is None:
-        contexto['novo'] = {'valores': _valores_digitados(post), 'erros': erros}
+        contexto['novo'] = {'valores': _valores_digitados(form), 'erros': erros}
     else:
         for proc in contexto['procedimentos']:
             if proc.pk == editar.pk:
-                valores = _valores_digitados(post)
-                if not post.get('profissionais_enviado'):   # form sem o grupo: habilitacoes intocadas
+                valores = _valores_digitados(form)
+                if not form.data.get('profissionais_enviado'):   # form sem o grupo: habilitacoes intocadas
                     valores['habilitados'] = proc.habilitados
                 proc.valores, proc.erros, proc.reabrir = valores, erros, True
     return render(request, 'painel/procedimentos.html', contexto)
@@ -101,7 +103,7 @@ def admin_criar_procedimento(request):
     form = ProcedimentoForm(request.POST)
     if not form.is_valid():
         avisar_erros(request, form)
-        return _devolver_com_erro(request, erros_por_campo(form), request.POST)
+        return _devolver_com_erro(request, erros_por_campo(form), form)
     d = form.cleaned_data
     try:
         with transaction.atomic():
@@ -137,7 +139,7 @@ def admin_editar_procedimento(request, pk):
     form = ProcedimentoForm(dados, instance=proc)
     if not form.is_valid():
         avisar_erros(request, form)
-        return _devolver_com_erro(request, erros_por_campo(form), dados, editar=proc)
+        return _devolver_com_erro(request, erros_por_campo(form), form, editar=proc)
     d = form.cleaned_data
     try:
         with transaction.atomic():
@@ -151,7 +153,7 @@ def admin_editar_procedimento(request, pk):
     except RegraDeNegocio as e:
         # habilitacao em uso: nada foi salvo (atomic); o modal volta aberto com o que foi marcado
         messages.error(request, e.mensagem)
-        return _devolver_com_erro(request, {'profissionais': e.mensagem}, dados, editar=proc)
+        return _devolver_com_erro(request, {'profissionais': e.mensagem}, form, editar=proc)
     except (DatabaseError, ValidationError):
         logger.exception('procedimento_editar_falhou', extra={'procedimento_id': proc.pk})
         messages.error(request, 'Erro ao editar procedimento.')
