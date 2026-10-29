@@ -31,14 +31,16 @@ Resto do setup (`.env`, `migrate`, `seed --demo`, `bootstrap_admin`, Vite + runs
 
 ## 2. Testes
 
-`manage.py test` sempre usa `clinica/settings/test.py` (única detecção de "estou em teste", em
-`settings/__init__.py`; o pytest aponta para o mesmo módulo no `pyproject.toml`): senha com hash
-MD5 (rápido; produção não muda), SMS só em log, avisos de produção silenciados, django-vite em
-`dev_mode` (não precisa do build).
+O runner é um só: `manage.py test` (pytest, pytest-django e conftest saíram do projeto — teste em
+função solta, estilo pytest, nunca seria coletado; `test_deploy_config.RunnerUnicoTests` reprova a
+volta). Ele sempre usa `clinica/settings/test.py` (única detecção de "estou em teste", em
+`settings/__init__.py`): senha com hash MD5 (rápido; produção não muda), SMS só em log, avisos de
+produção silenciados, django-vite em `dev_mode` (não precisa do build). Testes novos de uma área
+vão na pasta dela (`tests/conta/`, `infra/`, `jobs/`, `painel/`, `publico/`, `servicos/`, `utils/`).
 
 | Comando | Quando |
 |---|---|
-| `python manage.py test aranha_estetica --exclude-tag migracoes` | Dia a dia — ~1.460 testes em ~40 s |
+| `python manage.py test aranha_estetica --exclude-tag migracoes` | Dia a dia — ~1.850 testes em ~40 s |
 | `python manage.py test aranha_estetica.tests.test_x --keepdb` | Um módulo: o banco de teste (`.cache/db_test.sqlite3`) fica pronto entre execuções (~15 s → ~2 s) |
 | `python manage.py test aranha_estetica --tag migracoes` | Data migrations (descem e sobem a cadeia; lento) — antes do merge |
 | `python manage.py test aranha_estetica` | Tudo |
@@ -66,10 +68,14 @@ MD5 (rápido; produção não muda), SMS só em log, avisos de produção silenc
   TESTE_VITE_BUILD=1 python manage.py test aranha_estetica.tests.test_wizard_browser
   ```
 
-- **Cobertura** (catraca do CI: `fail_under` em `pyproject.toml` só sobe):
+- **Cobertura** (catraca do CI: `fail_under` em `pyproject.toml` só sobe). O coverage roda em modo
+  paralelo (um arquivo `.cache/coverage.*` por execução): junte antes do relatório. No CI o job
+  `cobertura` combina a rodada do SQLite com a do Postgres (o código só-Postgres conta) e aplica a
+  catraca no total; localmente, rodar também no Postgres e combinar dá o mesmo número.
 
   ```bash
-  coverage run manage.py test aranha_estetica --exclude-tag migracoes && coverage report
+  coverage run manage.py test aranha_estetica --exclude-tag migracoes
+  coverage combine && coverage report
   ```
 
 ## 3. Fuso horário (regra do ruff)
@@ -90,18 +96,37 @@ Nos testes, datetime naive antes do `make_aware` é permitido (`per-file-ignores
 ## 4. Ganchos e checks locais
 
 `pre-commit install` liga, em todo commit, os mesmos checks rápidos do CI
-(`.pre-commit-config.yaml`, ferramentas do venv — sem download):
+(`.pre-commit-config.yaml`; ferramentas do venv, sem download — exceto o gitleaks, binário que o
+pre-commit baixa uma vez, na versão fixa do CI):
 
-- `ruff check` — erros reais (F, E4/E7/E9) + fuso (DTZ). Lista fixa em `[tool.ruff.lint]`.
-- `lint-imports` — camadas `views > services > models` (`[tool.importlinter]`).
+- `gitleaks` — segredo commitado por engano (`.env`, dump, chave de API) no que está sendo
+  commitado; os dados sintéticos conhecidos (chaves falsas da suíte e do CI) estão na allowlist
+  explicada em `.gitleaks.toml`.
+- `ruff check` — erros reais (F, E4/E7/E9) + fuso (DTZ) + `TID251` (abaixo). Lista fixa em
+  `[tool.ruff.lint]`.
+- `lint-imports` — camadas `views > services > models`, `utils` sem `services` e as áreas de views
+  independentes (`[tool.importlinter]`; helper de view comum vai em `views/comum.py`).
 - `makemigrations --check` — quando muda `models/` ou `migrations/`.
 
 `pre-commit run --all-files` roda tudo de uma vez. Antes do push vale também `mypy` (services).
+
+**Configuração por ambiente (regra `TID251` do ruff):** `os.environ`/`os.getenv` só em
+`clinica/settings` — lá a variável é lida, convertida e validada (valor inválido derruba o boot com
+o nome dela) — e nos pontos de entrada listados em `[tool.ruff.lint.per-file-ignores]` (manage.py,
+comandos de gerenciamento, opções do Sentry, `services/lgpd`, docs, testes). O resto do código lê
+`settings.X` na hora da chamada (`override_settings` funciona nos testes). Variável nova: setting em
+`clinica/settings/base.py` + linha no `.env.example` (`tests/infra/test_deploy.EnvExampleTests`
+reprova se faltar ou sobrar).
 
 ## 5. O que o CI confere
 
 `.github/workflows/ci.yml` (push em `main`/`dev`). Tabela de jobs: [PROJECT.md §12](PROJECT.md#12-testes-e-ci).
 Endurecimento: token só leitura (`permissions: contents: read`), `timeout-minutes` em todo job,
 actions fixadas por SHA e imagens (`postgres`, `python`, `node`) por digest — o Dependabot
-atualiza o pin —, `pip-audit` bloqueante, cache de camadas do `docker build`. O
-`tests/test_deploy_config.CiFixadoTests` reprova pin solto.
+atualiza o pin —, cache de camadas do `docker build` e o smoke da imagem com o pre-deploy e o start
+lidos do `railway.json`. O job `auditoria-deps` é bloqueante: `pip-audit` no `requirements.lock`,
+`npm audit --package-lock-only --audit-level=high` (vulnerabilidade alta do front derruba) e
+gitleaks no histórico do push. O `tests/test_deploy_config.CiFixadoTests` reprova pin solto.
+
+Antes de mexer no `package.json`, rode `npm audit --package-lock-only --audit-level=high`
+localmente (o mesmo do CI).

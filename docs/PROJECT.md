@@ -1,7 +1,7 @@
 # Jaqueline Aranha Estética (Shiva Zen) — Documentação do Projeto
 
 > **Fonte viva textual do projeto.** Reflete o código do branch `dev`
-> (migrations `0001`–`0067`). Mudou model, rota, env var, job ou deploy? Atualize aqui
+> (migrations `0001`–`0074`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
 > pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documento do TCC (requisitos, UML,
@@ -38,10 +38,11 @@ Um único projeto Django, renderizado no servidor, com duas superfícies:
 |---|---|---|
 | **Site público** — vitrine, agendamento online, "Meus agendamentos", lista de espera, NPS, termos, LGPD | Clientes (sem conta/senha; identidade = celular + OTP por SMS) | `estrutura/base_v2.html` |
 | **Painel da equipe** — agenda, clientes, ficha/prontuário, pacotes, promoções, comissões, NPS, termos, auditoria, Branding | ADMIN (painel completo, 2FA obrigatório) | `painel/base_v2.html` (app-shell PWA) |
-| **Portal do profissional** — agenda própria, aprovar/rejeitar pedidos, "Realizado", anotações, ficha das próprias clientes | PROFISSIONAL | `profissional/*.html` sobre `estrutura/base_v2.html` |
+| **Portal do profissional** — agenda própria, aprovar/rejeitar pedidos, "Realizado", anotações, ficha das próprias clientes, "Minhas comissões" | PROFISSIONAL | `profissional/base.html` (casca própria: sem rodapé, CTA, WhatsApp, SEO nem aviso de cookies do site; mesmos tokens e bundle) |
 
-O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
-[`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md)).
+Só dois papéis de equipe: **ADMIN** e **PROFISSIONAL** (a dona faz a recepção pelo painel; o papel
+RECEPCAO saiu na 0072 — ver [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md)). Todo
+atendimento é presencial.
 
 ### 1.1 Glossário (termo do negócio → código)
 
@@ -56,10 +57,11 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 | Pacote | `Pacote` → `CompraPacote` + `CompraPacoteItem` + `ConsumoSessao` | Combo de sessões; na venda o nome e os valores ficam **congelados** e cada REALIZADO debita uma sessão |
 | Preço vigente / promoção | `Preco`, `Promocao`, `utils/precos` | Preço da data do atendimento (profissional > base) com a promoção daquele dia |
 | Carteira / cashback | `Carteira`, `MovimentoCarteira` | Crédito da cliente (vale, indicação); livro-razão |
-| Comissão | `RegraComissao`, `MovimentoComissao` | Livro-razão da profissional: CRÉDITO (realizado), PAGAMENTO (baixa), ESTORNO (cancelado) |
+| Comissão | `RegraComissao`, `MovimentoComissao` | Livro-razão da profissional: CRÉDITO (realizado; congela base e percentual), PAGAMENTO (baixa ou repasse em lote), ESTORNO (cancelado) |
+| Competência | `services/financeiro.competencia`, `?mes=AAAA-MM` | O mês do financeiro, da visão geral e do Excel: avulso pela data do atendimento, pacote pela venda menos o reembolso pelo cancelamento |
 | Lista de espera | `ListaEspera` | Quem quer vaga num dia; avisada quando um horário compatível libera |
 | Notificação | `Notificacao` | Toda mensagem ligada a um atendimento (lembrete, NPS, termo, e-mails); também a fila do e-mail |
-| Link de acesso | `LinkAcesso`, `services/links` | Link público das mensagens (confirmar, avaliar, termo, reagendar); no banco só o hash do token |
+| Link de acesso | `LinkAcesso`, `services/links` | Link público das mensagens (confirmar, avaliar, termo, ficha, descadastro, feed ICS); no banco só o hash do token. Reagendar/cancelar não tem link: é pelo portal com OTP |
 | Ficha / prontuário / anotação | `RespostaAnamnese` (`resposta_formulario`) / `Prontuario` / `AnotacaoSessao` | Questionário da cliente / ficha clínica da equipe / nota de cada sessão — dado de saúde, cifrado |
 | Termo / aceite | `VersaoTermo` / `AceiteTermo` | Texto versionado (LGPD, saúde, procedimento) / prova do aceite (IP, user-agent, hash) |
 | Consentimento | `Consentimento`, `services/consentimentos` | Autorização por finalidade × canal (marketing/e-mail, lembrete/WhatsApp, pesquisa/WhatsApp); histórico append-only, o mais recente vale |
@@ -67,8 +69,10 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 | Esquecimento / retenção | `sp_anonimizar_cliente`, `sp_aplicar_retencao_lgpd` | Anonimizar a pedido da titular / por prazo (`inventario_lgpd.py` diz o que acontece com cada coluna) |
 | Ator / trilhas | `ator.py`; `LogAuditoria`, `HistoricoAlteracao` | Quem agiu (usuário, IP, origem) / registro das ações e das alterações de dado |
 | Recusa de regra | `excecoes.RegraDeNegocio` (`HorarioIndisponivel`, `TransicaoInvalida`) | O "não" de um service, com a mensagem pronta para a tela |
-| Job | `jobs.py`, `/cron/run/<job>/`, `rodar_job` | Tarefa periódica chamada pelo cron externo |
-| Branding | `Configuracao`, `utils/branding` | Nome, contatos e dados legais da clínica editáveis no painel |
+| Job | `jobs.py` (`JOB_MAP`, `JOB_AGENDA`), `rodar_jobs_devidos`, `/cron/run/<job>/`, `rodar_job` | Tarefa periódica: o serviço Cron do Railway roda os devidos a cada 15 min (horários na `JOB_AGENDA`) |
+| Branding / identidade visual | `Configuracao`, `utils/branding`, `forms/cadastros.MarcaForm` | Nome, contatos e dados legais da clínica editáveis no painel (tela Identidade visual) |
+| Regras operacionais | `models/configuracao.CHAVES`, `Configuracao.ler` | As poucas regras que a dona ajusta (registro tipado: `email_admin`, `MAX_FALTAS_BLOQUEIO`); sem chave livre |
+| Pedido online | `services/agendamento_online.solicitar`, `PedidoAgendamento` | O caso de uso do wizard: o pedido da titular do celular verificado, do termo LGPD às provas |
 
 ---
 
@@ -82,13 +86,13 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 | Front-end | Vite 6 + Tailwind CSS v4 (`@tailwindcss/vite`) + Alpine.js via `@alpinejs/csp` + django-vite 3 + django-cotton 2. **Sem HTMX, Bootstrap ou jQuery** |
 | Libs no CDN (com SRI) | FullCalendar 6.1.11 (`painel/calendar.html`), Chart.js 4.4.0 (`painel/overview.html`) |
 | Fontes | Playfair Display + Lato servidas pelo próprio site (`@fontsource`, subconjunto latin, no build do Vite; sem Google Fonts) — tokens em `static/src/css/tokens.css` |
-| Jobs / fila | Sem Celery: jobs são funções (`jobs.py`) chamadas pelo cron HTTP `/cron/run/<job>/` ou por `manage.py rodar_job`; e-mail transacional com fila no banco (`Notificacao` EMAIL, reenvio pelo job `emails`) |
+| Jobs / fila | Sem Celery: jobs são funções (`jobs.py`) com horário na `JOB_AGENDA`, chamadas pelo serviço Cron do Railway (`manage.py rodar_jobs_devidos`, a cada 15 min), pelo cron HTTP `/cron/run/<job>/` ou por `manage.py rodar_job`; e-mail transacional com fila no banco (`Notificacao` EMAIL, reenvio pelo job `emails`) |
 | Cache / sessão | LocMemCache + sessão no banco (padrão, 1 worker). `REDIS_URL` troca para django-redis + sessão em cache |
 | Auth | Usuário próprio (`AbstractBaseUser`, e-mail), django-axes 8, django-otp + django-two-factor-auth (só models/TOTP; rotas `/account/*` **não** publicadas), django-ratelimit 4 |
 | API | Sem API REST (a DRF saiu: não tinha consumidor). Endpoints JSON do próprio site (wizard, painel) são views Django |
-| Integrações | Zenvia SMS (OTP), WhatsApp Cloud API (Meta), e-mail (backend Django), pywebpush (VAPID), Google Calendar (OAuth, opcional), Cloudflare Turnstile, Sentry |
+| Integrações | Zenvia SMS (OTP), WhatsApp Cloud API (Meta), e-mail (backend Django), pywebpush (VAPID), Cloudflare Turnstile, Sentry. A agenda da profissional sai só pelo feed ICS assinado (sem Google Calendar) |
 | Outros | bleach (HTML de promoção), openpyxl (Excel), python-dateutil (RRULE), python-json-logger (logs JSON em prod), qrcode (QR SVG do 2FA, sem Pillow) |
-| Deploy | Railway (Dockerfile multi-stage + `railway.json`) |
+| Deploy | Railway (Dockerfile multi-stage + `railway.json` do serviço web e `railway.cron.json` do serviço Cron) |
 | CI | GitHub Actions `.github/workflows/ci.yml` |
 
 `requirements.lock` fixa as dependências transitivas (usado com `-c` no CI e no Docker).
@@ -102,53 +106,70 @@ O papel **RECEPCAO** existe no modelo, mas ainda não tem telas nem login (ver
 ```
 aranha_estetica/
 ├── models/          acesso, clientes, profissionais, agenda (AgendaHorario/AgendaExcecao), procedimentos,
-│                    agendamentos (Atendimento/FSM), notificacoes, prontuario, anamnese, termos, nps,
-│                    pacotes, sistema, push, carteira, comissao, historico (trilha historico_alteracao), mixins
+│                    agendamentos (Atendimento/FSM), notificacoes, links (LinkAcesso), consentimentos,
+│                    prontuario, anamnese, termos, nps, pacotes, sistema, push, carteira, comissao,
+│                    historico (trilha historico_alteracao), execucoes (ExecucaoJob), configuracao
+│                    (Configuracao + o registro tipado das regras operacionais), mixins
 ├── db/              peças de banco usadas por migrations (Indice, PadronizarNomes) — congelado
 ├── migrations/sql/  texto SQL das rotinas por versão (v0056 triggers, v0057 leitura/views, v0058
-│                    procedures, v0059 trilhas append-only) — congelado, importado só pela migration da versão
+│                    procedures, v0059 trilhas append-only, v0065 faturamento por competência, v0066
+│                    comissão, v0072 links, v0074 anonimização) — congelado, importado só pela migration da versão
 ├── urls/            uma lista de rotas por área (publico, conta, painel, profissional, infra), todas no
 │                    namespace `aranha` — espelha views/
 ├── views/publico/   site (páginas institucionais), agendamento + agendamento_api (wizard e horários),
-│                    verificacao (OTP), portal (meus agendamentos, reagendar por link), confirmacao
-│                    (presença), agenda_profissional (link/ICS/embed), formularios (anamnese/pesquisa),
-│                    nps, termos (aceite), lgpd, lista_espera
+│                    verificacao (OTP), portal (meus agendamentos: reagendar/cancelar pela sessão do OTP),
+│                    confirmacao (presença), agenda_profissional (agendar por profissional/embed),
+│                    formularios (anamnese/pesquisa), nps, termos (aceite), lgpd, lista_espera
 ├── views/conta/     autenticacao (login, logout, recuperação de senha), dois_fatores (2FA TOTP)
 ├── views/painel/    um módulo por tela da equipe: visao_geral, agendamentos, aprovacao, calendario,
-│                    clientes, prontuario, anamneses, procedimentos, profissionais, excecoes, bloqueios,
-│                    pacotes, promocoes, lista_espera, financeiro, relatorios, termos,
-│                    conformidade_termos, notificacoes, usuarios, configuracoes, marca, google_agenda,
-│                    previa_email, auditoria
-├── views/profissional/  portal (agenda do profissional, aprovar, realizar, anotar)
-├── views/infra/     healthcheck, cron (HTTP), webhooks (WhatsApp/Zenvia), webpush
+│                    retornos, clientes, prontuario, anamneses, procedimentos, profissionais, excecoes,
+│                    bloqueios, pacotes, promocoes, lista_espera, financeiro, comissoes, nps, termos,
+│                    conformidade_termos, notificacoes, usuarios, configuracoes, marca, previa_email,
+│                    auditoria
+├── views/profissional/  portal (agenda do profissional, aprovar, realizar, anotar, link do ICS, minhas comissões)
+├── views/infra/     healthcheck, cron (HTTP), webhooks (WhatsApp/Zenvia), webpush, feed_ics
+├── views/comum.py   helpers de view usados por mais de uma área (link do feed ICS do painel e do portal);
+│                    as áreas não se importam (contrato "Áreas de views independentes" do import-linter)
 ├── services/        agenda (reservar/reagendar/mover), atendimento (efeitos de criar/mudar status),
-│                    comunicacao (canais, fila de e-mail), agendamento (avisos), disponibilidade
-│                    (SlotService), otp, lgpd, termos, alertas, comissao, fidelidade, retorno,
-│                    lista_espera, financeiro, links, consentimentos, anamnese, push, gcal
-├── utils/           branding, email, sms, whatsapp, precos, saude, fichas, seguranca, dois_fatores,
-│                    pii, captcha, datas, parse, busca (trigram no PG), auditoria, recorrencia (RRULE do
-│                    subconjunto), nps (calculo unico, meio p/ cima), banco (GUCs app.* e CALL das
-│                    procedures), cifragem, formatos
-├── forms/           cliente.py (ClientePainelForm), painel.py (ProcedimentoForm, BloqueioForm, TermoForm, parse_preco)
-├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados
-├── templatetags/    painel_tags, atendimento_tags, gcal_tags, dict_extras
+│                    agendamento_online (o pedido pelo site), comunicacao (canais, fila de e-mail),
+│                    agendamento (avisos), disponibilidade (SlotService, horários agrupados, dias com
+│                    expediente), precos (vitrine), catalogo (preço base e habilitações), otp, lgpd,
+│                    termos, alertas, prontuario (vínculo clínico), comissao,
+│                    fidelidade, retorno, lista_espera, financeiro (competência), relatorios (Excel),
+│                    indicadores, pacotes, links, consentimentos, anamnese, push, lembretes (D-1 e sem
+│                    desfecho), nps (cálculo, envio, detrator), marketing (promoção e aniversário), feriados
+├── utils/           branding, email, sms, whatsapp, telefone (forma canônica, E.164, máscara), precos,
+│                    saude, fichas, seguranca, dois_fatores, pii, captcha, datas, parse, busca (trigram no
+│                    PG), auditoria, recorrencia (RRULE do subconjunto), respostas (contrato JSON), banco
+│                    (GUCs app.* e CALL das procedures), cifragem, formatos
+├── forms/           agendamento.py (AgendamentoPublicoForm: o POST do wizard → PedidoAgendamento),
+│                    cadastros.py (Usuario/UsuarioEdicao, Profissional, GradeSemanal, Procedimento,
+│                    Configuracao, Marca), cliente.py (ClientePainelForm), painel.py (BloqueioForm,
+│                    TermoForm, CampoPreco/parse_preco, avisar_erros), financeiro.py (pacote,
+│                    cancelar/prorrogar compra, regra de comissão, repasse), promocoes.py, nps.py
+├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados, rodar_job,
+│                    rodar_jobs_devidos, gerar_chave_cifragem, rotacionar_chave_cifragem,
+│                    reaplicar_esquecimentos, consultas_lentas
+├── templatetags/    painel_tags (`MENU_PAINEL`: menu do painel), atendimento_tags, site_tags, formatos,
+│                    dict_extras
 ├── templates/       estrutura/ (bases), cotton/ (componentes), publico/ (site; servicos/), agendamento/
-│                    (wizard, portal da cliente, links), conta/ (login, senha), painel/, profissional/,
-│                    partials/, email/, pwa/, erros (400/403/403_csrf/404/429/500), axes_bloqueio.html,
-│                    robots.txt
+│                    (wizard, portal da cliente, links), conta/ (login, senha), painel/, profissional/
+│                    (`base.html` = casca do portal), partials/, email/, pwa/, erros
+│                    (400/403/403_csrf/404/429/500), axes_bloqueio.html, robots.txt
 ├── static/src/      fonte do Vite — css/tokens.css, css/app.css e uma entrada JS por tela (app.js,
 │                    wizard.js, painel-busca.js, webpush.js; nome com hash no build) — fora do collectstatic
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
 ├── signals.py       só o cache do Branding (post_save/post_delete de Configuracao)
-├── jobs.py / jobs_manutencao.py     jobs periódicos (funções; cron HTTP e `rodar_job`)
+├── jobs.py / jobs_manutencao.py     jobs periódicos (`JOB_MAP`, `JOB_AGENDA` = horários, `executar`)
 ├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware,
 │                    ContextoBancoMiddleware (abre o Ator do request)
-├── checks.py        system checks de produção aranha.W001–W009
+├── checks.py        system checks de produção aranha.W001–W015 e erros E001–E004 (§14 f)
 ├── excecoes.py      RegraDeNegocio (mensagem + codigo), HorarioIndisponivel, TransicaoInvalida
 ├── ator.py          Ator (usuário, IP, origem) da borda em ContextVar → LogAuditoria + GUCs app.*
 ├── inventario_lgpd.py  tabela → classe (titular/equipe/sistema); coluna pessoal → anonimiza/apaga/purga/retém
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
-clinica/             settings/{base,dev,prod,test}.py, urls.py, wsgi.py, apps.py, gunicorn_logger.py
+clinica/             settings/{base,dev,prod,staging,test}.py (leem e validam a env; §15), urls.py,
+                     wsgi.py, apps.py, gunicorn_logger.py, logging_filtros.py (redação de token/PII no log)
 ```
 
 ### 3.2 Camadas e fluxo de uma requisição
@@ -161,8 +182,8 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
       └─ view (validação + permissão) ──▶ services/ e utils/ (regra de negócio)
             └─ models (FSM do Atendimento, managers, constraints) ──▶ PostgreSQL
                   └─ services/atendimento (na mesma transação da FSM): faltas, débito de
-                      pacote, comissão, cashback, retorno, lista de espera; push/Google
-                      Calendar do novo atendimento no on_commit
+                      pacote, comissão, cashback, retorno, lista de espera; push do novo
+                      atendimento no on_commit
 ```
 
 - **FSM do atendimento** (`models/agendamentos.py`): toda mudança de status passa por
@@ -178,9 +199,9 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   (3 seguidas suspendem o agendamento online); CANCELADO/REAGENDADO de um ativo avisa a lista
   de espera (savepoint, best-effort). Efeito que falha desfaz a transição inteira (status +
   livro-razão gravam juntos ou nada grava). `ao_criar` (chamado por `services.agenda.reservar`
-  e pelo "adicionar" do Django admin) manda push e sincroniza o Google Calendar no
-  `on_commit`. `status = X; save()` não aplica regra nenhuma. `cancelar(..., pela_cliente=True)`
-  só nos fluxos da própria cliente (link/portal) — fica na trilha (`[pela cliente]`).
+  e pelo "adicionar" do Django admin) manda o push à profissional no `on_commit`.
+  `status = X; save()` não aplica regra nenhuma. `cancelar(..., pela_cliente=True)` só nos
+  fluxos da própria cliente (portal e link de confirmação) — fica na trilha (`[pela cliente]`).
 - **Aviso de cancelamento** (`services/agendamento.avisar_cancelamento`): e-mail à
   cliente quando a clínica cancela — painel, rejeição, Django admin e pedido PENDENTE que venceu
   sem aprovação. Cancelamento pela própria cliente não avisa.
@@ -188,30 +209,66 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   min; grade semanal `AgendaHorario` e exceções `AgendaExcecao` — folga/feriado/recesso,
   horário diferente, bloqueios pontuais/recorrentes do profissional ou globais —, buffers,
   `min_notice_horas`, `max_advance_dias`). Usada pelo wizard, pelo
-  reagendamento, pelo agendamento interno e pela validação do servidor.
+  reagendamento, pelo agendamento interno e pela validação do servidor. Em volta dele, no mesmo
+  módulo: `horarios_agrupados` (horários do dia com as profissionais livres e o preço na data — o
+  reagendamento omite o preço) e `dias_com_expediente` (o calendário do mês do wizard em 2
+  consultas: fora feriado/recesso, folga, `max_advance` e dia todo bloqueado);
+  `procedimentos_agendaveis` = ativos com ao menos 1 profissional ativa habilitada.
 - **Agenda** (`services/agenda.py`): as 5 portas que gravam horário (wizard, agendamento pelo
-  painel, reagendamento pelo portal/link, arrasto do calendário, retorno marcado pela recepção) passam por
+  painel, reagendamento pelo portal, arrasto do calendário, retorno marcado pela recepção) passam por
   `validar_horario` (habilitação, horário futuro, feriado/recesso, SlotService; `detalhado=True`
   dá o motivo à equipe — conflito, bloqueio, folga, expediente — e o site vê a mensagem
   genérica), `reservar` (conflito com `select_for_update`, preço da data, INSERT em savepoint;
   corrida perdida para o EXCLUDE vira `HorarioIndisponivel`), `reagendar` (antigo REAGENDADO +
-  novo com preço/promoção e ficha) e `mover`. O que é só de uma porta fica nela (OTP e
-  consentimentos do wizard, valor combinado do painel, link e e-mails do portal).
+  novo com preço/promoção e ficha) e `mover`. O que é só de uma porta fica nela (o pedido do
+  wizard, valor combinado do painel, e-mails do portal).
+- **Pedido online** (caso de uso, `services/agendamento_online.solicitar(PedidoAgendamento,
+  request=)`): o `forms/agendamento.AgendamentoPublicoForm` lê o POST do wizard, valida formato,
+  idade e o gate do OTP (o celular tem de ser o verificado **nesta** sessão) e entrega um
+  `PedidoAgendamento`; o service tem a regra inteira, testável sem HTTP — termo LGPD vigente →
+  `validar_horario` → fichas (validade de 12 meses; consentimento de saúde se houver resposta) →
+  termos do procedimento → e-mail de outro cadastro → trava do horário no cache → numa transação:
+  cadastro da **titular** do celular, bloqueio online, teto de 3 horários ativos, opt-ins,
+  `reservar`, e-mail (APROVACAO ou CONFIRMACAO), aceites com prova e fichas com a trilha do art. 11.
+  Toda recusa é `RegraDeNegocio` com `codigo` (`sem_termo_lgpd`, `ficha_invalida`,
+  `consent_saude_ausente`, `termo_pendente`, `email_de_outro_cadastro`, `horario_em_confirmacao`,
+  `bloqueado_online`, `limite_online`, `horario_ocupado`...); a view (`views/publico/agendamento`)
+  só faz honeypot, form, service e a página de sucesso.
+- **Catálogo** (`services/catalogo`): o preço base muda abrindo uma vigência nova a partir de hoje
+  (só quando o valor muda; o histórico fica) e tirar a habilitação de quem ainda tem atendimento
+  futuro do procedimento é recusado (`habilitacao_em_uso`).
 - **Recusas** (`excecoes.py`): service diz "não" levantando `RegraDeNegocio(mensagem, codigo=)`
   (ou `HorarioIndisponivel`/`TransicaoInvalida`); a view só mostra `exc.mensagem` (ou
   `json_recusa(exc)`). `Atendimento.TransicaoInvalida` é a mesma classe.
+- **Respostas JSON** (`utils/respostas.py`, contrato único das APIs do site — inclusive as do
+  wizard, `/ajax/dias-disponiveis/`, `/ajax/horarios-disponiveis/` e o OTP —, do painel e da infra):
+  sucesso `{"ok": true, ...}`, erro `{"ok": false, "codigo": "<estável>", "mensagem": "<texto>"}`
+  (`json_ok`, `json_erro`, `json_recusa`) — o front decide pelo `codigo`, nunca pelo texto. Webhooks
+  de provedor respondem no formato que o provedor espera.
+- **Telefone** (`utils/telefone.py`, fonte única): forma canônica gravada em `Cliente.telefone` e
+  usada no OTP, nas buscas e no webhook do WhatsApp (só dígitos, DDD + número, sem DDI/zero de
+  tronco), E.164 só para telefone BR válido (destino de SMS/WhatsApp) e a máscara de log.
 - **Preço**: `utils/precos.py` — preço vigente por data (profissional > base) e promoção
-  vigente na data; `preco_com_promocao()` é o valor gravado no atendimento e o mesmo que a
-  vitrine (`/promocoes/`, `/especialidades/`, cards do wizard) mostra.
-- **Branding**: `utils/branding.get_branding()` — precedência **tela Branding (tabela
-  `configuracao`) > env > padrão**; contatos vazios escondem o item no site.
+  vigente na data; `preco_com_promocao()` é o valor gravado no atendimento. A vitrine (cards do
+  wizard, widget embutido, `/especialidades/`, página do serviço, `/promocoes/`) sai de uma função
+  só, `services/precos.precos_de_vitrine` (2 consultas para o catálogo inteiro): preço base do dia
+  (sem base, o menor entre os profissionais) com a promoção que o agendamento aplicaria — e só se
+  ela reduz o valor (a vitrine nunca anuncia o que o atendimento não grava).
+- **Branding**: `utils/branding.get_branding()` — precedência **tela Identidade visual ("Branding";
+  tabela `configuracao`, `forms/cadastros.MarcaForm`) > env > padrão**; contatos vazios escondem o
+  item no site; campo igual ao valor em uso não conta como alteração e apagar o ajuste volta ao
+  padrão. As regras operacionais (`email_admin`, `MAX_FALTAS_BLOQUEIO`) são outra tela, com o
+  registro tipado de `models/configuracao.py`.
 - **Comunicação** (`services/comunicacao.py`): toda mensagem ligada a um atendimento é uma
   `Notificacao` (tipo × canal × status) — o histórico do que a cliente e a equipe receberam.
-  Os e-mails de confirmação, cancelamento e o pedido de aprovação à profissional nascem
-  `Notificacao` EMAIL PENDENTE **na transação de quem pediu** (outbox) e saem no `on_commit`; se
-  falhar, o job `emails` reenvia com espera crescente (5/10/20/40 min) até 5 tentativas ou 48 h →
-  FALHOU. A fila não guarda cópia de PII: destino e texto saem do atendimento na hora do envio.
-  Marketing e avisos em lote saem direto pelos jobs. Sem Celery (nada roda em segundo plano).
+  Os e-mails de confirmação, cancelamento, lembrete D-1 (quem não autorizou o WhatsApp) e o pedido
+  de aprovação à profissional nascem `Notificacao` EMAIL PENDENTE **na transação de quem pediu**
+  (outbox) e saem no `on_commit`; se falhar, o job `emails` reenvia com espera crescente
+  (5/10/20/40 min) até 5 tentativas ou 48 h → FALHOU (lembrete de horário que já passou ou foi
+  cancelado vira FALHOU sem envio). A fila não guarda cópia de PII: destino e texto saem do
+  atendimento na hora do envio. Marketing (`services/marketing`) e avisos em lote saem direto
+  (disparo da promoção no request, em lotes; aniversário e pacote pelos jobs). Sem Celery (nada
+  roda em segundo plano).
 - **Front**: `static/src/js/app.js` registra componentes Alpine CSP-safe (`temaToggle`,
   `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`,
   `pacoteCriar`) + `data-confirm` global e a busca instantânea do painel. Componentes cotton:
@@ -219,7 +276,11 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   WhatsApp — tag `{% agendar_link %}`, builtin, usada em todo link p/ o wizard), `<c-servico.passo>`,
   `<c-servico.cartao>`/`<c-servico.item>` (páginas de serviço) e o chrome do site (`cabecalho` com o menu de
   `{% menu_publico %}` — uma lista p/ desktop e celular, `aria-current` —, `rodape`, `mensagens`,
-  `cookie_consent`). Tema: sem escolha segue o sistema (`prefers-color-scheme`); o botão grava o cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
+  `cookie_consent` — aviso informativo: o site só usa cookies essenciais; "Entendi" grava
+  `cookie_consent=essenciais` no próprio navegador e nada vai ao servidor). Menu do painel numa
+  lista só, `templatetags/painel_tags.MENU_PAINEL` (Operação: visão geral, agenda, calendário,
+  retornos, clientes, prontuário, notificações; Cadastros; Relatórios: financeiro, comissões,
+  NPS; Sistema). O portal da profissional tem casca própria (`profissional/base.html`). Tema: sem escolha segue o sistema (`prefers-color-scheme`); o botão grava o cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
   Tokens em `tokens.css` (contraste AA conferido nos 2 temas): texto, `--cor-borda-campo` (3:1 nos
   inputs), `--cor-foco` (anel `:focus-visible` global), erro/sucesso/aviso/info/destaque com `-fundo`
   e o status do atendimento (`--st-<status>-fundo/-texto`, classes `.status-<STATUS>`); nada de cor
@@ -263,7 +324,10 @@ python manage.py runserver              # terminal 2
 | `bootstrap_admin [--reset-senha]` | Cria/reativa o ADMIN a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (e-mail em minúsculas; senha passa pelos validadores). Senha de conta existente só muda se estava desativada/sem senha ou com `ADMIN_PASSWORD_RESET=true`. Reativação apaga o 2FA antigo da conta. Nunca derruba o pre-deploy; ao final escreve **ERRO** em stderr se não sobrar ADMIN utilizável. |
 | `migrate_atomico [--noinput]` | `migrate` numa transação única no Postgres (tudo ou nada), `SET LOCAL lock_timeout = '5s'`, `SET LOCAL app.origem = 'migracao'` (trilha `historico_alteracao`), `SET CONSTRAINTS ALL IMMEDIATE` entre migrations. Fora do Postgres vira `migrate` normal. Usado no pre-deploy e na CI. |
 | `setup_2fa <email> [--force] [--name]` | Cria TOTP confirmado, imprime URI `otpauth://` + QR ASCII e 10 códigos de backup. `--force` = reset completo (apaga todos os devices OTP do usuário; auditado). Recuperação de acesso da equipe. |
-| `carregar_feriados [--ano N]` | Feriados nacionais (fixos + móveis via Páscoa), idempotente; sem `--ano` = ano atual e seguinte. |
+| `carregar_feriados [--ano N]` | Feriados nacionais (fixos + móveis via Páscoa, `services/feriados`), idempotente; sem `--ano` = ano atual e seguinte. |
+| `rodar_job <job> [--forcar] [--lista]` | Roda um job do §10 uma vez (o mesmo do `/cron/run/<job>/`; trilha `comando:<job>`; erro = exit 1). Job de mensagem que já rodou hoje não roda de novo (aviso, exit 0) — `--forcar` passa por cima, depois de uma falha. |
+| `rodar_jobs_devidos [--somente a,b] [--agora AAAA-MM-DDTHH:MM]` | Roda os jobs cujo horário da `JOB_AGENDA` caiu nos últimos 15 min (comando do serviço Cron, §13.2); um job que falha não impede os outros e o exit code no fim é 1. `--agora` simula o relógio (fuso da clínica). |
+| `reaplicar_esquecimentos [--listar --desde AAAA-MM-DD] [arquivo.json]` | Em volta de uma restauração de backup: lista (antes, no banco atual) e reaplica (depois, no restaurado) as anonimizações feitas depois do backup (§14 g). |
 | `gerar_chave_cifragem` | Imprime uma chave nova para `CHAVES_CIFRAGEM`. |
 | `consultas_lentas [--top N] [--ordem total\|media\|chamadas\|linhas] [--zerar]` | Top do `pg_stat_statements` (texto normalizado, sem valores): mede antes de criar índice; `--zerar` recomeça a contagem. Sem a extensão, explica como ligar (§14 h). Só Postgres. |
 | `rotacionar_chave_cifragem [--dry-run]` | Recifra tudo com a 1ª chave de `CHAVES_CIFRAGEM` (inclusive a trilha do prontuário), numa transação, com os triggers de usuário das tabelas desligados durante o UPDATE; auditado. Passo do meio da rotação (nova na frente → rodar → tirar a antiga). |
@@ -278,15 +342,15 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 
 ### 5.1 Resumo
 
-- **36 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
-- Migrations `0001`–`0067`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
+- **37 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
+- Migrations `0001`–`0074`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
   O Postgres do ambiente de desenvolvimento no Railway (na `0026`) está em stand-by. Histórico em
   [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da `0048` em diante, o padrão
   SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md).
-- **Lógica no banco** (0056–0059, só Postgres — §5.4): 46 triggers (`atualizado_em`,
-  imutabilidade, validação, trilha `historico_alteracao`), 23 funções `fn_*`, 9 views `vw_*` de
-  relatório e 4 procedures `sp_*` que são a **fonte única** da escrita de retenção/LGPD. Exige as
-  extensões `btree_gist`, `pg_trgm` e `unaccent` (o PG 18 do Railway tem).
+- **Lógica no banco** (0056–0059, revista na 0065–0066, 0072 e 0074; só Postgres — §5.4): 47
+  triggers (`atualizado_em`, imutabilidade, validação, trilha `historico_alteracao`), 24 funções
+  `fn_*`, 9 views `vw_*` de relatório e 4 procedures `sp_*` que são a **fonte única** da escrita de
+  retenção/LGPD. Exige as extensões `btree_gist`, `pg_trgm` e `unaccent` (o PG 18 do Railway tem).
 - **Padrão SQL em todas as tabelas** (0054/0055): nomes ASCII snake_case PT-BR no singular;
   colunas `eh_`/`tem_` (booleano), `data_`/`hora_`/`_em`, `valor_`, `qtd_`, `url_`, `_hash`
   (`char(64)`), `_ref` (id externo), FK `<tabela>[_papel]_id` e autoria `usuario_autor_id`;
@@ -305,39 +369,40 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 
 | Domínio | Tabela (model) | Para que serve |
 |---|---|---|
-| Acesso | `usuario` (Usuario) | Equipe. Login por e-mail; `papel` ADMIN/PROFISSIONAL/RECEPCAO (CHECK); `is_staff` = ADMIN; 1:1 opcional com Profissional; `eh_ativo` (desativar, nunca excluir) |
+| Acesso | `usuario` (Usuario) | Equipe. Login por e-mail; `papel` ADMIN/PROFISSIONAL (CHECK; RECEPCAO saiu na 0072); `is_staff` = ADMIN; 1:1 opcional com Profissional; `eh_ativo` (desativar, nunca excluir) |
 | | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário (`usuario_id`, `chave_p256dh`, `chave_auth`) |
 | | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor (`usuario_autor_id`) + snapshot `usuario_autor_nome` ("Nome <email>"), ação, `tabela` + `registro_pk` (bigint), detalhes JSON (PII mascarada), IP. Append-only no PG (0059): só a purga com 180+ dias, a pseudonimização do esquecimento e o `SET NULL` do autor |
 | | `historico_alteracao` (HistoricoAlteracao) | **Trilha de dados** gravada por trigger (0056, só PG) em prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario e configuracao: operação, só as `colunas_alteradas` com antes/depois (`senha_hash` = `"[redigido]"`), autor/IP/origem da sessão (`web`, `cron:<job>`, `comando:<job>`, `migracao`), `transacao_ref`. Append-only; Django admin só leitura (leitura auditada). `cliente` fica fora de propósito (PII; o esquecimento obrigaria a expurgar a trilha) |
-| Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone só dígitos (10–11) é a chave natural; e-mail/CPF opcionais (ausente = `NULL`); consentimentos de comunicação na tabela `consentimento` (histórico, 0050); `qtd_faltas_consecutivas`/`eh_bloqueado_online`; soft delete (`deletado_em`); `cliente_indicador_id` (cashback); `nome` com collation `pt_br` |
-| | `profissional` (Profissional) | Quem atende. `antecedencia_minima_horas` (0–720, padrão 2), `antecedencia_maxima_dias` (1–365, padrão 60), campos do Google Calendar (`gcal_token_renovacao`, `gcal_calendario_ref`...). Feed ICS por `link_acesso` (FEED_ICS) |
-| Catálogo | `procedimento` (Procedimento) | Serviço: duração, `intervalo_minutos` (folga após, 0–120), categoria, modalidade, retorno obrigatório (`tem_retorno_obrigatorio` + janela em dias + duração do retorno) |
+| Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone canônico (`utils/telefone`, 10–11 dígitos) é a chave natural; e-mail, CPF, nascimento, CEP e endereço opcionais (ausente = `NULL`) — CPF/CEP/endereço só pela finalidade (nota fiscal e contrato de pacote); RG, profissão e foto não são coletados (saíram na 0074); consentimentos de comunicação na tabela `consentimento` (histórico, 0050); `qtd_faltas_consecutivas`/`eh_bloqueado_online`; soft delete (`deletado_em`); `cliente_indicador_id` (cashback); `nome` com collation `pt_br` |
+| | `profissional` (Profissional) | Quem atende. `antecedencia_minima_horas` (0–720, padrão 2), `antecedencia_maxima_dias` (1–365, padrão 60), vitrine (especialidade, foto, biografia). A agenda vai para o calendário dela só pelo feed ICS (`link_acesso` FEED_ICS; o Google Agenda saiu na 0071) |
+| Catálogo | `procedimento` (Procedimento) | Serviço: duração, `intervalo_minutos` (folga após, 0–120), categoria, retorno obrigatório (`tem_retorno_obrigatorio` + janela em dias + duração do retorno). Todo atendimento é presencial (modalidade e link de videoconferência saíram na 0073) |
 | | `habilitacao` (Habilitacao) | Profissional × procedimento (M2M through) |
 | | `preco` (Preco) | Preço versionado por `data_inicio_vigencia`, base (sem profissional) ou por profissional |
-| | `promocao` (Promocao) | Desconto 0–100% **XOR** preço fixo, período, procedimento (nulo = geral, só percentual vale) |
+| | `promocao` (Promocao) | Desconto 0–100% **XOR** preço fixo, período (vale pela data do atendimento), procedimento (nulo = geral, só percentual vale); disparo por e-mail com o estado na própria linha (`envio_cursor` = último cliente já reservado num lote em andamento, `disparada_em` = início do último disparo; 0068) |
 | Agenda | `agenda_horario` (AgendaHorario) | Grade semanal: várias janelas por dia, sem sobreposição; `dia_semana` **ISO** (1=seg … 7=dom = `isoweekday()`) |
-| | `agenda_excecao` (AgendaExcecao) | Tudo que muda a grade numa data: **FOLGA** (intervalo `data_inicio..data_fim`; sem profissional = clínica inteira: feriado nacional/local, recesso), **HORARIO_DIFERENTE** (substitui a grade num dia) e **BLOQUEIO** (`data_hora_*`, pontual ou recorrente por RRULE no subconjunto DAILY/WEEKLY/MONTHLY + `data_fim_recorrencia`; sem profissional = "Todos"). `origem` MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO/GCAL (+ `origem_ref` = id do evento Google); `eh_ativo=false` = registrada e ignorada (ex.: feriado em que a clínica abre). 0048 unificou as 4 tabelas antigas |
+| | `agenda_excecao` (AgendaExcecao) | Tudo que muda a grade numa data: **FOLGA** (intervalo `data_inicio..data_fim`; sem profissional = clínica inteira: feriado nacional/local, recesso), **HORARIO_DIFERENTE** (substitui a grade num dia) e **BLOQUEIO** (`data_hora_*`, pontual ou recorrente por RRULE no subconjunto DAILY/WEEKLY/MONTHLY + `data_fim_recorrencia`; sem profissional = "Todos"). `origem` MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO (GCAL e `origem_ref` saíram na 0071; as importadas viraram MANUAL); `eh_ativo=false` = registrada e ignorada (ex.: feriado em que a clínica abre). 0048 unificou as 4 tabelas antigas |
 | | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem_id`), `atendimento_reagendado_id` (o antigo que este substitui) |
-| | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE, LEMBRETE_2H, CONFIRMACAO, CANCELAMENTO, NPS, PESQUISA, APROVACAO, TERMO), canal, status PENDENTE/ENVIADO/FALHOU; também a fila do e-mail (`tentativas`, `proxima_tentativa_em`, índice parcial `ix_notificacao_fila_email`, 0061); o link público (/confirmar/, /nps/, /termo/) vive em `link_acesso` |
+| | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE — D-1 por WhatsApp ou e-mail —, CONFIRMACAO, CANCELAMENTO, NPS, APROVACAO, TERMO; LEMBRETE_2H e PESQUISA, sem produtor, saíram na 0073), canal, status PENDENTE/ENVIADO/FALHOU; também a fila do e-mail (`tentativas`, `proxima_tentativa_em`, índice parcial `ix_notificacao_fila_email`, 0061); o link público (/confirmar/, /nps/, /termo/) vive em `link_acesso` |
 | | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, `profissional_desejado_id` opcional, `email_contato`, `eh_notificado`) |
 | Clínico | `prontuario` (Prontuario) | Ficha base 1:1 com a cliente: alergias, contraindicações, histórico, medicamentos, observações + `respostas` (JSONB `{key: valor}` do questionário do prontuário = formulário PRONTUARIO ativo, 0051; atributo Python `respostas_extras`) |
 | | `prontuario_versao` (ProntuarioVersao) | **Histórico append-only** da ficha: foto do estado anterior a cada edição, com autor (`usuario_autor_id` + `usuario_autor_nome`, 0046) |
 | | `anotacao_sessao` (AnotacaoSessao) | Nota clínica por atendimento; autor PROTECT + snapshot `usuario_autor_nome` |
-| | `formulario` (FormularioAnamnese) | Questionário único em `perguntas` (`[{key, tipo, label, obrigatorio, opcoes?, alerta_saude?}]`): ANAMNESE e PESQUISA (respondidas pela cliente) e PRONTUARIO (perguntas extras da ficha, preenchidas pela equipe — no máximo 1 ativo, sempre GLOBAL, nunca obrigatório; 0051). Escopo + `eh_obrigatorio`. Era `formulario_anamnese` até a 0054 |
+| | `formulario` (FormularioAnamnese) | Questionário único em `perguntas` (`[{key, tipo, label, obrigatorio, opcoes?, alerta_saude?}]`): ANAMNESE e PESQUISA (respondidas pela cliente) e PRONTUARIO (perguntas extras da ficha, preenchidas pela equipe — no máximo 1 ativo, sempre GLOBAL, nunca obrigatório; 0051). Escopo GLOBAL/CATEGORIA/PROCEDIMENTO (o MODALIDADE saiu na 0073) + `eh_obrigatorio`. Era `formulario_anamnese` até a 0054 |
 | | `resposta_formulario` (RespostaAnamnese) | Ficha respondida (`respostas`, `respondido_em`) por cliente/atendimento; link público do convite em `link_acesso` (FORMULARIO, 60 dias). Era `resposta_anamnese` até a 0054 |
 | LGPD | `versao_termo` (VersaoTermo) | Termo versionado (LGPD, SAUDE ou PROCEDIMENTO); 1 ativo por escopo; imutável depois do 1º aceite |
 | | `aceite_termo` (AceiteTermo) | Prova do aceite: cliente, versão, atendimento, `ip_origem`, user-agent, `conteudo_hash` (SHA-256 do texto, `char(64)`; `NULL` = aceite anterior à 0044), data. Imutável (trigger) |
 | | `codigo_otp` (CodigoOtp) | Desafio OTP (`codigo_hash` HMAC-SHA256 com a SECRET_KEY, `char(64)`) por `identificador` (e-mail ou `sms+<dígitos>@shivazen.local`), propósito AGENDAMENTO/LOGIN_CLIENTE/DSAR, TTL, `qtd_tentativas` |
-| | `consentimento` (Consentimento) | **Histórico append-only** de concessão/revogação por finalidade × canal (MARKETING/EMAIL, PESQUISA_SATISFACAO/WHATSAPP, LEMBRETE_AGENDAMENTO/WHATSAPP): origem (AGENDAMENTO_ONLINE, DESCADASTRO, PAINEL, ESQUECIMENTO, MIGRACAO, ADMIN), texto exibido, IP, user-agent, autor, `registrado_em`. Estado atual = linha mais recente do par; sem linha = não concedido (0050) |
-| | `link_acesso` (LinkAcesso) | Link público com token ("link mágico"): `finalidade` (GERENCIAR_AGENDAMENTO — só os migrados —, CONFIRMAR_PRESENCA, NPS, TERMO, FORMULARIO, DESCADASTRO, FEED_ICS) + exatamente 1 alvo (atendimento, notificação, ficha, cliente ou profissional); só o **SHA-256** do token (`token_hash char(64)`, sem pepper: rotacionar a SECRET_KEY não derruba link enviado), `expira_em`, `usado_em`, `revogado_em`. O token em claro só existe na URL entregue (0049) |
+| | `consentimento` (Consentimento) | **Histórico append-only** de concessão/revogação por finalidade × canal (MARKETING/EMAIL, PESQUISA_SATISFACAO/WHATSAPP, LEMBRETE_AGENDAMENTO/WHATSAPP): origem (AGENDAMENTO_ONLINE, DESCADASTRO, PAINEL, ESQUECIMENTO, MIGRACAO, ADMIN, WHATSAPP — o "PARAR" respondido no WhatsApp, 0069), texto exibido, IP, user-agent, autor, `registrado_em`. Estado atual = linha mais recente do par; sem linha = não concedido (0050) |
+| | `link_acesso` (LinkAcesso) | Link público com token ("link mágico"): `finalidade` (CONFIRMAR_PRESENCA, NPS, TERMO, FORMULARIO, DESCADASTRO, FEED_ICS) + exatamente 1 alvo (notificação, ficha, cliente ou profissional; o legado GERENCIAR_AGENDAMENTO e o alvo atendimento saíram na 0072); só o **SHA-256** do token (`token_hash char(64)`, sem pepper: rotacionar a SECRET_KEY não derruba link enviado), `expira_em`, `usado_em`, `revogado_em`. O token em claro só existe na URL entregue (0049) |
 | NPS | `avaliacao_nps` (AvaliacaoNPS) | Nota 0–10 + comentário, `eh_publicacao_autorizada` (opt-in da cliente) e `eh_publicacao_aprovada` (moderação; CHECK: só com o opt-in), `eh_alerta_enviado` |
 | Pacotes | `pacote` / `pacote_item` | **Catálogo** (editável a qualquer momento): pacote (`valor_total`, validade em meses) e seus itens (procedimento × `qtd_sessoes`) — só vale p/ vendas futuras. `pacote_item` era `item_pacote` até a 0054 |
-| | `compra_pacote` (CompraPacote) | Venda a uma cliente (`CompraPacote.vender`): `pacote_nome` congelado, `valor_pago`, `valor_reembolsado`, status ATIVO/FINALIZADO/CANCELADO/EXPIRADO, `data_expiracao` |
-| | `compra_pacote_item` (CompraPacoteItem) | **O que foi vendido** (snapshot imutável, 0052): procedimento, `procedimento_nome`, `qtd_sessoes`, `valor_unitario` (= valor pago ÷ sessões da compra — base da comissão da sessão). Saldo, débito, finalização, e-mail de expiração e DSAR leem daqui |
+| | `compra_pacote` (CompraPacote) | Venda a uma cliente (`CompraPacote.vender`): `pacote_nome` congelado, `valor_pago`, `valor_reembolsado`, status ATIVO/FINALIZADO/CANCELADO/EXPIRADO, `data_expiracao` (prorrogável pelo ADMIN), `cancelado_em` (instante do cancelamento: o reembolso deduz a receita do mês dele — competência, 0065) |
+| | `compra_pacote_item` (CompraPacoteItem) | **O que foi vendido** (snapshot imutável, 0052): procedimento, `procedimento_nome`, `qtd_sessoes`, `valor_unitario` (valor pago rateado pelo preço de tabela de cada procedimento no dia da venda; uniforme se falta preço — base da comissão da sessão). Saldo, débito, finalização, e-mail de expiração e DSAR leem daqui |
 | | `consumo_sessao` (ConsumoSessao) | 1 sessão consumida por atendimento (OneToOne) de 1 item da compra (`compra_pacote_item`) |
-| Financeiro | `carteira` / `movimento_carteira` | Saldo da cliente (`valor_saldo`, CHECK ≥ 0) e ledger append-only (trigger; `valor` > 0, `valor_saldo_resultante` ≥ 0, autor `usuario_autor_id`) — hoje só cashback de indicação e estorno |
-| | `regra_comissao` / `movimento_comissao` | Regra (`percentual` 0–100 XOR `valor_fixo`; usada = PROTECT, só desativa) e **livro-razão** de comissão (0053): CREDITO (1 por atendimento, `regra_comissao_id`), PAGAMENTO e ESTORNO (referenciam o crédito, `usuario_autor`). Status PENDENTE/PAGA/ESTORNADA e saldo (pode ficar negativo) são derivados (`creditos_com_status`, `ComissaoService.saldos_por_profissional`) |
-| Infra | `configuracao` (Configuracao) | Chave-valor: campos do Branding, `email_admin`, `MAX_FALTAS_BLOQUEIO` (opcional). As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) |
+| Financeiro | `carteira` / `movimento_carteira` | Saldo da cliente (`valor_saldo`, CHECK ≥ 0) e ledger append-only (trigger; `valor` > 0, `valor_saldo_resultante` ≥ 0, autor `usuario_autor_id`) — programa de indicação: origem CASHBACK_INDICACAO/CASHBACK_ESTORNO, USO_AGENDAMENTO (crédito usado no valor do atendimento), CANCELAMENTO (devolução) e AJUSTE_MANUAL, sempre explícita (sem default; VALE_PRESENTE e OUTRO saíram na 0067). Reembolso de pacote é em dinheiro, nunca crédito |
+| | `regra_comissao` / `movimento_comissao` | Regra (`percentual` 0–100 XOR `valor_fixo`; usada não muda nem se exclui — só desativa: `tg_regra_comissao_validar`, 0066) e **livro-razão** de comissão (0053): CREDITO (no máximo 1 ativo — não estornado — por atendimento, 0063; `regra_comissao_id` + snapshot `valor_base_calculo`/`percentual_aplicado`, 0066), PAGAMENTO (baixa ou repasse em lote) e ESTORNO (referenciam o crédito, `usuario_autor`). Status PENDENTE/PAGA/ESTORNADA e saldo (pode ficar negativo) são derivados (`creditos_com_status`, `ComissaoService.saldos_por_profissional`) |
+| Infra | `configuracao` (Configuracao, `models/configuracao.py`) | Chave-valor com dois donos: a marca e os contatos (`utils/branding.BRANDING_FIELDS`, tela Identidade visual, validação própria) e as **regras operacionais** — registro tipado `CHAVES` (`email_admin`: e-mail válido ou vazio; `MAX_FALTAS_BLOQUEIO`: inteiro de 1 a 10, padrão 3), lido por `Configuracao.ler` (valor em branco ou recusado pelo registro → padrão, com aviso no log). A tela Regras operacionais lista e grava só o registro, sem chave livre; "Restaurar padrão" apaga a linha. As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) e o cursor do disparo de promoção na 0068 (vai na `promocao`) |
+| | `execucao_job` (ExecucaoJob) | Uma linha por job de mensagem sem marca por destinatário (`aniversario`, `pacote_expirando`, `nps_24h`) e dia local: UNIQUE `job`+`dia` faz a 2ª chamada do dia receber 409 em vez de reenviar tudo (`jobs.executar`); `concluido_em` NULL = em andamento ou falhou, `resultado` = resumo ou tipo do erro. Sem dado pessoal (0070) |
 
 ### 5.3 Invariantes garantidas pelo banco
 
@@ -358,14 +423,19 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Um cashback por atendimento | `uq_movimento_carteira_cashback_por_atendimento` | 0025/0032 / 0055 |
 | Padrão de nomes: PK `pk_<t>`, FK `fk_<t>_<coluna>` com `ON DELETE` igual ao `on_delete` do model, UNIQUE de OneToOne `uq_`, sequência `<t>_id_seq`, nenhum índice `_like`, `COMMENT` em toda tabela | `PadronizarNomes()` + `tests/test_nomes_padrao.py` (**só PG**) | 0055 |
 | Grade sem janelas sobrepostas; folgas ativas do mesmo profissional sem sobreposição | `ex_agenda_horario_sobreposicao`, `ex_agenda_excecao_folga_sobreposta` — EXCLUDE gist (**só PG**) | 0048 |
-| Exceção coerente com o tipo (FOLGA = datas, HORARIO_DIFERENTE = 1 dia + horas, BLOQUEIO = instantes); feriado/recesso só como FOLGA da clínica; GCAL só BLOQUEIO de profissional | `ck_agenda_excecao_*` (tipo, origem, folga, horario_diferente, bloqueio, recorrencia, feriado_global, gcal) | 0048 |
+| Exceção coerente com o tipo (FOLGA = datas, HORARIO_DIFERENTE = 1 dia + horas, BLOQUEIO = instantes); feriado/recesso só como FOLGA da clínica; origem MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO | `ck_agenda_excecao_*` (tipo, origem, folga, horario_diferente, bloqueio, recorrencia, feriado_global) | 0048 / 0071 |
 | RRULE só no subconjunto que o motor expande | `ck_agenda_excecao_regra_recorrencia_suportada` (regex, **só PG**; `clean()` normaliza) | 0048 |
-| 1 horário diferente ativo por profissional/dia; 1 feriado por origem/data; importação do Google idempotente | `uq_agenda_excecao_horario_diferente_dia`, `uq_agenda_excecao_feriado`, `uq_agenda_excecao_gcal_evento` | 0048 |
-| Link público: alvo coerente com a finalidade (1 FK); 1 link por hash; hash = sha256 hex; depois de criado só `usado_em`/`revogado_em` mudam (uma vez cada) | `ck_link_acesso_finalidade`, `ck_link_acesso_alvo_por_finalidade`, `uq_link_acesso_token_hash`; `ck_link_acesso_token_hash_formato` e trigger `tg_link_acesso_imutavel` (**só PG**) | 0049 |
-| Consentimento: só os 3 pares finalidade × canal que existem, origem no domínio; histórico append-only (só a anonimização pode apagar IP/user-agent) | `ck_consentimento_finalidade`, `_canal`, `_finalidade_canal`, `_origem`; trigger `tg_consentimento_imutavel` (**só PG**) | 0050 |
-| Questionário: tipo/escopo no domínio e coerentes (escopo PROCEDIMENTO/CATEGORIA/MODALIDADE com o alvo); PRONTUARIO sempre GLOBAL e não obrigatório; no máximo 1 PRONTUARIO ativo | `ck_formulario_tipo`, `ck_formulario_escopo`, `ck_formulario_escopo_coerente`, `ck_formulario_prontuario_global`, `uq_formulario_prontuario_ativo` | 0051 |
+| 1 horário diferente ativo por profissional/dia; 1 feriado por origem/data | `uq_agenda_excecao_horario_diferente_dia`, `uq_agenda_excecao_feriado` | 0048 |
+| Link público: alvo coerente com a finalidade (1 FK: notificação, ficha, cliente ou profissional); 1 link por hash; hash = sha256 hex; depois de criado só `usado_em`/`revogado_em` mudam (uma vez cada) | `ck_link_acesso_finalidade`, `ck_link_acesso_alvo_por_finalidade`, `uq_link_acesso_token_hash`; `ck_link_acesso_token_hash_formato` e trigger `tg_link_acesso_imutavel` (**só PG**) | 0049 / 0072 |
+| Consentimento: só os 3 pares finalidade × canal que existem, origem no domínio (inclui WHATSAPP); histórico append-only (só a anonimização pode apagar IP/user-agent) | `ck_consentimento_finalidade`, `_canal`, `_finalidade_canal`, `_origem`; trigger `tg_consentimento_imutavel` (**só PG**) | 0050 / 0069 |
+| Questionário: tipo/escopo no domínio e coerentes (escopo PROCEDIMENTO/CATEGORIA com o alvo); PRONTUARIO sempre GLOBAL e não obrigatório; no máximo 1 PRONTUARIO ativo | `ck_formulario_tipo`, `ck_formulario_escopo`, `ck_formulario_escopo_coerente`, `ck_formulario_prontuario_global`, `uq_formulario_prontuario_ativo` | 0051 / 0073 |
+| Papel da equipe só ADMIN/PROFISSIONAL; tipo de notificação só os 6 com produtor | `ck_usuario_papel`, `ck_notificacao_tipo` | 0072 / 0073 |
 | Pacote vendido: 1 item por procedimento na compra, sessões > 0, valor ≥ 0; item imutável; o consumo é de um item **da mesma compra**, do **mesmo procedimento**, nunca de retorno e só com saldo | `uq_compra_pacote_item_compra_procedimento`, `ck_compra_pacote_item_*`; FK composta `fk_consumo_sessao_compra_pacote_item_compra`, triggers `tg_consumo_sessao_validar` e `tg_compra_pacote_item_imutavel` (**só PG**; o Python espelha no `save()`) | 0052 |
-| Comissão: 1 CREDITO por atendimento (nem depois de estornado), ≤ 1 PAGAMENTO e ≤ 1 ESTORNO por crédito, valor > 0, origem só fora do CREDITO, regra só no CREDITO; PAGAMENTO/ESTORNO repetem profissional/atendimento/valor do crédito; estornado não se paga; ledger append-only | `uq_movimento_comissao_credito_por_atendimento`, `…_estorno_por_origem`, `…_pagamento_por_origem`, `ck_movimento_comissao_*`; triggers `tg_movimento_comissao_validar` e `tg_movimento_comissao_imutavel` (**só PG**) | 0053 |
+| Comissão: no máximo 1 CREDITO ativo (não estornado) por atendimento — estornado, pode nascer outro (valor corrigido, realização refeita) —, ≤ 1 PAGAMENTO e ≤ 1 ESTORNO por crédito, valor > 0, origem só fora do CREDITO, regra e snapshot (`valor_base_calculo`, `percentual_aplicado` 0–100) só no CREDITO, comissão nunca acima da base; PAGAMENTO/ESTORNO repetem profissional/atendimento/valor do crédito; estornado não se paga; ledger append-only | `…_estorno_por_origem`, `…_pagamento_por_origem`, `ck_movimento_comissao_*` (inclui `_snapshot_so_credito`, `_valor_ate_base_calculo`, `_percentual_aplicado_0_100`); triggers `tg_movimento_comissao_validar` (o crédito ativo único, 0063) e `tg_movimento_comissao_imutavel` (**só PG**; o Python espelha no `save()`) | 0053 / 0063 / 0066 |
+| Regra de comissão já usada não muda profissional, procedimento, percentual nem valor fixo (só desativa) | trigger `tg_regra_comissao_validar` (**só PG**; `RegraComissao.save()` espelha) | 0066 |
+| Compra de pacote: `cancelado_em` preenchido se e só se CANCELADO; só a cancelada tem reembolso | `ck_compra_pacote_cancelado_em_coerente`, `ck_compra_pacote_reembolso_so_cancelado` | 0065 |
+| Movimento da carteira só com origem que tem fluxo, sempre explícita | `ck_movimento_carteira_origem` (sem VALE_PRESENTE/OUTRO, sem default) | 0067 |
+| Job de mensagem roda no máximo 1 vez por dia (local) | `uq_execucao_job_job_dia` | 0070 |
 | `atualizado_em` sempre atualizado, inclusive em `QuerySet.update()`, procedure e SQL manual (o valor que o ORM manda é respeitado) | `fn_definir_atualizado_em` + `tg_<t>_atualizado_em` nas 22 tabelas com a coluna (**só PG**; o teste de conformidade reprova tabela com a coluna e sem o trigger) | 0056 |
 | Nota de sessão é append-only (correção = nova nota) | `tg_anotacao_sessao_imutavel` (**só PG**; o Python recusa save/delete/update) | 0056 |
 | Toda escrita nas 11 tabelas sensíveis fica na trilha `historico_alteracao` (autor, IP, origem); a trilha é append-only — só o `SET NULL` do autor e a purga de retenção (flag local `app.expurgo_autorizado` **e** 180+ dias; prontuário 20 anos) passam | `fn_registrar_historico` + `tg_<t>_historico`; `fn_historico_alteracao_imutavel` + `tg_historico_alteracao_imutavel`; `ck_historico_alteracao_*` (**só PG**) | 0056 / 0059 |
@@ -388,11 +458,11 @@ fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sq
 |---|---|---|
 | `tg_<t>_atualizado_em` (22) | `fn_definir_atualizado_em`: preenche `atualizado_em` quando o UPDATE não mexeu nela | todo UPDATE |
 | `tg_<t>_historico` (11) | `fn_registrar_historico` (AFTER, por linha): grava `historico_alteracao` — só colunas alteradas; UPDATE só de `atualizado_em` não gera linha | prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario (`senha_hash` redigida), configuracao |
-| `tg_*_imutavel` / `tg_*_validar` (12) | append-only (`movimento_*`, `anotacao_sessao`, `compra_pacote_item`, `aceite_termo`, `versao_termo` aceita, `prontuario_versao`, `consentimento`, `link_acesso`, `historico_alteracao`) e validação (`consumo_sessao`, `movimento_comissao`) — SQLSTATE 23 → `IntegrityError` | — |
+| `tg_*_imutavel` / `tg_*_validar` (13) | append-only (`movimento_*`, `anotacao_sessao`, `compra_pacote_item`, `aceite_termo`, `versao_termo` aceita, `prontuario_versao`, `consentimento`, `link_acesso`, `historico_alteracao`) e validação (`consumo_sessao`, `movimento_comissao` — crédito ativo único, 0063 —, `regra_comissao` usada, 0066) — SQLSTATE 23 → `IntegrityError` | — |
 | `fn_fuso_clinica()`, `fn_data_local(ts)`, `fn_sem_acento(txt)` | fuso explícito (`America/Sao_Paulo` = `TIME_ZONE`), data local, `lower(unaccent())` IMMUTABLE | views/funções; `ix_cliente_nome_trgm` (GIN trigram) e a busca de cliente (`utils/busca.filtrar_clientes`: "joao" acha "João") |
 | `fn_horarios_livres`, `fn_ocorrencias_recorrencia`, `fn_recorrencia_casa_dia`, `fn_saldo_pacote`, `fn_nps_periodo`, `fn_saldo_comissao`, `fn_tem_consentimento`, `fn_clientes_para_anonimizar` | **espelho de leitura** do Python (SlotService, `AgendaExcecao.ocorrencias`, `saldo_por_procedimento`, `utils/nps`, `ComissaoService`, `services/consentimentos`); `fn_clientes_para_anonimizar` é a regra da retenção (sem espelho: `LgpdService.candidatos_retencao` lê dela), travado por `tests/test_pg_paridade.py` | relatório/integração e as procedures — **o app continua no Python** (slots nunca vêm do SQL) |
-| `vw_agenda_dia`, `vw_faturamento_mensal`, `vw_nps_mensal`, `vw_comissao`, `vw_comissao_saldo`, `vw_cliente_resumo`, `vw_consentimento_atual`, `vw_pacote_saldo`, `vw_atendimento_sem_desfecho` | views de relatório (mesmas regras de `services/financeiro`, NPS e comissão) | BI/SQL ad hoc (`railway connect` → `SELECT * FROM vw_faturamento_mensal`); o app não lê views |
-| `sp_anonimizar_cliente(cliente, autor, ip)` | direito ao esquecimento (efeito completo testado em `test_pg_paridade`/`test_lgpd_esquecimento`) | `LgpdService.esquecer_cliente` (ação LGPD do admin) |
+| `vw_agenda_dia`, `vw_faturamento_mensal`, `vw_nps_mensal`, `vw_comissao`, `vw_comissao_saldo`, `vw_cliente_resumo`, `vw_consentimento_atual`, `vw_pacote_saldo`, `vw_atendimento_sem_desfecho` | views de relatório (mesmas regras de `services/financeiro`, NPS e comissão). `vw_faturamento_mensal` é por **competência** (0065): avulsos no mês do atendimento, pacotes = vendas no mês da venda − reembolsos no mês do cancelamento (pode ser negativo; colunas `valor_vendas_pacotes`/`valor_reembolsos_pacotes` no fim); `vw_comissao` traz o snapshot do crédito (`valor_base_calculo`, `percentual_aplicado`; 0066) | BI/SQL ad hoc (`railway connect` → `SELECT * FROM vw_faturamento_mensal`); o app não lê views |
+| `sp_anonimizar_cliente(cliente, autor, ip)` | direito ao esquecimento (efeito completo testado em `test_pg_paridade`/`test_lgpd_esquecimento`); versão vigente da 0074 (sem RG/profissão/foto e sem o alvo atendimento do link, 0072) | `LgpdService.esquecer_cliente` (ação LGPD do admin) |
 | `sp_aplicar_retencao_lgpd(...)` | anonimiza os candidatos (COMMIT por cliente), apaga fichas de pedido não realizado e espera vencida | `job_lgpd_purgar_inativos` (`LgpdService.aplicar_retencao`) |
 | `sp_purgar_dados_expirados(...)` | OTP, texto de notificação, auditoria, `link_acesso` vencido/revogado, trilha antiga (cada etapa num sub-bloco) | `job_housekeeping` (etapa `banco`) |
 | `sp_expirar_pacotes(hoje)` | compras ATIVO vencidas → EXPIRADO | `job_expirar_pacotes` |
@@ -401,7 +471,8 @@ fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sq
 `app.origem`. Quem define (`utils/banco.definir_contexto_banco`, `set_config(..., false)` = nível de
 sessão) e **sempre limpa**: o `Ator` (`ator.atuando`) aberto pelo `ContextoBancoMiddleware` (`web`
 + usuário + IP; o `/healthz/` não toca o banco) e por `views/infra/cron.py` (`cron:<job>`; aninhado, volta
-ao do request na saída) — o mesmo autor/IP vai à `LogAuditoria` —, `rodar_job` (`comando:<job>`),
+ao do request na saída) — o mesmo autor/IP vai à `LogAuditoria` —, `rodar_job` e
+`rodar_jobs_devidos` (`comando:<job>`),
 `migrate_atomico` (`SET LOCAL app.origem = 'migracao'`); conexão nova nasce limpa
 (`connection_created`). SQL manual sai com autor `NULL` e origem `''`. **PgBouncer em modo
 transação quebraria isso** (o Railway não usa): nesse dia, trocar para `ATOMIC_REQUESTS` +
@@ -419,7 +490,9 @@ só-Postgres.
 Namespace `aranha` (`aranha_estetica/urls/`) + `clinica/urls.py`. Rotas removidas nesta
 versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/produtos/`,
 `/ajax/verificar-telefone/`, `/ajax/buscar-procedimentos/`, `/ajax/buscar-horarios/`,
-`/painel/cancelar-agendamento/`.
+`/painel/cancelar-agendamento/`, `/reagendar/<token>/` (link legado; a cliente reagenda só pelo
+portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servidor) e
+`/painel/integrations/google/*` (Google Agenda).
 
 ### 6.1 Site público
 
@@ -441,15 +514,14 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 | `POST /agendamento/otp/solicitar/` · `POST /agendamento/otp/verificar/` | OTP do celular (Turnstile quando configurado) |
 | `POST /agendamento/confirmar/` · `/agendamento/sucesso/` | Grava o atendimento (PENDENTE) |
 | `/meus-agendamentos/` (+ `otp/enviar/`, `otp/verificar/`, `sair/`) | Portal da cliente (login por celular ou e-mail; código sempre ao celular) |
-| `/meus-agendamentos/<id>/reagendar/` (+ `<id>/horarios/`) | Reagendar pelo portal: id + sessão do OTP (só agendamento do telefone da sessão; até 24h antes) |
-| `POST /ajax/cancelar-agendamento/` | Cancelar: `{"atendimento_id"}` + sessão do portal, ou `{"token"}` do link legado |
-| `/reagendar/<token>/` (+ `horarios/`) | Reagendar pelo link **legado** (tokens antigos migrados na 0049; expiram no início do atendimento). Nenhum link novo é emitido |
-| `/confirmar/<token>/` | Confirmar presença / cancelar a partir do lembrete D-1 |
+| `/meus-agendamentos/<id>/reagendar/` (+ `<id>/horarios/`) | Reagendar pelo portal: id + sessão do OTP (só agendamento do telefone da sessão; até 24h antes) — o único caminho da cliente |
+| `POST /ajax/cancelar-agendamento/` | Cancelar pelo portal: `{"atendimento_id"}` + sessão do OTP |
+| `/confirmar/<token>/` | Confirmar presença / cancelar a partir do lembrete D-1 (WhatsApp ou e-mail) |
 | `/termo/<token>/` | Aceitar termo(s) do atendimento (vale até o fim do atendimento) |
-| `/nps/<token>/` | NPS (link de 7 dias) + opt-in de depoimento |
-| `/anamnese/<token>/` · `/pesquisa/<token>/` (+ `obrigado/`) | Ficha/pesquisa por link (60 dias; ficha de saúde exige consentimento art. 11). **Mantidas, hoje sem produtor de link** (decisão pendente do dono: remover × gerar o link) |
-| `/lgpd/meus-dados/` · `/lgpd/unsubscribe/<token>/` · `/lgpd/aceitar-cookies/` | DSAR com OTP, descadastro, registro do aviso de cookies |
-| `/agenda/<slug>/feed.ics?token=` | Feed iCal do profissional (link gerado no painel ou no portal do profissional; gerar = revogar o anterior; a URL só aparece na geração) |
+| `/nps/<token>/` (+ `obrigado/`) | NPS (link de 7 dias) + opt-in de depoimento; a página de obrigado oferece a pesquisa pós-atendimento, se houver |
+| `/anamnese/<token>/` · `/pesquisa/<token>/` (+ `/anamnese/obrigado/`, `/pesquisa/obrigado/`) | Ficha/pesquisa por link (60 dias; ficha de saúde exige consentimento art. 11). Produtores: "Link da ficha" na agenda do painel e convite da pesquisa no fim do NPS (D18) |
+| `/lgpd/meus-dados/` · `/lgpd/unsubscribe/<token>/` | DSAR com OTP, descadastro |
+| `/agenda/<slug>/feed.ics?token=` | Feed iCal do profissional (`views/infra/feed_ics`; link gerado no painel ou no portal do profissional; gerar = revogar o anterior; a URL só aparece na geração) |
 
 ### 6.3 Equipe
 
@@ -457,19 +529,21 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 |---|---|
 | `/admin-login/` · `/admin-logout/` (logout só via POST; GET mostra confirmação) · `/admin-login/recuperar/...` | Login da equipe e reset de senha |
 | `/painel/seguranca/2fa/` (+ `verificar/`, `challenge/`) | Cadastro e desafio TOTP |
-| `/profissional/` · `/profissional/atendimento/<pk>/{realizado,anotar,aprovar,rejeitar}/` · `POST /profissional/calendario/novo-link/` | Portal do profissional (+ gerar o próprio link do feed ICS) |
+| `/profissional/` · `/profissional/atendimento/<pk>/{realizado,anotar,aprovar,rejeitar}/` · `POST /profissional/calendario/novo-link/` · `/profissional/comissoes/` | Portal do profissional (+ gerar o próprio link do feed ICS; "Minhas comissões" do mês, só leitura) |
 | `/painel/`, `/painel/overview/` | Dashboard |
-| `/painel/agendamentos/` (+ `novo/`, `bulk/`, `<pk>/aprovar/`, `<pk>/rejeitar/`, `<pk>/termo-link/`, `<pk>/valor/`), `/painel/atualizar-status/` | Agenda em lista, agendamento interno, aprovação, link do termo, valor cobrado, mudança de status (409 `termo_pendente` sem o override) |
+| `/painel/agendamentos/` (+ `novo/`, `bulk/`, `<pk>/aprovar/`, `<pk>/rejeitar/`, `<pk>/termo-link/`, `<pk>/ficha-link/`, `<pk>/valor/`, `<pk>/desfazer-realizacao/`), `/painel/atualizar-status/` | Agenda em lista, agendamento interno, aprovação, links do termo e da ficha, valor cobrado, desfazer realização indevida, mudança de status (409 `termo_pendente` sem o override) |
+| `/painel/retornos/`, `/painel/agendamentos/<pk>/retorno/` | Retornos a marcar (só horários livres dentro da janela) |
 | `/painel/calendario/` (+ `eventos/`, `mover/`) | Calendário FullCalendar com arrastar-e-soltar |
 | `/painel/clientes/`, `/painel/clientes/<pk>/` | Clientes e ficha do cliente (pacotes, alertas, histórico) |
 | `/painel/prontuario/` (+ `<cliente_id>/`, `<cliente_id>/salvar/`), `/painel/anotacao/<id>/salvar/` | Prontuário com histórico de versões e anotações |
-| `/painel/profissionais/` (+ `<pk>/ics/novo-token/`, `<prof_id>/excecoes/...`), `/painel/cadastrar-profissional/`, `/painel/editar-profissional/<pk>/` | Profissionais, exceções, gerar link do ICS (a lista mostra só "ativo desde"; a URL aparece uma vez, na geração) |
-| `/painel/procedimentos/...`, `/painel/pacotes/...` (+ `vender/`, `compras/<pk>/cancelar/`), `/painel/promocoes/...` (+ `<pk>/disparar/`) | Catálogo, pacotes, promoções |
+| `/painel/profissionais/` (+ `<pk>/ics/novo-token/`, `<prof_id>/excecoes/...`), `/painel/cadastrar-profissional/`, `/painel/editar-profissional/<pk>/` | Profissionais, grade semanal, exceções, gerar link do ICS (a lista mostra só "ativo desde"; a URL aparece uma vez, na geração). Desligamento — profissional desativada, login dela desativado ou vínculo do login trocado — revoga o feed ICS (auditado); reativar exige gerar um link novo |
+| `/painel/procedimentos/...`, `/painel/pacotes/...` (+ `vender/`, `compras/<pk>/cancelar/`, `compras/<pk>/prorrogar/`), `/painel/promocoes/...` (+ `<pk>/disparar/`) | Catálogo, pacotes (venda, cancelamento com reembolso, prorrogação da validade), promoções (disparo em lotes; reenvio só confirmado) |
 | `/painel/bloqueios/...`, `/painel/lista-espera/` (+ `<pk>/notificar/`) | Bloqueios de agenda e lista de espera |
-| `/painel/financeiro/`, `/painel/comissoes/` (+ `<pk>/pagar/`), `/painel/nps/` (+ `<pk>/publicacao/`), `/painel/exportar-relatorio/` | Relatórios, comissões, NPS e moderação de depoimentos, Excel |
+| `/painel/financeiro/?mes=AAAA-MM`, `/painel/exportar-relatorio/?mes=AAAA-MM` | Financeiro do mês (competência; padrão o mês corrente) e o Excel gerencial do mesmo mês (exportação auditada com o mês) |
+| `/painel/comissoes/` (+ `<pk>/pagar/`, `repasse/`, `repasse/<pk>/`, `regras/`, `regras/criar/`, `regras/<pk>/ativo/`, `regras/<pk>/excluir/`) | Comissões: baixa de um crédito, repasse em lote ("pagar pendentes até") e o recibo para imprimir (sem nome de cliente), regras de comissão (usada só desativa) |
+| `/painel/nps/` (+ `<pk>/publicacao/`) | NPS e moderação de depoimentos |
 | `/painel/anamneses/...`, `/painel/termos/` (+ `criar/`, `compliance/`) | Formulários e termos |
-| `/painel/notificacoes/`, `/painel/auditoria/`, `/painel/usuarios/...`, `/painel/configuracoes/...`, `/painel/branding/`, `/painel/email-preview/[<nome>/]` | Sistema |
-| `/painel/integrations/google/{connect,callback,pull}/...` | Google Calendar (UI escondida sem `GOOGLE_OAUTH_*`) |
+| `/painel/notificacoes/`, `/painel/auditoria/`, `/painel/usuarios/...`, `/painel/configuracoes/` (+ `criar/`, `<pk>/editar/`, `<pk>/excluir/` = restaurar padrão), `/painel/branding/`, `/painel/email-preview/[<nome>/]` | Sistema: notificações, auditoria, usuários (ninguém muda o próprio papel; o último ADMIN ativo não é rebaixado nem desativado), **Regras operacionais** (só o registro tipado), **Identidade visual** (marca e contatos). As escritas de usuários, profissionais, procedimentos e regras usam `@escrita_painel` (POST + 30/min por usuário) |
 | `/webpush/{public-key,subscribe,unsubscribe}/` | Web Push da equipe |
 | `/django-admin-sv/` | Django admin (só ADMIN com sessão 2FA verificada) |
 
@@ -477,9 +551,9 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 
 | Rota | Função |
 |---|---|
-| `GET/POST /api/whatsapp/webhook/` | Meta: handshake `hub.challenge` (`WHATSAPP_VERIFY_TOKEN`) e eventos assinados (`X-Hub-Signature-256` com `WHATSAPP_APP_SECRET`); captura nota de NPS 0–10 |
-| `POST /api/zenvia/webhook/` | Status de entrega de SMS (`ZENVIA_ALLOWED_IPS` e/ou HMAC `ZENVIA_WEBHOOK_SECRET`; recusa tudo em prod sem nenhum dos dois) |
-| `POST /cron/run/<job>/` | Jobs periódicos (§10), header `X-Cron-Token` |
+| `GET/POST /api/whatsapp/webhook/` | Meta: handshake `hub.challenge` (`WHATSAPP_VERIFY_TOKEN`, tempo constante) e eventos assinados (`X-Hub-Signature-256` com `WHATSAPP_APP_SECRET`; sem o segredo recusa tudo); captura a nota de NPS 0–10 e o pedido de parar ("PARAR", "SAIR", "STOP", "cancelar mensagens", "descadastrar" — a mensagem inteira) |
+| `POST /api/zenvia/webhook/` | Status de entrega de SMS: `ZENVIA_ALLOWED_IPS` (IP/CIDR) e/ou segredo compartilhado no header `X-Zenvia-Signature` (`ZENVIA_WEBHOOK_SECRET`, o valor configurado na assinatura do webhook na Zenvia; o corpo não é assinado), comparado em tempo constante; prod sem nenhum dos dois responde 503 |
+| `POST /cron/run/<job>/` | Jobs periódicos (§10), header `X-Cron-Token`, 30 chamadas/h por IP |
 | `/healthz/` | Liveness (processo vivo + manifest do Vite); healthcheck do Railway |
 | `/health/` | Readiness: banco + cache + manifest (503 se algo falha) |
 
@@ -490,14 +564,17 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 | Serviço | Uso | Configuração | Sem configuração |
 |---|---|---|---|
 | **Zenvia SMS** | OTP do agendamento, do "Meus agendamentos" e do DSAR. Só para **celular**. Quotas: 3/h por telefone, 10/h por IP, 60/h global (alerta no log a 80%) | `ZENVIA_API_TOKEN`, `ZENVIA_FROM` (+ `SMS_MAX_*`, `ZENVIA_API_URL`, webhook) | Falha fechada: sem agendamento online; CTAs "Agendar" viram WhatsApp (`AGENDAR_WHATSAPP`) |
-| **WhatsApp Cloud API (Meta)** | Templates aprovados: `confirmacao_d1` (7 parâmetros: nome, data, hora, procedimento, profissional, link confirmar, link cancelar), `nps_pos_atendimento` (nome, procedimento, link), `lista_espera_vaga` (nome, procedimento, data/hora, link). Categoria UTILITY; links no corpo | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_TEMPLATE_*`, `WHATSAPP_API_VERSION` (padrão v23.0) | Nada é enviado nem marcado como enviado |
-| **E-mail** (backend Django) | Transacional (aprovação/rejeição, cancelamento, termos, fila de espera, pacote expirando, aprovação ao profissional, reset/convite de senha, contato) e marketing (aniversário, promoções) com `List-Unsubscribe` (RFC 8058) e HTML de promoção sanitizado (bleach) | `EMAIL_BACKEND` + credenciais, `DEFAULT_FROM_EMAIL` | Prod usa backend *dummy*: nada sai; reset de senha/convites recusam (aviso W003) |
+| **WhatsApp Cloud API (Meta)** | Templates aprovados: `confirmacao_d1` (7 parâmetros: nome, data, hora, procedimento, profissional, link confirmar, link cancelar), `nps_pos_atendimento` (nome, procedimento, link), `lista_espera_vaga` (nome, procedimento, data/hora, link). Categoria UTILITY; links no corpo. Recebe a nota do NPS e o pedido de parar (revoga lembrete e pesquisa por WhatsApp, origem WHATSAPP); a confirmação do pedido é texto livre, dentro da janela de 24 h que a resposta da cliente abriu | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_VERIFY_TOKEN` (32+ caracteres, E003), `WHATSAPP_APP_SECRET`, `WHATSAPP_TEMPLATE_*`, `WHATSAPP_API_VERSION` (padrão v23.0) | Nada é enviado nem marcado como enviado; o lembrete D-1 vai por e-mail |
+| **E-mail** (backend Django) | Transacional (aprovação/rejeição, cancelamento, lembrete D-1 de quem não autorizou o WhatsApp, termos, fila de espera, pacote expirando, aprovação ao profissional, reset/convite de senha, contato) e marketing (aniversário, promoções) com `List-Unsubscribe` (RFC 8058) e HTML de promoção sanitizado (bleach) | `EMAIL_BACKEND` + credenciais, `DEFAULT_FROM_EMAIL` | Prod usa backend *dummy*: nada sai; reset de senha/convites recusam (aviso W003) |
 | **Botão WhatsApp** (`wa.me`) | Contato, fallback do agendamento, link do termo pela recepção | `WHATSAPP_NUMERO` (tela Branding > env) | Botões escondidos (aviso W004) |
-| **Web Push (VAPID)** | Aviso de novo agendamento ao profissional | `WEBPUSH_VAPID_*` | Botão de ativar escondido |
-| **Google Calendar** | Push do atendimento novo + pull de eventos (OAuth por profissional) | `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI` | UI escondida |
+| **Web Push (VAPID)** | À profissional: novo agendamento, cliente cancelou/remarcou e o resumo diário de atendimentos sem desfecho | `WEBPUSH_VAPID_*` (contato do claim: `WEBPUSH_VAPID_CLAIMS_EMAIL` > `ADMIN_EMAIL` > e-mail da marca) | Botão de ativar escondido |
+| **Feed ICS** (sem integração) | A profissional assina a própria agenda (Google, Apple, Outlook) pelo link `link_acesso` FEED_ICS — único caminho da agenda para fora (o Google Agenda por OAuth saiu na 0071) | — | — |
+| **Google Maps** (embed) | Mapa do endereço na página de contato (o navegador de quem abre a página fala com o Google) | — | — |
 | **Cloudflare Turnstile** | Captcha no pedido de OTP (wizard e portal) | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Sem captcha (aviso W009 se o SMS for real) |
-| **Sentry** | Erros e transações amostradas; `send_default_pii=False`, sem variáveis locais nem corpo do request, `EventScrubber` recursivo (contato e dado de saúde) e filtros em erro, transação e breadcrumb que redigem tokens de link, e-mail/CPF/telefone e o DETAIL do Postgres (`utils/pii.opcoes_sentry`) | `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` | Desligado |
-| **Armazenamento S3/R2** (opcional) | Mídia | `AWS_*` (exige instalar `django-storages`, que não está no requirements) | Disco local |
+| **Sentry** | Erros e transações amostradas; `send_default_pii=False`, sem variáveis locais nem corpo do request, `EventScrubber` recursivo (contato e dado de saúde) e filtros em erro, transação e breadcrumb que redigem tokens de link, e-mail/CPF/telefone e o DETAIL do Postgres (`utils/pii.opcoes_sentry`) | `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` (ambiente = `SENTRY_ENVIRONMENT` > `RAILWAY_ENVIRONMENT_NAME` > `DJANGO_ENV`) | Desligado |
+
+Mídia: o sistema não recebe upload (nenhum `FileField`/`ImageField`; sem S3/`AWS_*`). Upload futuro
+= decisão antes (bucket privado, URL assinada).
 
 ---
 
@@ -506,8 +583,10 @@ versão: `/account/*` (django-two-factor), `/api/schema/redoc/`, `/servicos/prod
 Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md).
 
 - **Equipe:** e-mail + senha (mín. 10, validadores do Django), django-axes (5 falhas → bloqueio de
-  1h por IP+usuário, página pt-BR 429), rate-limit no login, **2FA TOTP obrigatório para ADMIN**
-  (opcional para PROFISSIONAL via env), conferido a cada request.
+  1h por IP+usuário e por IP — nunca por usuário sozinho, que trancaria a dona fora com o e-mail
+  público; página pt-BR 429), rate-limit no login (10/min por IP, 5/min por e-mail), **2FA TOTP
+  obrigatório para ADMIN e PROFISSIONAL em prod**, conferido a cada request e falhando fechado (erro
+  de banco na consulta do 2FA leva ao desafio, nunca deixa passar só com a senha).
 - **Cliente:** sem senha; OTP de 6 dígitos por SMS preso ao telefone (HMAC-SHA256, 10 min, 5
   tentativas, reenvio ≥ 60 s), propósitos isolados.
 - **Headers:** CSP com nonce por request (sem `unsafe-inline` em `script-src`/`style-src`, sem
@@ -517,15 +596,27 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
 - **Privacidade no navegador:** `/painel/`, `/profissional/`, `/meus-agendamentos/`, `/lgpd/`,
   `/api/`, `/django-admin-sv/` saem com `Cache-Control: no-store` (e views sensíveis com
   `@never_cache`); rotas com token no path usam `Referrer-Policy: no-referrer`; privadas e com token saem com `X-Robots-Tag: noindex, nofollow, noarchive` (o robots.txt só pede para não buscar); logout envia
-  `Clear-Site-Data: "cache"`; o access log do gunicorn redige tokens (`LoggerSemTokens`).
+  `Clear-Site-Data: "cache"`; o access log do gunicorn redige tokens (`LoggerSemTokens`) e o log da
+  aplicação passa pelo filtro `clinica/logging_filtros.RedigirLog` (token de link, DETAIL do
+  Postgres, e-mail, CPF e telefone na mensagem, no traceback e nos extras — a mesma redação do
+  Sentry, `utils/pii.redigir_texto`).
+- **Cron e webhooks:** segredo só em header, comparado em tempo constante
+  (`utils/seguranca.segredo_confere`); `CRON_TOKEN` e `WHATSAPP_VERIFY_TOKEN` com 32+ caracteres
+  (E003); cron com 30 chamadas/h por IP e corpo de erro só com o tipo da exceção e uma referência
+  do log.
+- **Imagem:** usuário `app` sem shell, código e estáticos do root (só leitura para o processo —
+  nada em runtime escreve em `/app`), sem `curl` (o `HEALTHCHECK` usa o Python da imagem); o
+  `.dockerignore` deixa fora testes, scripts de backup, docs, bancos e dumps.
 - **Cookies:** HttpOnly, SameSite=Lax, Secure em prod; sessão da equipe 8h deslizantes que
   expira ao fechar o navegador.
 - **IP do cliente:** `utils/seguranca.client_ip` lê `CLIENT_IP_HEADER` (prod: `HTTP_X_REAL_IP`
   do Railway; nunca X-Forwarded-For). Rate-limit, axes e auditoria usam a mesma função.
 - **Entradas:** uploads ≤ 5 MB, ≤ 200 campos, IDs só com dígitos ASCII (`utils/parse.id_int`),
   células de Excel com texto forçado (anti-fórmula), JSON injetado via `json_script`.
-- **Segredos:** só em env; `DJANGO_SECRET_KEY` obrigatória fora de DEBUG/no Railway;
-  `DJANGO_ENV` inválido derruba o boot.
+- **Segredos e configuração:** só em env, lida e validada só em `clinica/settings` (o código lê
+  `settings.X` na hora da chamada; ruff `TID251` barra `os.environ` fora dali); `DJANGO_SECRET_KEY`
+  obrigatória fora de DEBUG/no Railway e, publicada, com 50+ caracteres aleatórios (E003);
+  `DJANGO_ENV` inválido derruba o boot. Commit com segredo: gancho e job do CI com gitleaks (§12).
 
 ---
 
@@ -535,7 +626,7 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
 
 | Tratamento | Base legal |
 |---|---|
-| Agendar, confirmar, lembrar e realizar o atendimento | Execução de contrato (art. 7º, V) |
+| Agendar, confirmar, lembrar (lembrete D-1 por e-mail a quem não autorizou o WhatsApp) e realizar o atendimento; CPF, CEP e endereço para nota fiscal e contrato de pacote | Execução de contrato (art. 7º, V) |
 | Ficha de avaliação e histórico de cuidados (dado de saúde) | Consentimento específico e tutela da saúde (art. 11, I e II "f") |
 | Registros de atendimento e de aceites | Obrigação legal e exercício de direitos (art. 7º, II e VI) |
 | Pesquisa de satisfação, segurança do site | Legítimo interesse (art. 7º, IX) |
@@ -555,10 +646,17 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   linha nova em `consentimento` (append-only) com o texto exibido, IP, user-agent e data; o
   estado vale pela linha mais recente (`services/consentimentos`). Desmarcar (com o estado do
   cadastro exibido) revoga; marcar de novo depois de um descadastro **volta a valer**
-  (reconsentimento — o antigo `aceita_comunicacao` vetava para sempre e saiu na 0050).
+  (reconsentimento — o antigo `aceita_comunicacao` vetava para sempre e saiu na 0050). O WhatsApp
+  de lembrete é opt-in (política da Meta): sem ele o lembrete D-1 vai por e-mail.
 - **Descadastro** (`/lgpd/unsubscribe/<token>/`): revoga marketing e pesquisa (origem
   DESCADASTRO, com IP/UA de quem confirmou), **mantém o lembrete D-1** (transacional). Cada
   e-mail de marketing leva o seu link (`link_acesso` DESCADASTRO; descartado se o envio falha).
+- **"PARAR" no WhatsApp** (mensagem inteira "parar", "sair", "stop", "cancelar mensagens" ou
+  "descadastrar", sem acento/caixa): revoga lembrete e pesquisa por WhatsApp do titular daquele
+  telefone (origem WHATSAPP; revogar tão fácil quanto consentir — art. 8º §5), auditado, e a
+  cliente recebe a confirmação com o caminho de volta (texto livre, dentro da janela de 24 h).
+- **Cookies:** só essenciais (sessão, CSRF, tema). O aviso é informativo: "Entendi" grava
+  `cookie_consent=essenciais` no próprio navegador; nada é registrado no servidor.
 - **Painel** (ficha do cliente, "Comunicação autorizada"): a equipe vê o estado por canal e
   **revoga** a pedido da cliente; registrar uma autorização exige a justificativa (o que foi
   autorizado e como), gravada como `texto` com o autor (origem PAINEL). Django admin: histórico só
@@ -574,16 +672,16 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
 |---|---|
 | Confirmação, acesso, portabilidade | `/lgpd/meus-dados/`: telefone → OTP DSAR → download JSON (cadastro, consentimentos — estado e histórico —, atendimentos, fichas, prontuário + versões e questionário rotulado, aceites, NPS, lista de espera, pacotes, carteira). Resposta idêntica exista ou não o cadastro; auditado |
 | Correção | Pela equipe na ficha do cliente (`/painel/clientes/<pk>/`) |
-| Revogação de consentimento | Link de descadastro; desmarcar no wizard; equipe na ficha do cliente (revogar) |
+| Revogação de consentimento | Link de descadastro; "PARAR" no WhatsApp; desmarcar no wizard; equipe na ficha do cliente (revogar) |
 | Anonimização/eliminação | Ação LGPD no Django admin (`LgpdService.esquecer_cliente`) e job semanal (§9.4) |
 
-**Esquecimento** (`esquecer_cliente`): troca o nome por `[ANONIMIZADO-<pk>]` e zera CPF, RG,
-e-mail, telefone, endereço e nascimento; revoga os consentimentos vigentes (origem
+**Esquecimento** (`esquecer_cliente`): troca o nome por `[ANONIMIZADO-<pk>]` e zera CPF,
+e-mail, telefone, CEP, endereço e nascimento; revoga os consentimentos vigentes (origem
 ESQUECIMENTO — o histórico de datas/finalidades fica como prova de base legal, sem IP e
 user-agent); soft delete; apaga OTPs, lista de
 espera e texto das notificações; apaga fichas que não são de atendimento REALIZADO; tira o
 depoimento do site e apaga o comentário do NPS; **revoga todos os links públicos** do titular
-(descadastro, confirmação, NPS, termo, ficha, reagendar legado); pseudonimiza o nome nos textos da
+(descadastro, confirmação, NPS, termo, ficha); pseudonimiza o nome nos textos da
 `LogAuditoria` e do histórico do Django admin. Atendimentos, aceites, prontuário e pacotes
 ficam ligados a um titular não identificável.
 
@@ -611,9 +709,9 @@ nova sem tratamento declarado reprova o CI.
 
 **Cifragem em repouso** (0060, `utils/cifragem` + `db/campos.TextoCifrado`/`JsonCifrado`): os 5
 campos clínicos e as respostas do prontuário, as versões do prontuário, as anotações de sessão e as
-fichas de anamnese (finalidade `saude`) e o refresh token do Google Calendar (finalidade
-`segredos`) ficam gravados cifrados (Fernet, chave de `CHAVES_CIFRAGEM` com subchave por
-finalidade); a trilha `historico_alteracao` do prontuário guarda o mesmo texto cifrado. A aplicação
+fichas de anamnese ficam gravados cifrados (Fernet, chave de `CHAVES_CIFRAGEM` com subchave
+`saude`; a subchave `segredos` fica para segredo de integração e hoje não tem campo — era o token
+do Google Agenda, que saiu na 0071); a trilha `historico_alteracao` do prontuário guarda o mesmo texto cifrado. A aplicação
 lê em claro; vazio continua vazio no banco. Um dump/backup sem a chave não mostra a ficha (e um
 incidente com dado ininteligível pesa menos — art. 48 §3). Consequência: o banco não busca nem
 filtra pelo conteúdo desses campos. Não protege contra quem tem a chave (ADMIN no painel, acesso ao
@@ -638,55 +736,76 @@ afetados quando houver risco relevante.
 
 ## 10. Jobs periódicos
 
-Os jobs são funções (`jobs.py`, `jobs_manutencao.py`; sem Celery): um **cron externo** chama
-`POST /cron/run/<job>/` com o header `X-Cron-Token: $CRON_TOKEN` (nunca `?token=`).
-Resposta `200 {"ok": true}`; `500 {"ok": false}` quando o job falha (o cron deve alertar);
-`403` token; `404` job desconhecido (lista os disponíveis). O job roda **dentro do request**,
-uma vez (sem retry na hora), e o gunicorn corta em 120 s. No shell do servidor ou em dev:
-`python manage.py rodar_job <job>` (`--lista`; erro = exit 1; trilha com origem `comando:<job>`).
+Os jobs são funções (`jobs.py`, `jobs_manutencao.py`; sem Celery). **Fonte única dos horários:
+`jobs.JOB_AGENDA`** (horário de Brasília). Três portas, todas por `jobs.executar` (o job roda uma
+vez, sem retry na hora, dentro do Ator dele):
+
+- **Serviço Cron do Railway** (o caminho de produção, §13.2): `railway.cron.json` agenda
+  `*/15 * * * *` e roda `python manage.py rodar_jobs_devidos`, que executa os jobs cujo horário da
+  `JOB_AGENDA` caiu nos últimos 15 min — um serviço só, no lugar de um por horário. Um job que falha
+  não impede os outros; no fim, exit 1 se algum falhou (o Railway marca a execução como falha).
+- **Cron HTTP**: `POST /cron/run/<job>/` com o header `X-Cron-Token: $CRON_TOKEN` (nunca
+  `?token=`), comparado em tempo constante, 30 chamadas/h por IP. Respostas no contrato
+  `utils/respostas`: `200 {"ok": true, "job", "resultado"}`; `403` token; `404` job desconhecido
+  (lista os disponíveis); `409 job_ja_executado` (job de mensagem que já rodou hoje); `429` acima
+  do limite; `500 job_falhou` com **só o tipo da exceção e um `ref`** (o mesmo do log — o agendador
+  guarda o corpo, e a mensagem poderia ter dado pessoal). O job roda **dentro do request** e o
+  gunicorn corta em 120 s.
+- **Linha de comando**: `python manage.py rodar_job <job>` (`--lista`; erro = exit 1;
+  `--forcar` roda de novo no mesmo dia, depois de uma falha — pode reenviar).
+
+**Nunca mandar duas vezes:** lembrete e NPS têm marca por destinatário (`Notificacao`); os jobs de
+mensagem sem essa marca (`aniversario`, `pacote_expirando`, `nps_24h` — `jobs.JOBS_UMA_VEZ_POR_DIA`)
+rodam no máximo uma vez por dia local: a linha `execucao_job` (UNIQUE job + dia) nasce antes do job,
+e a 2ª chamada recebe 409 (no comando: aviso, sem rodar). Cada execução avisa o monitor
+(`CRON_MONITOR_URL`: `<url>/<job>` ou `<url>/<job>/fail`).
 
 ```bash
 curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job>/
 ```
 
-| Job (`<job>`) | Horário BRT | Cron (America/Sao_Paulo) | Cron (UTC) | O que faz |
-|---|---|---|---|---|
-| `emails` | a cada 15 min | `*/15 * * * *` | `*/15 * * * *` | Reenvia a fila de e-mail (`Notificacao` EMAIL PENDENTE vencida; até 5 tentativas / 48 h) |
-| `pacote_expirar` | 00:30 | `30 0 * * *` | `30 3 * * *` | Compras ATIVO com `data_expiracao` < hoje → EXPIRADO (`sp_expirar_pacotes`) |
-| `pacote_expirando` | 07:00 | `0 7 * * *` | `0 10 * * *` | E-mail a quem tem pacote vencendo em 7 ou 1 dia com saldo |
-| `lembrete_diario` | 08:00 | `0 8 * * *` | `0 11 * * *` | WhatsApp D-1 (template `confirmacao_d1`) para atendimentos **AGENDADO** de amanhã com LEMBRETE_AGENDAMENTO/WHATSAPP vigente; idempotente |
-| `aniversario` | 09:00 | `0 9 * * *` | `0 12 * * *` | E-mail de felicitação (sem desconto) com consentimento de marketing; 29/02 comemora em 28/02 |
-| `nps_24h` | 10:00 | `0 10 * * *` | `0 13 * * *` | WhatsApp de NPS para REALIZADO entre 24h e 7 dias, com consentimento; até 3 tentativas |
-| `detrator_alerta` | 10:30 | `30 10 * * *` | `30 13 * * *` | E-mail de NPS ≤ 6 para `email_admin` > `ADMIN_EMAIL` > `CLINIC_EMAIL` |
-| `limpeza_status` | de hora em hora | `0 * * * *` | `0 * * * *` | PENDENTE a menos de 1 h do início → CANCELADO (FSM) + e-mail à cliente ("não conseguimos confirmar a tempo"), vaga para a lista de espera; AGENDADO/CONFIRMADO vencidos há 24 h sem desfecho **só vão para o log** (a equipe decide falta/realizado) |
-| `lgpd_purgar` | dom 03:00 | `0 3 * * 0` | `0 6 * * 0` | Anonimização por retenção (confirmada cliente a cliente), fichas de pedidos não realizados, lista de espera vencida (`sp_aplicar_retencao_lgpd`) |
-| `housekeeping` | 04:00 | `0 4 * * *` | `0 7 * * *` | Sessões, OTP > 24h, texto de notificação > 12 meses, auditoria e trilha `historico_alteracao` > 5 anos (prontuário fica), link público vencido/revogado > 90 dias (`sp_purgar_dados_expirados`), axes > 90 dias (etapas independentes; falha de uma → 500 no fim) |
+| Job (`<job>`) | Horário BRT (`JOB_AGENDA`) | Cron (America/Sao_Paulo) | O que faz |
+|---|---|---|---|
+| `emails` | a cada 15 min (:00, :15, :30, :45) | `*/15 * * * *` | Reenvia a fila de e-mail (`Notificacao` EMAIL PENDENTE vencida; até 5 tentativas / 48 h) |
+| `limpeza_status` | de hora em hora (:00) | `0 * * * *` | PENDENTE a menos de 1 h do início → CANCELADO (FSM) + e-mail à cliente ("não conseguimos confirmar a tempo"), vaga para a lista de espera. Não toca nos sem desfecho (ver `sem_desfecho`) |
+| `pacote_expirar` | 00:30 | `30 0 * * *` | Compras ATIVO com `data_expiracao` < hoje → EXPIRADO (`sp_expirar_pacotes`) |
+| `pacote_expirando` | 07:00 | `0 7 * * *` | E-mail a quem tem pacote vencendo em 7 ou 1 dia com saldo (1×/dia) |
+| `lembrete_diario` | 08:00 e 18:00 | `0 8,18 * * *` | Lembrete D-1 dos atendimentos **AGENDADO** de amanhã: WhatsApp (template `confirmacao_d1`) a quem tem LEMBRETE_AGENDAMENTO/WHATSAPP vigente, telefone e o canal configurado; senão **e-mail** (fila, com os mesmos links de confirmar/cancelar). A rodada das 18:00 pega quem marcou depois das 8h; idempotente por atendimento (WhatsApp que falhou é tentado de novo) |
+| `sem_desfecho` | 08:00 | `0 8 * * *` | Push a cada profissional com "N atendimentos aguardam desfecho" (AGENDADO/CONFIRMADO que já terminaram, sem Realizado/Faltou/Cancelado); o sistema nunca marca falta sozinho |
+| `aniversario` | 09:00 | `0 9 * * *` | E-mail de felicitação (sem desconto) com consentimento de marketing; 29/02 comemora em 28/02 (1×/dia) |
+| `nps_24h` | 10:00 | `0 10 * * *` | WhatsApp de NPS para REALIZADO entre 24 h e 7 dias, **nunca retorno**, no máximo 1 pesquisa por cliente a cada 90 dias (`NPS_INTERVALO_DIAS`), com consentimento; até 3 tentativas (1×/dia) |
+| `detrator_alerta` | 10:30 | `30 10 * * *` | E-mail de NPS ≤ 6 para `email_admin` > `ADMIN_EMAIL` > `CLINIC_EMAIL` |
+| `lgpd_purgar` | dom 03:00 | `0 3 * * 0` | Anonimização por retenção (confirmada cliente a cliente), fichas de pedidos não realizados, lista de espera vencida (`sp_aplicar_retencao_lgpd`) |
+| `housekeeping` | 04:00 | `0 4 * * *` | Sessões, OTP > 24h, texto de notificação > 12 meses, auditoria e trilha `historico_alteracao` > 5 anos (prontuário fica), link público vencido/revogado > 90 dias (`sp_purgar_dados_expirados`), axes > 90 dias (etapas independentes; falha de uma → 500 no fim) |
+| `feriados` | dia 1, 04:30 | `30 4 1 * *` | Feriados nacionais do ano atual e do seguinte (`services/feriados.carregar`) |
 
-| `feriados` | dia 1, 04:30 | `30 4 1 * *` | `30 7 1 * *` | `carregar_feriados` (ano atual + seguinte) |
+O que um job muda nas tabelas com trilha sai em `historico_alteracao` com origem `cron:<job>`
+(HTTP) ou `comando:<job>` (serviço Cron e `rodar_job`).
 
-O que um job muda nas tabelas com trilha sai em `historico_alteracao` com origem `cron:<job>`.
-
-O Brasil está sem horário de verão desde 2019: BRT = UTC−3 o ano todo. `job_promocao_mensal`
-não está no cron — é disparado pelo painel (Promoções > Disparar).
+O Brasil está sem horário de verão desde 2019: BRT = UTC−3 o ano todo. O disparo de promoção não é
+job: sai pelo painel (Promoções > Disparar), em lotes, uma vez
+([`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md) §19).
 
 ---
 
 ## 11. Variáveis de ambiente
 
-Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
+Lista completa e comentada em [`.env.example`](../.env.example) — conferida contra o código por
+`tests/infra/test_deploy.EnvExampleTests` (toda variável lida está lá e nenhuma sobra). Só os
+settings (`clinica/settings`) leem a env. Em produção:
 
 ### 11.1 Obrigatórias / pré-requisito do go-live
 
 | Variável | Propósito |
 |---|---|
-| `DJANGO_SECRET_KEY` | Chave do Django (sessões, reset; HMAC do OTP se não houver `OTP_HMAC_KEY`). Sem ela o boot falha fora de DEBUG |
-| `CHAVES_CIFRAGEM` | Chave(s) Fernet da cifragem em repouso do dado de saúde e do token OAuth (`manage.py gerar_chave_cifragem`). **Sem ela o deploy para** (check `aranha.E001` no pre-deploy). Várias, por vírgula: a 1ª cifra, todas decifram. **Cópia offline com a dona**: sem a chave o prontuário não abre |
-| `DJANGO_ENV=prod` | Carrega `settings/prod.py` (a imagem já define; qualquer valor fora de `dev`/`prod`/`test` derruba o boot; `manage.py test` sempre usa `settings/test.py`) |
-| `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` | Domínio próprio (o `RAILWAY_PUBLIC_DOMAIN` e o host do healthcheck entram sozinhos) |
+| `DJANGO_SECRET_KEY` | Chave do Django (sessões, reset; HMAC do OTP se não houver `OTP_HMAC_KEY`). Sem ela o boot falha fora de DEBUG; publicada, 50+ caracteres aleatórios, nunca valor de exemplo nem `django-insecure-` (E003) |
+| `CHAVES_CIFRAGEM` | Chave(s) Fernet da cifragem em repouso do dado de saúde (`manage.py gerar_chave_cifragem`). **Sem ela o deploy para** (check `aranha.E001` no pre-deploy). Várias, por vírgula: a 1ª cifra, todas decifram. **Cópia offline com a dona**: sem a chave o prontuário não abre |
+| `DJANGO_ENV=prod` | Carrega `settings/prod.py` (a imagem já define; vazio no Railway = `prod`; `staging` = ambiente de testes, §13.1; qualquer valor fora de `dev`/`prod`/`staging`/`test` derruba o boot, e `dev` no Railway também; `manage.py test` sempre usa `settings/test.py`) |
+| `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` | Domínio próprio (o `RAILWAY_PUBLIC_DOMAIN` e o host do healthcheck entram sozinhos; em prod só origem `https://` vale no CSRF) |
 | `SITE_URL` | URL pública https sem barra final — links de e-mail/WhatsApp/termos/JSON-LD (W001) |
-| `DATABASE_URL` | Injetada pelo Postgres do Railway |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOME` | **Pré-requisito do 1º deploy**: a `0042` desativa as contas demo; o `bootstrap_admin` cria o ADMIN real. Apagar `ADMIN_PASSWORD` depois |
-| `CRON_TOKEN` | Autentica o cron HTTP (W005) |
+| `DATABASE_URL` | **Não vem sozinha**: variável de referência `DATABASE_URL=${{Postgres.DATABASE_URL}}` no serviço web e no serviço Cron. Sem ela o check `aranha.E002` barra o pre-deploy (antes caía em SQLite em silêncio) |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOME` | **Pré-requisito do 1º deploy**: a `0042` desativa as contas demo; o `bootstrap_admin` cria o ADMIN real. Apagar `ADMIN_PASSWORD` depois. `ADMIN_EMAIL` também é o destino do alerta de detrator (sem `email_admin` nas Configurações) e o contato do claim VAPID (sem `WEBPUSH_VAPID_CLAIMS_EMAIL`) |
+| `CRON_TOKEN` | Autentica o cron HTTP `/cron/run/<job>/` (W005); 32+ caracteres (E003). O serviço Cron do Railway não precisa dele (roda o comando direto) |
 | `ZENVIA_API_TOKEN`, `ZENVIA_FROM` | SMS/OTP. **Sem SMS não há agendamento online** (CTA vira WhatsApp) (W002) |
 | `EMAIL_BACKEND` + chave do provedor + `DEFAULT_FROM_EMAIL` | Sem ele nada é entregue (W003). **O Railway Hobby bloqueia SMTP**: use o `django-anymail` (já no requirements), ex.: `EMAIL_BACKEND=anymail.backends.resend.EmailBackend` + `RESEND_API_KEY` (ou Brevo/SendGrid/Mailgun/Postmark — §14 i). `DEFAULT_FROM_EMAIL` = remetente de um **domínio verificado** no provedor; sem a chave ou com o remetente de exemplo, W011 e nada sai. SMTP (`EMAIL_HOST*`) só no plano Pro |
 | `WHATSAPP_NUMERO` (ou tela Branding) | Botões de WhatsApp e fallback do agendamento (W004) |
@@ -697,9 +816,9 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 
 | Variável | Propósito |
 |---|---|
-| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_TEMPLATE_*` | Lembrete D-1, NPS e aviso de vaga |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_VERIFY_TOKEN` (32+ caracteres, E003), `WHATSAPP_APP_SECRET`, `WHATSAPP_TEMPLATE_D1`/`_NPS`/`_LISTA_ESPERA` | Lembrete D-1, NPS, aviso de vaga e o webhook (nota do NPS, "PARAR"). Sem o canal o lembrete D-1 vai por e-mail |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Captcha no pedido de OTP; com SMS real sem captcha poucos IPs esgotam a cota global (W009) |
-| `SENTRY_DSN` (+ `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Monitoramento de erros. Ambiente padrão = `DJANGO_ENV`; release padrão = `RAILWAY_GIT_COMMIT_SHA` |
+| `SENTRY_DSN` (+ `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Monitoramento de erros. Ambiente padrão = nome do ambiente no Railway (`RAILWAY_ENVIRONMENT_NAME`: `production`, `dev`) e só depois `DJANGO_ENV` (que a imagem fixa em `prod`); release padrão = `RAILWAY_GIT_COMMIT_SHA` |
 | `WEBPUSH_VAPID_PUBLIC_KEY`, `WEBPUSH_VAPID_PRIVATE_KEY`, `WEBPUSH_VAPID_CLAIMS_EMAIL` | Push ao profissional |
 | `OTP_HMAC_KEY` | Chave própria do HMAC dos códigos OTP (vazia = `DJANGO_SECRET_KEY`): rotacionar uma não mexe na outra |
 | `ADMIN_2FA_OBRIGATORIO` | Sem a env: ligado em prod. `false` = válvula de emergência (W008) |
@@ -713,14 +832,17 @@ Lista completa e comentada em [`.env.example`](../.env.example). Em produção:
 
 `CLINIC_NAME`, `CLINIC_SUBTITLE`, `CLINIC_PHONE`, `CLINIC_ADDRESS`, `CLINIC_HOURS`,
 `INSTAGRAM_URL`, `THEME_COLOR` (a tela Branding vence a env) · `USE_HTTPS` ·
-`CLIENT_IP_HEADER` (prod: `HTTP_X_REAL_IP`) · `WEB_CONCURRENCY` (1), `WEB_THREADS` (4),
-`WEB_TIMEOUT` (120) · `SESSION_COOKIE_AGE` (28800) · `ADMIN_PASSWORD_RESET` · `SMS_MAX_POR_HORA` (3),
-`SMS_MAX_POR_IP_HORA` (10), `SMS_MAX_GLOBAL_HORA` (60), `ZENVIA_API_URL`,
-`ZENVIA_WEBHOOK_SECRET`, `ZENVIA_ALLOWED_IPS` · `OTP_TTL_SEGUNDOS` (600),
-`OTP_MAX_TENTATIVAS` (5), `OTP_REENVIO_MINIMO_SEG` (60) · `WHATSAPP_API_URL`,
-`WHATSAPP_API_VERSION`, `WHATSAPP_PHONE_NUMBER_ID` (alias) · `GOOGLE_OAUTH_*` · `AWS_*` ·
+`USE_X_FORWARDED_HOST` (prod sempre liga) · `CLIENT_IP_HEADER` (prod: `HTTP_X_REAL_IP`) ·
+`WEB_CONCURRENCY` (1), `WEB_THREADS` (4), `WEB_TIMEOUT` (120) · `SESSION_COOKIE_AGE` (28800) ·
+`ADMIN_PASSWORD_RESET` · `SMS_MAX_POR_HORA` (3), `SMS_MAX_POR_IP_HORA` (10),
+`SMS_MAX_GLOBAL_HORA` (60), `ZENVIA_API_URL`, `ZENVIA_WEBHOOK_SECRET` (segredo do header
+`X-Zenvia-Signature`), `ZENVIA_ALLOWED_IPS` (IP/CIDR) · `OTP_TTL_SEGUNDOS` (600),
+`OTP_MAX_TENTATIVAS` (5; fora de 1..10 é o erro E004 — o banco limita a 10),
+`OTP_REENVIO_MINIMO_SEG` (60) · `WHATSAPP_API_URL`, `WHATSAPP_API_VERSION`,
+`WHATSAPP_PHONE_NUMBER_ID` (alias) · `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`,
+`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (SMTP, só no plano Pro) ·
 `AXES_FAILURE_LIMIT` (5), `AXES_COOLOFF_TIME_HOURS` (1), `PASSWORD_RESET_TIMEOUT_SECONDS`
-(3600), `TWO_FACTOR_REMEMBER_COOKIE_AGE` · `RETENCAO_OTP_HORAS`, `RETENCAO_NOTIFICACAO_DIAS`,
+(3600) · `RETENCAO_OTP_HORAS`, `RETENCAO_NOTIFICACAO_DIAS`,
 `RETENCAO_LOG_AUDITORIA_DIAS` (também a trilha `historico_alteracao`), `RETENCAO_LINK_ACESSO_DIAS`
 (90), `RETENCAO_AXES_LOG_DIAS` · `DJANGO_LOG_LEVEL` ·
 `EMAIL_TIMEOUT` (10; vale também para as chamadas HTTP do anymail) · `MAILGUN_SENDER_DOMAIN`
@@ -736,18 +858,22 @@ Só no ambiente de testes publicado (`DJANGO_ENV=staging`, §13.1): `DESTINATARI
 ([`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md)).
 
 **Legada — remover do Railway:** `STATIC_ROOT` (era `/tmp`; `settings/prod.py` ignora e usa
-`/app/staticfiles`, preenchido no build). Também não existem mais `ZENVIA_API_KEY` (use
+`/app/staticfiles`, preenchido no build). O código não lê mais `GOOGLE_OAUTH_*` (Google Agenda
+removido), `AWS_*` (sem upload), `TWO_FACTOR_REMEMBER_COOKIE_AGE`, `ZENVIA_API_KEY` (use
 `ZENVIA_API_TOKEN` + `ZENVIA_FROM`) nem `SECRET_KEY` (use `DJANGO_SECRET_KEY`).
 
 ---
 
 ## 12. Testes e CI
 
-- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~1.500
-  testes em 77 arquivos — roda **tudo**, inclusive as data migrations). `manage.py test` sempre
-  carrega `clinica/settings/test.py` (única detecção de teste, em `settings/__init__.py`; o pytest
-  aponta para o mesmo módulo): hash de senha MD5, SMS em modo log, avisos `aranha.W001`–`W013`
-  silenciados (testados à parte em `test_deploy_config.py`), django-vite em `dev_mode` (não
+- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~1.850
+  testes fora a tag `migracoes`, em 112 arquivos, alguns em pastas por área — `tests/conta/`,
+  `infra/`, `jobs/`, `painel/`, `publico/`, `servicos/`, `utils/` — roda **tudo**, inclusive as data
+  migrations). `manage.py test` sempre
+  carrega `clinica/settings/test.py` (única detecção de teste, em `settings/__init__.py`; é o runner
+  único — pytest/pytest-django/conftest saíram, e `test_deploy_config.RunnerUnicoTests` reprova a
+  volta): hash de senha MD5, SMS em modo log, avisos `aranha.W001`–`W015` silenciados (testados à
+  parte em `test_deploy_config.py` e `tests/infra/test_deploy.py`), django-vite em `dev_mode` (não
   precisa do build; `TESTE_VITE_BUILD=1` usa o bundle).
 - **Atalho do dia a dia**: `python manage.py test aranha_estetica --exclude-tag migracoes` (~40 s)
   pula `tests/test_migrations_dados.py` (tag `migracoes`: desce e sobe a cadeia de migrations
@@ -757,11 +883,15 @@ Só no ambiente de testes publicado (`DJANGO_ENV=staging`, §13.1): `DESTINATARI
 - **Navegador**: `tests/test_wizard_browser.py` (Playwright + Chromium) cobre as regras que só
   existem no `wizard.js`; local com `npm run build` + `TESTE_VITE_BUILD=1`, no CI com
   `EXIGE_NAVEGADOR=1` (faltou navegador ou bundle = reprova, não pula).
-- **Cobertura**: `coverage run manage.py test ... && coverage report`; `fail_under` em
-  `pyproject.toml` é catraca (86,9 %, uma casa; só sobe).
-- **Lint**: `ruff check .` com lista fixa (F, E4/E7/E9 e **DTZ** — `date.today()`/`datetime.now()`
-  sem fuso erram o dia entre 21h e 24h; use `utils/datas`); `pre-commit install` liga ruff,
-  `lint-imports` e `makemigrations --check` antes do commit.
+- **Cobertura**: modo paralelo (um arquivo `.cache/coverage.*` por execução):
+  `coverage run manage.py test ... && coverage combine && coverage report`; no CI o job `cobertura`
+  junta SQLite + Postgres (o código só-Postgres — procedures, paridades, LGPD — conta como testado)
+  e aplica a catraca `fail_under` do `pyproject.toml` (86,9 %, uma casa; só sobe) no total.
+- **Lint**: `ruff check .` com lista fixa (F, E4/E7/E9, **DTZ** — `date.today()`/`datetime.now()`
+  sem fuso erram o dia entre 21h e 24h; use `utils/datas` — e **TID251**: `os.environ`/`os.getenv`
+  só em `clinica/settings`, nos pontos de entrada e nas exceções listadas no `pyproject.toml`);
+  `pre-commit install` liga gitleaks (segredo no que está sendo commitado), ruff, `lint-imports` e
+  `makemigrations --check` antes do commit.
 - **Postgres local** (`docker-compose.yml`, PG 18 com ICU): `docker compose up -d db` e
   `TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_ICU=1 python
   manage.py test aranha_estetica`. No SQLite os testes do esquecimento, da retenção, do housekeeping
@@ -780,8 +910,10 @@ Só no ambiente de testes publicado (`DJANGO_ENV=staging`, §13.1): `DESTINATARI
   cada `sp_*`.
 - Guardas de regressão relevantes: `test_csp.py` (CSP x templates, allowlist do jsdelivr),
   `test_front_pipeline.py` (Vite/cotton/webpush), `test_deploy_config.py` (checks, migrate
-  atômico, Dockerfile/railway.json), `test_slots_disponibilidade.py` (caracterização do
-  SlotService).
+  atômico, runner único, pins do CI), `tests/infra/test_deploy.py` (perfis prod/staging, E001–E004,
+  `.env.example` × código, Dockerfile × `railway.json`), `tests/infra/test_logs.py` (redação de
+  token/PII no log), `tests/jobs/` (agenda dos jobs, 409 do 2º disparo, lembretes, NPS),
+  `test_slots_disponibilidade.py` (caracterização do SlotService).
 
 **CI** (`.github/workflows/ci.yml`, push em `main` e `dev` ou manual; sem gatilho de PR — o PR
 `dev` → `main` mostra os checks do push do mesmo commit). Commit novo na `dev` cancela a execução
@@ -793,14 +925,15 @@ pin; `tests/test_deploy_config.CiFixadoTests` reprova pin solto:
 
 | Job | Passos |
 |---|---|
-| `testes` | `check`, `makemigrations --check`, `ruff check` (erros + fuso), `lint-imports` (camadas), `mypy` (services), suíte Django (SQLite, `--exclude-tag migracoes`) sob `coverage` com catraca (`fail_under`), `check --deploy --fail-level ERROR` com settings de prod |
+| `testes` | `check`, `makemigrations --check`, `ruff check` (erros, fuso e `TID251`), `lint-imports` (camadas e áreas de views), `mypy` (services), suíte Django (SQLite, `--exclude-tag migracoes`) sob `coverage` (o arquivo vai para o job `cobertura`), `check --deploy --fail-level ERROR` com settings de prod e de staging |
 | `migracoes-sqlite` | `tests/test_migrations_dados.py` (`--tag migracoes --parallel auto`) no SQLite |
-| `postgres` | Postgres 18: `migrate_atomico` do zero, `bootstrap_admin`, suíte Django no Postgres sem a tag `migracoes` (bloqueante; inclui conformidade, trilha e paridade) |
+| `postgres` | Postgres 18: `migrate_atomico` do zero, `bootstrap_admin`, suíte Django no Postgres sem a tag `migracoes` sob `coverage` (bloqueante; inclui conformidade, trilha e paridade) |
+| `cobertura` | Depois de `testes` e `postgres`: `coverage combine` dos dois e `coverage report` com a catraca (`fail_under`) no total |
 | `postgres-migracoes` | `tests/test_migrations_dados.py` no Postgres 18 (reverso/ida de cada migration, inclusive triggers/funções/views/procedures), `--parallel auto` (um `test_ci_N` por worker) |
 | `front` | `npm ci`, `npm run build`, confere o manifest |
 | `navegador` | `npm run build` + Playwright/Chromium: `tests/test_wizard_browser.py` com o bundle (`TESTE_VITE_BUILD=1`, `EXIGE_NAVEGADOR=1`) |
-| `docker` | `docker build` (buildx) da imagem de produção, camadas no cache do Actions |
-| `auditoria-deps` | `pip-audit` no `requirements.lock` (bloqueante) |
+| `docker` | `docker build` (buildx, camadas no cache do Actions) e o smoke do 1º deploy: Postgres 18 exigindo SSL, o `preDeployCommand` e o `startCommand` **lidos do `railway.json`**, `/healthz/` com o Host do healthcheck do Railway, `/health/` e gunicorn fora do root |
+| `auditoria-deps` | `pip-audit` no `requirements.lock`, `npm audit --package-lock-only --audit-level=high` e gitleaks no histórico do push (allowlist dos dados sintéticos em `.gitleaks.toml`) — bloqueante |
 
 ---
 
@@ -811,9 +944,12 @@ pin; `tests/test_deploy_config.CiFixadoTests` reprova pin solto:
   1. stage `front` (`node:22-slim`): `npm ci` + `npm run build`; falha se não houver
      `static/dist/manifest.json`;
   2. stage `builder` (`python:3.12-slim`): wheels de `requirements.txt` com `-c requirements.lock`;
-  3. stage `runtime`: usuário não-root `app`, `DJANGO_ENV=prod`, smoke do QR SVG do 2FA (a imagem
-     não tem Pillow), `collectstatic` (WhiteNoise `CompressedManifest`) +
-     `check --tag staticfiles --fail-level WARNING` no build, `HEALTHCHECK` em `/healthz/`.
+  3. stage `runtime`: só `libpq5` (sem `curl`), usuário de runtime `app` sem shell, código e
+     estáticos copiados como root (só leitura para o processo), `DJANGO_ENV=prod`, smoke do QR SVG
+     do 2FA (a imagem não tem Pillow), `collectstatic` (WhiteNoise `CompressedManifest`) +
+     `check --tag staticfiles --fail-level WARNING` no build, `HEALTHCHECK` em `/healthz/` pelo
+     Python da imagem. O `.dockerignore` deixa fora testes, `scripts/`, `docs/`, bancos, dumps e
+     `.env`.
 - **Pre-deploy** (`railway.json`): `python manage.py migrate_atomico --noinput && python manage.py
   bootstrap_admin`. Se uma migration falha, a transação inteira é desfeita e o deploy anterior
   continua no ar com o banco intacto.
@@ -822,7 +958,7 @@ pin; `tests/test_deploy_config.CiFixadoTests` reprova pin solto:
   o `CMD` do Dockerfile (mudar os dois juntos). 1 réplica; restart ON_FAILURE (5×).
 - **Healthcheck**: `/healthz/` (timeout 120 s) — 503 se o bundle do Vite faltar.
 - **Produção**: `DEBUG` sempre falso, HTTPS + HSTS, e-mail *dummy* sem `EMAIL_BACKEND`, SMS falha
-  fechado sem Zenvia, logs JSON. Sem worker de fila: jobs pelo cron HTTP (§10).
+  fechado sem Zenvia, logs JSON redigidos. Sem worker de fila: jobs pelo serviço Cron (§13.2).
 - O deploy de produção sai do branch `main` (configuração do serviço no Railway). O trabalho
   acontece na `dev`; a `main` é protegida no GitHub (os 6 jobs bloqueantes do CI obrigatórios,
   inclusive para admin; sem force-push) e recebe a `dev` por PR ou fast-forward.
@@ -855,15 +991,35 @@ Passo a passo (projeto do Railway reativado):
    - e-mail opcional: `EMAIL_BACKEND=anymail.backends.resend.EmailBackend` + `RESEND_API_KEY` com
      `DEFAULT_FROM_EMAIL=onboarding@resend.dev` (sem domínio verificado o Resend só entrega na
      caixa do dono da conta);
-   - `SENTRY_DSN` opcional (o *environment* sai `staging` sozinho);
+   - `SENTRY_DSN` opcional (o *environment* sai com o nome do ambiente no Railway, `dev`);
    - `DB_APPLICATION_NAME=shivazen-dev`.
 4. **Deploy**: push na `dev` → CI verde → o Railway constrói a imagem (o `watchPatterns` ignora
    commit só de documentação), roda o pre-deploy e troca o container quando `/healthz/` responde.
+   O `seed --demo` só existe no pre-deploy do environment `dev` (`railway.json` › `environments`);
+   o de produção nunca semeia demonstração.
 5. **Conferir**: `/healthz/` 200; a faixa amarela no topo; login da equipe (`/admin-login/`) com o
    2FA; agendar pelo site com o celular da lista e pegar o código no log (`sms_dev_log` → `preview`);
    `python manage.py check --deploy --database default` no shell do Railway.
-6. **Cron** (opcional no dev): os mesmos jobs do §10 apontando para a URL do dev, com o
-   `CRON_TOKEN` do dev.
+6. **Cron** (opcional no dev): o serviço Cron do §13.2 no environment `dev`, com as variáveis do
+   web deste environment (`DESTINATARIOS_TESTE` inclusive).
+
+### 13.2 Serviço Cron (jobs)
+
+Um segundo serviço no mesmo projeto, ligado ao mesmo repositório e branch, com o config-as-code
+**`railway.cron.json`** (Settings › Config-as-code › caminho do arquivo): mesma imagem do
+`Dockerfile`, *Cron Schedule* `*/15 * * * *`, comando `python manage.py rodar_jobs_devidos`,
+1 réplica, sem restart (cada execução termina sozinha). A agenda do Railway é em UTC, mas o comando
+compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que venceu na janela (§10).
+
+- **Variáveis**: as mesmas do serviço web (o job roda o código direto, não pelo HTTP) —
+  `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `DJANGO_SECRET_KEY`, `CHAVES_CIFRAGEM`, e-mail,
+  WhatsApp, `SITE_URL` (links das mensagens), `CRON_MONITOR_URL`; `DB_APPLICATION_NAME=shivazen-cron`.
+  Não precisa de `CRON_TOKEN` nem de domínio público.
+- **Sem pre-deploy**: as migrations são só do serviço web (o `railway.cron.json` não tem
+  `preDeployCommand`).
+- **Falha**: exit 1 se algum job falhou (o Railway mostra a execução vermelha); cada job avisa o
+  monitor (`CRON_MONITOR_URL`) com o nome dele.
+- **Alternativa sem o serviço**: um agendador externo chamando o cron HTTP (§14 d).
 
 ---
 
@@ -872,8 +1028,8 @@ Passo a passo (projeto do Railway reativado):
 > **Estado em 2026-10-27:** ainda não há produção. O projeto do Railway que existia (web + Postgres
 > na `0026`) era só **ambiente de desenvolvimento**; está em **stand-by** (trial expirado) e não
 > precisa de upgrade nem de backup. O primeiro deploy de produção cria um **banco novo**: o
-> `migrate_atomico` aplica `0001`→`0061` numa transação e o `seed --force` carrega o catálogo. O
-> roteiro de atualização de um banco já existente (`0026` → `0061`) fica no §14 a.1, para o caso
+> `migrate_atomico` aplica `0001`→`0074` numa transação e o `seed --force` carrega o catálogo. O
+> roteiro de atualização de um banco já existente (`0026` → `0074`) fica no §14 a.1, para o caso
 > de esse banco um dia ser reaproveitado.
 
 ### a) Pré-deploy
@@ -892,17 +1048,21 @@ Passo a passo (projeto do Railway reativado):
 2. **Chave de cifragem**: `python manage.py gerar_chave_cifragem` → `CHAVES_CIFRAGEM` no Railway e
    **uma cópia offline com a dona** (gerenciador de senhas + papel). Sem a chave o pre-deploy para
    (`aranha.E001`); com a chave perdida, o prontuário não abre.
-3. **Variáveis no Railway** (§11): `CHAVES_CIFRAGEM` (passo 2), `CRON_MONITOR_URL` (§14 d),
-   `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (senha ≥ 10, não comum), `CRON_TOKEN`, `SITE_URL`, `ZENVIA_*`, `EMAIL_BACKEND` + chave do provedor +
-   `DEFAULT_FROM_EMAIL` (domínio verificado — §14 i), `WHATSAPP_*`,
-   `TURNSTILE_*`, `SENTRY_DSN`, `CLINIC_EMAIL`, `WHATSAPP_NUMERO`; **remova `STATIC_ROOT`**.
-   Confira no painel do Railway que não há *start command* manual antigo (`gunicorn
-   shivazen.wsgi`) competindo com o `railway.json` (config-as-code: builder DOCKERFILE,
-   pre-deploy, healthcheck `/healthz/`).
+3. **Variáveis no Railway** (§11): `DATABASE_URL=${{Postgres.DATABASE_URL}}` (referência — não
+   vem sozinha; sem ela E002), `DJANGO_SECRET_KEY` (50+ caracteres, E003), `CHAVES_CIFRAGEM`
+   (passo 2), `CRON_MONITOR_URL` (§14 d), `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (senha ≥ 10,
+   não comum), `SITE_URL`, `ZENVIA_*`, `EMAIL_BACKEND` + chave do provedor + `DEFAULT_FROM_EMAIL`
+   (domínio verificado — §14 i), `WHATSAPP_*` (`WHATSAPP_VERIFY_TOKEN` com 32+), `TURNSTILE_*`,
+   `SENTRY_DSN`, `CLINIC_EMAIL`, `WHATSAPP_NUMERO` e, se for usar o cron HTTP, `CRON_TOKEN` (32+);
+   **remova `STATIC_ROOT`** e as legadas do §11 (`GOOGLE_OAUTH_*`, `AWS_*`...). Postgres com a
+   imagem `ghcr.io/railwayapp-templates/postgres-ssl:18` (W015 avisa outro major). Confira no
+   painel do Railway que não há *start command* manual antigo (`gunicorn shivazen.wsgi`)
+   competindo com o `railway.json` (config-as-code: builder DOCKERFILE, pre-deploy, healthcheck
+   `/healthz/`) e crie o serviço Cron (§13.2) com as mesmas variáveis.
 4. **Backup** configurado antes do primeiro cliente real (§14 h).
 5. PR ou fast-forward `dev` → `main` (dispara o deploy; a proteção exige o CI verde no commit).
 
-### a.1) Só para atualizar um banco existente (`0026` → `0061`)
+### a.1) Só para atualizar um banco existente (`0026` → `0074`)
 
 1. **Backup** (é o único rollback): `scripts/backup/backup_postgres.sh` (§14 h). Nunca grave o dump
    em claro dentro do repositório (o `.gitignore`/`.dockerignore` ignoram `*.dump`, mas um
@@ -952,8 +1112,9 @@ Passo a passo (projeto do Railway reativado):
      ignoradas), fim de recorrência sem regra (descartado), COUNT/UNTIL (viram
      `data_fim_recorrencia`).
    - A `0049` (tokens em hash) não aborta: grava `sha256` de cada token em `link_acesso` — os
-     links já enviados (lembrete, termo, NPS, ficha, descadastro, feed ICS, reagendar) continuam
-     abrindo — e registra `migration 0049: links publicos em hash` com a contagem por finalidade,
+     links já enviados (lembrete, termo, NPS, ficha, descadastro, feed ICS) continuam abrindo; os
+     de reagendar (GERENCIAR_AGENDAMENTO) migram aqui e a `0072` os apaga — e registra
+     `migration 0049: links publicos em hash` com a contagem por finalidade,
      as notificações cujo token nenhuma rota aceitava (não migram) e token repetido entre tabelas
      (fica o 1º). Depois dela a URL do feed ICS não é mais exibida: quem precisar do link gera um
      novo (o antigo continua valendo até lá).
@@ -975,7 +1136,7 @@ Passo a passo (projeto do Railway reativado):
      A configuração `prontuario_perguntas` vira o formulário "Questionário do prontuário" (tipo
      PRONTUARIO; as respostas não mudam). JSON inválido não aborta: fica na Configuração e vai
      para a `LogAuditoria` (`migration 0051: ... JSON invalido`) — recrie as perguntas em
-     Painel > Anamneses.
+     Painel > Anamneses. (O escopo MODALIDADE sai depois, na `0073`.)
    - A `0052` (pacote congelado) não aborta: cada compra ganha `pacote_nome` e os itens do
      catálogo **atual** do pacote, com o valor de 1 sessão = valor pago ÷ sessões; cada consumo
      aponta para o item do mesmo procedimento. Sessão consumida cujo procedimento saiu do
@@ -1023,6 +1184,41 @@ Passo a passo (projeto do Railway reativado):
    - A `0059` (trilhas append-only) não mexe em dado. A `0060` cifra o dado de saúde existente
      (inclusive na trilha) e **aborta sem `CHAVES_CIFRAGEM`** em prod: defina a chave antes (§14 a, passo 2).
    - A `0061` só acrescenta a fila de e-mail na `notificacao` (2 colunas + índice parcial); sem DML.
+   - A `0062` (habilitação obrigatória) não aborta: procedimento ativo sem nenhuma habilitação
+     ganha a de todos os profissionais ativos (o mesmo conjunto que o atendia até ali). A `0063`
+     troca o UNIQUE de crédito de comissão pela validação no trigger (1 crédito **ativo** por
+     atendimento) e a `0064` só ajusta rótulos; sem DML.
+   - `0065` (financeiro por competência) — preenche `cancelado_em` = `atualizado_em` das compras
+     já CANCELADAS e **aborta** se houver reembolso em compra não cancelada (lista os ids).
+     Pré-checagem: `SELECT id, status, valor_reembolsado FROM compra_pacote WHERE valor_reembolsado
+     > 0 AND status <> 'CANCELADO';`. A `0066` (snapshot da comissão, `tg_regra_comissao_validar`,
+     `vw_comissao`) não mexe em dado: créditos antigos ficam com `valor_base_calculo` NULL.
+   - `0067` (origens da carteira) — **aborta** se algum `movimento_carteira` tem origem
+     VALE_PRESENTE ou OUTRO (ledger imutável, sem conversão). Pré-checagem: `SELECT id, origem FROM
+     movimento_carteira WHERE origem IN ('VALE_PRESENTE', 'OUTRO');`.
+   - A `0068` apaga as linhas `promocao_<pk>_envio_cursor` da `configuracao` (o cursor passa para
+     a `promocao`; disparo em andamento recomeça só se alguém disparar de novo, com a confirmação
+     de reenvio); a `0069` acrescenta a origem WHATSAPP ao CHECK do consentimento; a `0070` cria a
+     `execucao_job`. Nenhuma aborta.
+   - A `0071` (Google Agenda removido) não aborta: exceção de origem GCAL vira MANUAL (motivo
+     mantido; continua bloqueando a agenda; ids na `LogAuditoria`) e saem `origem_ref` e as 4
+     colunas `gcal_*` do profissional (o token cifrado some junto).
+   - `0072` (papéis e links) — **aborta** se existir usuário RECEPCAO (defina o papel de cada um
+     ou desative). Apaga os links legados GERENCIAR_AGENDAMENTO (ids na `LogAuditoria`) e a coluna
+     `link_acesso.atendimento_id`; recria `fn_link_acesso_imutavel` e `sp_anonimizar_cliente` sem
+     ela. Pré-checagem: `SELECT id, email FROM usuario WHERE papel = 'RECEPCAO';`.
+   - `0073` (modalidade e notificações sem produtor) — **aborta** se alguma notificação
+     LEMBRETE_2H/PESQUISA tem resposta da cliente; as demais desses tipos são apagadas. Ficha
+     MODALIDADE presencial/híbrida vira GLOBAL; online vira GLOBAL inativa; procedimento online/
+     híbrido passa a presencial (ids na `LogAuditoria`). Pré-checagem (no topo da migration):
+     ```sql
+     SELECT id, tipo, resposta FROM notificacao WHERE tipo IN ('LEMBRETE_2H', 'PESQUISA');
+     SELECT id, modalidade, eh_ativo FROM formulario WHERE escopo = 'MODALIDADE';
+     SELECT id, modalidade, url_videoconferencia FROM procedimento
+      WHERE modalidade <> 'PRESENCIAL' OR url_videoconferencia <> '';
+     ```
+   - A `0074` não aborta: tira `rg`, `profissao` e `url_foto` da `cliente` (o valor some com a
+     coluna — exporte antes se a dona quiser guardar algo) e recria `sp_anonimizar_cliente` sem elas.
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
      na `LogAuditoria` (`migration 0034: ...`, com `telefone_original`) para mesclagem manual;
@@ -1030,7 +1226,7 @@ Passo a passo (projeto do Railway reativado):
 ### b) O que o deploy faz
 
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
-2. Pre-deploy: `migrate_atomico` (`0001`→`0061` no banco novo, ou `0027`→`0061` no §14 a.1, numa
+2. Pre-deploy: `migrate_atomico` (`0001`→`0074` no banco novo, ou `0027`→`0074` no §14 a.1, numa
    transação; `lock_timeout` 5 s — se o deploy antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
    Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
    `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
@@ -1048,9 +1244,10 @@ Passo a passo (projeto do Railway reativado):
 curl -fsS https://<dominio>/healthz/                  # {"status": "alive"}
 curl -fsS https://<dominio>/health/                   # db/cache/front = true
 railway ssh   # shell no container:
-python manage.py check --database default             # lista W001–W013 pendentes
+python manage.py check --database default             # lista W001–W015 / E001–E004 pendentes
 python manage.py sendtestemail voce@exemplo.com       # e-mail real pelo provedor (§14 i)
-python manage.py showmigrations aranha_estetica | tail -3   # [X] 0061
+python manage.py showmigrations aranha_estetica | tail -3   # [X] 0074_cliente_dados_sem_finalidade
+python manage.py rodar_jobs_devidos --somente emails  # o mesmo comando do serviço Cron
 ```
 
 Trilha funcionando: edite um prontuário de teste pelo painel e confira (`railway connect` no
@@ -1059,22 +1256,27 @@ Postgres):
 ```sql
 SELECT criado_em, tabela, registro_pk, operacao, colunas_alteradas, usuario_autor_id, ip_origem, origem
   FROM historico_alteracao ORDER BY id DESC LIMIT 5;       -- autor = você, origem = 'web', IP real
-SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tg%';   -- 46
+SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tg%';   -- 47
 ```
 
-### d) Jobs periódicos (cron externo)
+### d) Jobs periódicos
 
-Crie um agendamento por job da tabela do §10 (`POST`, header `X-Cron-Token`):
-- **cron-job.org** (mais simples): um job por URL, método POST, header customizado
-  `X-Cron-Token`, fuso `America/Sao_Paulo` (use a coluna BRT), timeout alto e alerta de falha
-  por e-mail (a resposta 500 indica job com erro).
-- **Railway Cron**: serviço separado (imagem com `curl`) com *Cron Schedule* e o comando
-  `curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job>/`; o
-  agendamento do Railway é em **UTC** (use a coluna UTC); um serviço por horário.
+- **Serviço Cron do Railway** (o caminho padrão): um serviço só, com o `railway.cron.json`
+  (`*/15 * * * *` → `python manage.py rodar_jobs_devidos`) e as mesmas variáveis do web — passo a
+  passo no §13.2. Os horários de cada job ficam na `jobs.JOB_AGENDA` (§10); mudar horário = mudar
+  o código, não o agendador. Confira na aba de execuções do serviço (exit 1 = algum job falhou;
+  o log diz qual).
+- **Alternativa: cron externo pelo HTTP** (ex.: cron-job.org) — um agendamento por job da
+  tabela do §10: `POST /cron/run/<job>/`, header customizado `X-Cron-Token`, fuso
+  `America/Sao_Paulo` (coluna "Cron"), timeout alto e alerta de falha por e-mail (500 = job com
+  erro; 409 = job de mensagem que já rodou hoje, não é falha). Escolha um dos dois caminhos: com
+  os dois, cada job roda duas vezes (os de mensagem sem marca recebem 409 na 2ª; os demais repetem
+  o trabalho).
 
-Teste cada um manualmente uma vez (resposta `{"ok": true, ...}`). Com `CRON_MONITOR_URL`, crie no
-monitor um check por job com o **mesmo nome do job** e o horário da tabela: ele alerta quando o job
-não roda (cron apagado, token trocado, site fora) ou falha.
+Com `CRON_MONITOR_URL`, crie no monitor um check por job com o **mesmo nome do job** e o horário
+da `JOB_AGENDA`: ele alerta quando o job não roda (serviço parado, token trocado, site fora) ou
+falha. Para rodar um job à mão no shell: `python manage.py rodar_job <job>` (`--forcar` depois de
+uma falha no dia).
 
 ### e) Primeiro acesso
 
@@ -1084,12 +1286,12 @@ não roda (cron apagado, token trocado, site fora) ou falha.
    profissional faz o mesmo no primeiro login (o 2FA dele também é obrigatório em prod).
 2. **Remova `ADMIN_PASSWORD` do Railway** (fica em texto puro; o comando não faz nada sem ela).
 3. Rode `python manage.py axes_reset` (limpa bloqueios de login herdados do deploy antigo).
-4. **Painel > Branding**: telefone, WhatsApp (DDI+DDD+número), e-mail de contato, endereço e
+4. **Painel > Identidade visual** (Branding): telefone, WhatsApp (DDI+DDD+número), e-mail de contato, endereço e
    horário reais — a tela vence a env; campo vazio esconde o item no site.
 5. **Painel > Termos**: revise o **termo LGPD v1.0** criado pela `0045` (resumo da política de
    privacidade). Depois do primeiro aceite ele fica imutável — correções viram nova versão. Crie
    os termos de PROCEDIMENTO necessários.
-6. Confira Configurações (`email_admin` do alerta de detrator), profissionais (expediente,
+6. Confira Regras operacionais (`email_admin` do alerta de detrator, faltas para pausar o online), profissionais (expediente,
    `max_advance_dias`), procedimentos/preços e a `LogAuditoria` com `migration 0034:` (duplicatas
    a mesclar e telefones inválidos a corrigir).
 7. Faça um agendamento real de ponta a ponta (SMS chega, e-mail sai, aprovação no painel).
@@ -1098,11 +1300,13 @@ Sem acesso ao painel (2FA perdido, lockout): `railway ssh` → `python manage.py
 --force` (novo QR ASCII + códigos) e/ou `python manage.py axes_reset`. Emergência extrema:
 `ADMIN_2FA_OBRIGATORIO=false` + redeploy (gera W008; volte assim que possível).
 
-### f) System checks (`aranha.W00x`)
+### f) System checks (`aranha.W0xx` / `aranha.E00x`)
 
 Aparecem no log de todo `manage.py` fora de DEBUG (inclusive no pre-deploy). Os que consultam o
-banco (W004/W007 via Branding, W006, W010) só rodam com `check --database default` ou no `migrate`
-(antes das migrations).
+banco (W004/W007 via Branding, W006, W010, W015) só rodam com `check --database default` ou no
+`migrate` (antes das migrations). Os **erros** E001–E003 só valem nos perfis publicados
+(prod/staging) e **barram o `migrate_atomico` do pre-deploy** (o deploy anterior segue no ar); o
+E004 vale em qualquer perfil.
 
 | Check | Significa | Como resolver |
 |---|---|---|
@@ -1110,7 +1314,7 @@ banco (W004/W007 via Branding, W006, W010) só rodam com `check --database defau
 | `W002` | SMS sem provedor (ou `SMS_DEV_LOG_ONLY=true` em prod) — OTP falha | `ZENVIA_API_TOKEN` + `ZENVIA_FROM`; remover `SMS_DEV_LOG_ONLY` |
 | `W003` | Backend de e-mail que não entrega (dummy/console/arquivo/locmem, `anymail.backends.test`) | `EMAIL_BACKEND` do anymail + chave do provedor (§14 i); SMTP só no plano Pro |
 | `W004` | WhatsApp vazio/inválido — botões e fallback ocultos | Branding ou `WHATSAPP_NUMERO` |
-| `W005` | `CRON_TOKEN` ausente — nenhum job roda | Definir e configurar o cron |
+| `W005` | `CRON_TOKEN` ausente — o cron HTTP `/cron/run/<job>/` recusa tudo (403). O serviço Cron (§13.2) roda os jobs sem ele (o texto do aviso ainda diz que nenhum job roda) | Definir se usar o cron HTTP; com o serviço Cron, o aviso pode ficar |
 | `W006` | Nenhum ADMIN ativo com senha — ninguém entra no painel | `ADMIN_EMAIL`/`ADMIN_PASSWORD` + redeploy |
 | `W007` | `CLINIC_EMAIL` vazio — sem canal do titular LGPD | Branding ou env |
 | `W008` | `ADMIN_2FA_OBRIGATORIO=false` em prod | Remover a env |
@@ -1119,7 +1323,12 @@ banco (W004/W007 via Branding, W006, W010) só rodam com `check --database defau
 | `W011` | Backend anymail sem a chave do provedor (ou de provedor não suportado pelos settings), ou `DEFAULT_FROM_EMAIL` de exemplo — nada é entregue | Chave do provedor no Railway; `DEFAULT_FROM_EMAIL` do domínio verificado (§14 i) |
 | `W012` | `PROFISSIONAL_2FA_OBRIGATORIO=false` em prod — profissional lê dado de saúde só com a senha | Remover a env; profissional sem celular usa códigos de backup impressos |
 | `W013` | `RETENCAO_LOG_AUDITORIA_DIAS` abaixo de 180 — o Postgres recusa a purga da trilha | 180 ou mais (padrão 1825; Marco Civil: 6 meses) |
-| `E001` (**erro**) | Prod sem `CHAVES_CIFRAGEM` válida — barra o `migrate_atomico` do pre-deploy (o deploy anterior segue no ar) | `CHAVES_CIFRAGEM=<manage.py gerar_chave_cifragem>` + cópia offline |
+| `W014` | Só no dev (`DEBUG=True`): Python ou pacote local diferente do CI/imagem (3.12 + `requirements.lock`) | venv 3.12 + `pip install -r requirements-dev.txt -c requirements.lock` ([`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md)) |
+| `W015` | Postgres fora do major 18 (CI, paridades e procedures só são validados na 18) | Serviço com a imagem `ghcr.io/railwayapp-templates/postgres-ssl:18` (nunca `:latest`) |
+| `E001` (**erro**) | Perfil publicado sem `CHAVES_CIFRAGEM` válida | `CHAVES_CIFRAGEM=<manage.py gerar_chave_cifragem>` + cópia offline |
+| `E002` (**erro**) | Perfil publicado sem Postgres (`DATABASE_URL` ausente: cairia no SQLite, sem procedures/triggers e apagado a cada deploy) | `DATABASE_URL=${{Postgres.DATABASE_URL}}` no serviço |
+| `E003` (**erro**) | Segredo fraco ou de exemplo: `DJANGO_SECRET_KEY` com menos de 50 caracteres (ou < 5 distintos, `django-insecure-`, valor de exemplo); `CRON_TOKEN`/`WHATSAPP_VERIFY_TOKEN` definidos com menos de 32 | Gerar com `get_random_secret_key()` / `secrets.token_urlsafe(32)` e atualizar também quem envia o header |
+| `E004` (**erro**) | `OTP_MAX_TENTATIVAS` fora de 1..10 (o CHECK do banco limita a 10: o 11º erro viraria 500) | Padrão 5 ou até 10 |
 
 Build: `django_vite.W001` (manifest ausente) reprova o `check --tag staticfiles` do Dockerfile.
 
@@ -1227,8 +1436,16 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 
 - Regra de negócio em `services/`/`utils/`, não em view; mudança de status só pela FSM.
 - Camadas `views > services > models` (para baixo pode, para cima não) e nada importa `views`
-  fora dela: `lint-imports` no CI (`pyproject.toml [tool.importlinter]`; exceção = inversão
-  consciente listada lá).
+  fora dela; `utils` não importa `services`; as áreas de views (`publico`, `painel`,
+  `profissional`, `conta`, `infra`) não se importam — helper de view compartilhado vai para
+  `views/comum.py`, regra para `services/`: `lint-imports` no CI (`pyproject.toml
+  [tool.importlinter]`; exceção = inversão consciente listada lá).
+- Configuração por ambiente só em `clinica/settings` (lida e validada no boot); o código lê
+  `settings.X` na hora da chamada (`override_settings` funciona nos testes). O ruff `TID251` barra
+  `os.environ`/`os.getenv` fora dali (exceções no `pyproject.toml`); variável nova entra também no
+  `.env.example` (`EnvExampleTests`).
+- Resposta JSON de view = `utils/respostas` (`json_ok`/`json_erro`/`json_recusa`); telefone =
+  `utils/telefone` (normalizar, validar, E.164, máscara), fonte única da forma canônica.
 - Entrada de formulário do painel = Django Form (`forms/`), não `request.POST.get` campo a campo;
   erro vira `messages.error` por `forms.painel.avisar_erros`.
 - Recusa de regra = `excecoes.RegraDeNegocio` com mensagem pronta para a tela (nunca `None`/
@@ -1259,7 +1476,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 - Migrations: nunca editar migration já aplicada em produção; DDL só-Postgres via `RunPython`
   com checagem de vendor; teste no Postgres (CI) antes do merge.
 - Commits: Conventional Commits (`feat(scope)`, `fix(scope)`, `docs(scope)`...).
-- Docs: este arquivo + requisitos (`python docs/gerar_requisitos.py`) no mesmo PR da mudança.
+- Docs: este arquivo + requisitos (`docs/_dados_requisitos.json`, lido por
+  `python docs/gerar_documentacao.py`) no mesmo PR da mudança.
 
 ---
 
@@ -1277,6 +1495,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-26 | Padrão SQL, fase de lógica (L1–L3): trilha de dados `historico_alteracao` por trigger com autor/IP/origem da sessão (`ContextoBancoMiddleware`, cron, Celery, `migrate_atomico`) e `atualizado_em` por trigger (0056); `pg_trgm`/`unaccent`, busca de cliente sem acento, 8 funções de leitura e 9 views com paridade testada contra o Python, NPS "meio p/ cima" (0057); 4 procedures como fonte única da retenção/LGPD (0058); data migrations em jobs paralelos do CI (tag `migracoes`) ([`specs/padrao-sql.md`](specs/padrao-sql.md) §5) |
 | 2026-10-27 | Revisão, fases 3 e 4: regras de agenda num lugar só (`services/agenda`), efeitos de status explícitos (`services/atendimento`, sem signals), auditoria pelo `Ator` da borda, e-mail como fila na própria `notificacao` (0061) e saída do Celery (`jobs.py`/`rodar_job`), Django Forms no painel, inventário LGPD testado, camadas (import-linter) e mypy nos services; front com tokens/foco/tema automático, wizard com botão Continuar, entradas do Vite por tela, fontes locais, `<dialog>`, formulários acessíveis, e-mails para o Outlook, componentes cotton e PWA |
 | 2026-10-28 | Revisão, fases 2 e 5: `settings/test.py` único (hash MD5: suíte de ~4 min para ~40 s; `--keepdb`), ruff com regra de fuso + pre-commit, catraca de cobertura (87 %), wizard no Chromium no CI (achou o link pré-selecionado parado na etapa 1), data migrations em paralelo (25 → 10 min), CI com pins por SHA/digest, Dependabot e `pip-audit` bloqueante, `aranha.W014` (ambiente fora do lock), [`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md); banco: alertas de saúde em lote (painel 38 → 20 consultas, prontuários 28 → 8 com 10 clientes), filtros por dia como intervalo (14 `__date`), `statement_timeout`/`application_name` na conexão, `consultas_lentas` (pg_stat_statements) e roteiro de staging |
+| 2026-10-28 | Pacotes da revisão funcional (0062–0074): financeiro por competência mensal, rateio ponderado do pacote, prorrogar/cancelar compra, regras de comissão no painel, snapshot e repasse em lote, "Minhas comissões" (0065–0067); jobs com agenda única (`JOB_AGENDA`) e serviço Cron do Railway, lembrete D-1 por e-mail, push de sem desfecho, NPS 1×/90 dias, promoção de disparo único, "PARAR" no WhatsApp, trava diária `execucao_job` (0068–0070); remoções — Google Agenda, papel RECEPCAO, link legado de reagendar, modalidade/videoconferência, tipos de notificação sem produtor, RG/profissão/foto, gravação do aviso de cookies, pytest (0071–0074); borda — checks E002–E004/W015, segredos fortes, `.env.example` testado, configuração só nos settings (TID251), `utils/telefone` e `utils/respostas`, redação de logs, imagem endurecida, axes por IP, 2FA falha fechado, gitleaks/npm audit e cobertura combinada no CI |
+| 2026-10-29 | Pedido online como caso de uso (`services/agendamento_online` + `forms/agendamento`, view fina; teto de 3 horários pelo site, ficha válida por 12 meses, pedido sempre da titular, vitrine em `services/precos`, "Avise-me se vagar"); equipe, catálogo e configurações com Django Forms (`forms/cadastros`), `services/catalogo`, regras operacionais em registro tipado (`models/configuracao`) e feed ICS revogado no desligamento |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
-**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-28
+**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-29
