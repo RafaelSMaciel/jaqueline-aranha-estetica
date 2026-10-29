@@ -19,7 +19,6 @@ class Consentimento <<Entity>> {
 }
 class ConsentimentoQuerySet <<QuerySet>> {
   + do_titular(cliente)
-  + minimizar_dados_de_origem()
 }
 Consentimento ..> ConsentimentoQuerySet : objects
 
@@ -97,6 +96,9 @@ class Configuracao <<Entity>> {
   + descricao : str
   + criado_em : datetime
   + atualizado_em : datetime
+  --
+  + {static} das_regras()
+  + {static} ler(chave)
 }
 
 Usuario "0..1" --> "0..1" Profissional : profissional

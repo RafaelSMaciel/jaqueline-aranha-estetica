@@ -18,8 +18,9 @@ rectangle "Site público" {
   usecase "Responder a ficha\nde anamnese" as UC3e
   usecase "Aceitar o termo\ndo procedimento" as UC3f
   usecase "Autorizar comunicações\n(marketing, lembrete, NPS)" as UC3g
-  usecase "Entrar na lista de espera" as UC4
-  usecase "Pedir cópia dos meus dados\n(DSAR, com OTP)" as UC5
+  usecase "Entrar na lista de espera\n(sem criar cadastro)" as UC4
+  usecase "Avise-me se vagar\n(dia sem horário)" as UC4b
+  usecase "Pedir cópia dos meus dados\n(DSAR com OTP, sem saúde)" as UC5
   usecase "Descadastrar-se do marketing" as UC6
   usecase "Falar pelo WhatsApp" as UC7
 }
@@ -40,6 +41,7 @@ UC3e ..> UC3 : <<extend>>\n(ficha aplicável\nao procedimento)
 UC3f ..> UC3 : <<extend>>\n(procedimento\ncom termo)
 UC3g ..> UC3 : <<extend>>
 UC5 ..> UC3c : <<include>>
+UC4b ..> UC4 : <<extend>>
 UC3c --> SMS
 UC3 --> P : e-mail de aprovação\n(cliente nova)
 
@@ -47,6 +49,7 @@ note right of UC3
   Cliente de confiança (já atendida, sem falta em aberto,
   menos de 2 horários futuros) → AGENDADO com confirmação na hora.
   Primeira vez → PENDENTE: a profissional aprova.
-  3 faltas seguidas bloqueiam o agendamento online.
+  3 faltas seguidas bloqueiam o agendamento online (com motivo e revisão).
+  No máximo 3 horários em aberto pelo site; o pedido é sempre da titular do celular.
 end note
 @enduml

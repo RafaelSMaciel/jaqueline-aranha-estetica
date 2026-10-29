@@ -13,14 +13,8 @@ class Profissional <<Entity>> {
   + ativo : bool
   + min_notice_horas : int
   + max_advance_dias : int
-  + gcal_refresh_token : str «cifrado»
-  + gcal_calendar_id : str
-  + gcal_sync_token : str
-  + gcal_ultimo_sync_em : datetime [0..1]
   + criado_em : datetime
   + atualizado_em : datetime
-  --
-  + get_horarios_disponiveis(data_selecionada, procedimento)
 }
 
 class Procedimento <<Entity>> {
@@ -31,8 +25,6 @@ class Procedimento <<Entity>> {
   + duracao_minutos : int
   + buffer_minutos : int
   + categoria : str
-  + modalidade : str
-  + link_videoconferencia : str
   + imagem_destaque : str
   + ativo : bool
   + exige_retorno : bool
@@ -64,10 +56,14 @@ class Promocao <<Entity>> {
   + data_fim : date
   + ativa : bool
   + imagem_url : str
+  + envio_cursor : int [0..1]
+  + disparada_em : datetime [0..1]
   + criado_em : datetime
   + atualizado_em : datetime
   --
   + /esta_vigente «property»
+  + /envio_em_andamento «property»
+  + /envio_concluido «property»
 }
 
 class AgendaHorario <<Entity>> {
@@ -81,7 +77,6 @@ class AgendaHorario <<Entity>> {
 class AgendaExcecao <<Entity>> {
   + tipo : str
   + origem : str
-  + origem_ref : str [0..1]
   + data_inicio : date [0..1]
   + data_fim : date [0..1]
   + hora_inicio : time [0..1]
@@ -104,6 +99,7 @@ class AgendaExcecaoQuerySet <<QuerySet>> {
   + do_profissional_ou_global(profissional)
   + cobrindo(dia)
   + folga_global_em(dia)
+  + vigente_para(profissional, tipo, data_inicio, data_fim)
   + bloqueios_no_intervalo(inicio, fim)
 }
 AgendaExcecao ..> AgendaExcecaoQuerySet : objects
@@ -140,12 +136,19 @@ class AtendimentoQuerySet <<QuerySet>> {
 Atendimento ..> AtendimentoQuerySet : objects
 
 class ListaEspera <<Entity>> {
+  + nome_contato : str
+  + telefone_contato : str [0..1]
   + data_desejada : date
   + turno_desejado : str [0..1]
-  + notificado : bool
+  + ultimo_aviso_em : datetime [0..1]
   + email_contato : str [0..1]
   + criado_em : datetime
   + atualizado_em : datetime
+  --
+  + /nome «property»
+  + /telefone «property»
+  + /avisada «property»
+  + /email_aviso «property»
 }
 
 enum StatusAtendimento {
@@ -173,7 +176,7 @@ Atendimento "0..*" --> "1" Procedimento : procedimento
 Atendimento "0..*" --> "0..1" Promocao : promocao
 Atendimento "0..*" --> "0..1" Atendimento : reagendado_de
 Atendimento "0..*" --> "0..1" Atendimento : atendimento_origem
-ListaEspera "0..*" --> "1" Cliente : cliente
+ListaEspera "0..*" --> "0..1" Cliente : cliente
 ListaEspera "0..*" --> "1" Procedimento : procedimento
 ListaEspera "0..*" --> "0..1" Profissional : profissional_desejado
 @enduml

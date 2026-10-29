@@ -18,11 +18,15 @@ CR -> VC : POST /cron/run/lembrete_diario/\n(X-Cron-Token)
 VC -> J : executar
 J -> DB : AGENDADO de amanhã sem lembrete
 J -> CS : com_consentimento(LEMBRETE, WHATSAPP)
-loop cada atendimento autorizado
-  J -> DB : Notificacao LEMBRETE WHATSAPP
+loop cada atendimento de amanhã
   J -> L : emitir(CONFIRMAR_PRESENCA, expira no início)
   L -> DB : link_acesso (só o SHA-256 do token)
-  J -> WA : template confirmacao_d1 com /confirmar/<token>/
+  alt autorizou WhatsApp
+    J -> DB : Notificacao LEMBRETE WHATSAPP
+    J -> WA : template confirmacao_d1 com /confirmar/<token>/
+  else sem autorização e com e-mail
+    J -> DB : Notificacao LEMBRETE EMAIL (fila; contrato, art. 7º V)
+  end
 end
 VC -> VC : avisa o monitor (healthchecks)
 

@@ -26,6 +26,9 @@ class AvaliacaoNPS <<Entity>> {
   + alerta_enviado : bool
   + criado_em : datetime
   + atualizado_em : datetime
+  --
+  + aprovar_publicacao()
+  + retirar_publicacao()
 }
 
 class AssinaturaPush <<Entity>> {
@@ -73,6 +76,14 @@ class CodigoOtp <<Entity>> {
   + {static} verificar(email, codigo, proposito)
 }
 
+class ExecucaoJob <<Entity>> {
+  + job : str
+  + dia : date
+  + iniciado_em : datetime
+  + concluido_em : datetime [0..1]
+  + resultado : str
+}
+
 enum CanalNotificacao {
   WHATSAPP
   SMS
@@ -92,11 +103,9 @@ enum StatusNotificacao {
 
 enum TipoNotificacao {
   LEMBRETE
-  LEMBRETE_2H
   CONFIRMACAO
   CANCELAMENTO
   NPS
-  PESQUISA
   APROVACAO
   TERMO
 }
@@ -104,7 +113,6 @@ enum TipoNotificacao {
 Notificacao "0..*" --> "1" Atendimento : atendimento
 AvaliacaoNPS "0..1" --> "1" Atendimento : atendimento
 AssinaturaPush "0..*" --> "1" Usuario : user
-LinkAcesso "0..*" --> "0..1" Atendimento : atendimento
 LinkAcesso "0..*" --> "0..1" Notificacao : notificacao
 LinkAcesso "0..*" --> "0..1" RespostaAnamnese : resposta_formulario
 LinkAcesso "0..*" --> "0..1" Cliente : cliente

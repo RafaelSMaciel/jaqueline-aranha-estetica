@@ -2,7 +2,7 @@
 ' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
 !include ../estilo.iuml
 hide empty members
-title Serviços — agenda e atendimento
+title Serviços — agenda, pedido online e atendimento
 
 class "services.agenda" as agenda <<módulo>> {
   + duracao(procedimento, *, eh_retorno)
@@ -11,7 +11,11 @@ class "services.agenda" as agenda <<módulo>> {
   + reservar(*, cliente, profissional, procedimento…)
   + status_inicial_publico(cliente)
   + reagendar(antigo, novo_inicio, profissional, *, …)
+  + cancelamento_tardio(at, agora)
+  + cancelar_pela_cliente(atendimento_id, *, origem, so_aprovados)
   + mover(atendimento_id, novo_inicio)
+  + preco_da_recepcao(procedimento, profissional, inicio, va…)
+  + agendar_pela_recepcao(*, cliente, dados_cliente_nova, profis…)
 }
 class "services.agendamento" as agendamento <<módulo>> {
   + avisar_cancelamento(atendimento, mensagem)
@@ -21,19 +25,38 @@ class "services.agendamento" as agendamento <<módulo>> {
 class AgendamentoService <<serviço>> {
   + {static} aprovar()
   + {static} rejeitar()
+  + {static} decidir_em_lote()
 }
 agendamento *-- AgendamentoService
+class "services.agendamento_online" as agendamento_online <<módulo>> {
+  + solicitar(pedido, *, request)
+  + fichas_respondidas(respostas, procedimento, *, em_dia)
+  + fichas_em_dia_do_wizard(cliente, inicio)
+  + validar_limite_online(cliente)
+  + resumo_confirmacao(atendimento, *, reagendamento)
+}
+class PedidoAgendamento <<serviço>> {
+}
+agendamento_online *-- PedidoAgendamento
 class "services.atendimento" as atendimento <<módulo>> {
   + ao_mudar_status(at, anterior, novo, *, pela_cliente)
+  + marcar_realizado(at, *, por, aceitar_sem_termo, request)
+  + registrar_valor_cobrado(at, valor, *, usar_credito, por)
   + devolver_sessao_de_pacote(at)
+  + cancelar_pendentes_vencidos(agora)
   + ao_criar(at)
   + debitar_sessao_de_pacote(at)
 }
+class ValorRegistrado <<serviço>> {
+}
+atendimento *-- ValorRegistrado
 class "services.disponibilidade" as disponibilidade <<módulo>> {
   + slot_disponivel(profissional, procedimento, data_hora,…)
   + profissionais_para(procedimento)
   + procedimentos_agendaveis(qs)
   + profissional_habilitado(profissional, procedimento)
+  + horarios_agrupados(procedimento, profissionais, dia, igno…)
+  + dias_com_expediente(profissionais, inicio, fim)
 }
 class SlotService <<serviço>> {
   + {static} slots_livres()
@@ -42,6 +65,7 @@ disponibilidade *-- SlotService
 class "services.retorno" as retorno <<módulo>> {
   + janela(origem)
   + devidos(cliente_id)
+  + devidos_na_lista(atendimentos)
   + horarios(origem, dia, profissional)
   + agendar(origem, inicio, *, profissional)
 }
@@ -49,29 +73,39 @@ class RetornoDevido <<serviço>> {
 }
 retorno *-- RetornoDevido
 class "services.pacotes" as pacotes <<módulo>> {
+  + avisar_expirando(dia)
   + sessoes_previstas(atendimentos)
+  + reembolso_sugerido(compra)
+  + cancelar_compra(compra, reembolso, *, motivo, por, req…)
+  + prorrogar_validade(compra, nova_data, *, motivo, por, req…)
+}
+class "services.precos" as precos <<módulo>> {
+  + promocoes_vigentes(dia, procedimento_ids)
+  + candidatas_de(procedimento_id, vigentes)
+  + precos_de_vitrine(procedimentos, dia)
+}
+class PrecoExibido <<serviço>> {
+  + {static} em_promocao()
+}
+precos *-- PrecoExibido
+class "services.catalogo" as catalogo <<módulo>> {
+  + definir_preco_base(procedimento, valor)
+  + sincronizar_habilitacoes(procedimento, profissionais)
 }
 class "services.lista_espera" as lista_espera <<módulo>> {
-}
-class ListaEsperaService <<serviço>> {
-  + {static} candidatos()
-  + {static} notificar_compativeis()
-}
-lista_espera *-- ListaEsperaService
-class "services.alertas" as alertas <<módulo>> {
-  + alertas_por_cliente(clientes)
-  + ids_com_ficha_pendente(atendimentos)
+  + turno_de(inicio)
+  + inscrever(*, nome, telefone, email, procedimento…)
+  + candidatos(atendimento_liberado)
+  + notificar_compativeis(atendimento_liberado)
+  + encerrar_atendidas(at)
+  + link_agendamento(procedimento_id, profissional_id, dia)
+  + avisar_manual(espera)
 }
 class "services.indicadores" as indicadores <<módulo>> {
   + ocupacao_semana(inicio, fim)
 }
-class "services.gcal" as gcal <<módulo>> {
-  + gcal_disponivel()
-  + build_authorization_url(state)
-  + handle_oauth_callback(profissional, code, code_verifier)
-  + push_atendimento(atendimento)
-  + pull_eventos_externos(profissional)
-}
+class "services.anamnese" as anamnese #F2F2F2
+hide anamnese members
 class "services.comissao" as comissao #F2F2F2
 hide comissao members
 class "services.comunicacao" as comunicacao #F2F2F2
@@ -82,15 +116,25 @@ class "services.fidelidade" as fidelidade #F2F2F2
 hide fidelidade members
 class "services.push" as push #F2F2F2
 hide push members
+class "services.termos" as termos #F2F2F2
+hide termos members
 agenda ..> atendimento
+agenda ..> comunicacao
 agenda ..> disponibilidade
 agendamento ..> comunicacao
 agendamento ..> pacotes
+agendamento_online ..> agenda
+agendamento_online ..> agendamento
+agendamento_online ..> anamnese
+agendamento_online ..> comunicacao
+agendamento_online ..> consentimentos
+agendamento_online ..> termos
+atendimento ..> agendamento
 atendimento ..> comissao
 atendimento ..> fidelidade
-atendimento ..> gcal
 atendimento ..> lista_espera
 atendimento ..> push
+atendimento ..> termos
 lista_espera ..> consentimentos
 retorno ..> agenda
 retorno ..> disponibilidade

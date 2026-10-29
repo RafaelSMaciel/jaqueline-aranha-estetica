@@ -2,7 +2,7 @@
 ' GERADO por docs/uml/gerar_uml.py a partir dos models — nao edite a mao.
 !include ../estilo.iuml
 !include ../estilo-er.iuml
-title Modelo de dados — visão geral (36 tabelas)
+title Modelo de dados — visão geral (37 tabelas)
 
 package "Agenda e atendimento" {
   entity "profissional" as profissional
@@ -40,6 +40,7 @@ package "Comunicação, links de acesso e verificação" {
   entity "assinatura_push" as assinatura_push
   entity "link_acesso" as link_acesso
   entity "codigo_otp" as codigo_otp
+  entity "execucao_job" as execucao_job
 }
 package "LGPD, termos, auditoria e acesso" {
   entity "consentimento" as consentimento
@@ -88,7 +89,7 @@ procedimento ||--o{ compra_pacote_item : procedimento_id
 compra_pacote ||--o{ consumo_sessao : compra_pacote_id
 compra_pacote_item ||--o{ consumo_sessao : compra_pacote_item_id
 atendimento ||--o| consumo_sessao : atendimento_id
-cliente ||--o{ lista_espera : cliente_id
+cliente |o--o{ lista_espera : cliente_id
 procedimento ||--o{ lista_espera : procedimento_id
 profissional |o--o{ lista_espera : profissional_desejado_id
 usuario |o--o{ log_auditoria : usuario_autor_id
@@ -97,7 +98,6 @@ procedimento |o--o{ formulario : procedimento_id
 formulario ||--o{ resposta_formulario : formulario_id
 cliente ||--o{ resposta_formulario : cliente_id
 atendimento |o--o{ resposta_formulario : atendimento_id
-atendimento |o--o{ link_acesso : atendimento_id
 notificacao |o--o{ link_acesso : notificacao_id
 resposta_formulario |o--o{ link_acesso : resposta_formulario_id
 cliente |o--o{ link_acesso : cliente_id

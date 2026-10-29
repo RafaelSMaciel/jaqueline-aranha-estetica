@@ -14,7 +14,8 @@ rectangle "Portal da profissional (/profissional/)" {
   usecase "Anotar a sessão" as U5
   usecase "Ver alertas de saúde\ne ficha pendente" as U6
   usecase "Gerar link da agenda (ICS)" as U7
-  usecase "Receber push\n(novo, cancelou, remarcou)" as U8
+  usecase "Receber push\n(novo, cancelou, remarcou,\nsem desfecho)" as U8
+  usecase "Ver minhas comissões" as U9
 }
 
 P --> U1
@@ -26,6 +27,7 @@ P --> U5
 P --> U6
 P --> U7
 P --> U8
+P --> U9
 U3 --> C : e-mail de confirmação\nou cancelamento
 U4 ..> U6 : <<include>>
 @enduml

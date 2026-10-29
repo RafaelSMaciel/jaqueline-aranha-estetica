@@ -37,6 +37,7 @@ entity "compra_pacote" as compra_pacote {
   * valor_reembolsado : numeric(10,2)
   * status : varchar(20)
   data_expiracao : date
+  cancelado_em : timestamptz
 }
 
 entity "compra_pacote_item" as compra_pacote_item {
@@ -79,6 +80,8 @@ entity "movimento_comissao" as movimento_comissao {
   * tipo : varchar(10)
   regra_comissao_id : bigint <<FK>>
   * valor : numeric(10,2)
+  valor_base_calculo : numeric(10,2)
+  percentual_aplicado : numeric(5,2)
   movimento_comissao_origem_id : bigint <<FK>>
   * observacao : text
   usuario_autor_id : bigint <<FK>>

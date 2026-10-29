@@ -43,12 +43,15 @@ HISTORICO = [
     ('2.3', '28/10/2026', 'Revisão de outubro/2026 (migrations 0047–0061): agenda unificada, links em hash, '
                           'pacote congelado na venda, comissão como livro-razão, lógica no banco, '
                           'cifragem do dado de saúde, fila de e-mail e saída do Celery.'),
-    ('3.0', '28/10/2026', 'Documentação técnica completa: UML refeita em PlantUML (casos de uso, classes '
+    ('3.0', '29/10/2026', 'Documentação técnica completa: UML refeita em PlantUML (casos de uso, classes '
                           'geradas do código, sequência, estados, atividades, componentes, implantação e '
                           'ER gerado dos models), arquitetura, segurança/LGPD, qualidade e implantação. '
-                          'Regras novas: aprovação automática de cliente de confiança, matriz de '
-                          'comunicação, pedido pendente vence 1 h antes, retorno marcado com a cliente, '
-                          'sessão de pacote prevista, ficha de anamnese por link e ambiente de testes.'),
+                          'Migrations até 0078: aprovação automática de cliente de confiança, matriz de '
+                          'comunicação, retorno marcado com a cliente, sessão de pacote prevista, '
+                          'financeiro por competência e repasse em lote, lembrete por e-mail e NPS a cada '
+                          '90 dias, retenção de saúde por 20 anos e área da cliente (preferências, '
+                          'revogação, pedidos LGPD), pedido online como caso de uso, remoção de legado '
+                          '(Google Agenda, link antigo, papel RECEPCAO) e endurecimento de segurança.'),
 ]
 GOLD = RGBColor(0xC4, 0xA3, 0x5A)
 DARK = RGBColor(0x4A, 0x34, 0x25)
@@ -392,9 +395,10 @@ par('As views só traduzem HTTP: validam a entrada e chamam os serviços, onde v
     'negócio e os efeitos colaterais. Os diagramas abaixo são gerados por análise do código (AST): '
     'cada módulo com suas operações públicas e as dependências entre módulos.')
 for caminho, legenda in (
-        ('10-servicos-agenda.png', 'Serviços — agenda e atendimento.'),
-        ('11-servicos-clinico-comunicacao.png', 'Serviços — fichas, termos, LGPD e comunicação.'),
-        ('12-servicos-financeiro.png', 'Serviços — financeiro e relatórios.')):
+        ('10-servicos-agenda.png', 'Serviços — agenda, pedido online e atendimento.'),
+        ('11-servicos-clinico-lgpd.png', 'Serviços — fichas, prontuário, termos e LGPD.'),
+        ('12-servicos-financeiro.png', 'Serviços — financeiro e relatórios.'),
+        ('13-servicos-comunicacao.png', 'Serviços — comunicação e rotinas.')):
     figura('02-classes/' + caminho, legenda)
 h2('9.1 Responsabilidade de cada serviço')
 add_table(['Módulo', 'Responsabilidade (docstring do módulo)'], _servicos(), widths=[2.0, 4.7])

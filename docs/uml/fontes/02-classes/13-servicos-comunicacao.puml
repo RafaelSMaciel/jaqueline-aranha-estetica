@@ -1,0 +1,99 @@
+@startuml 13-servicos-comunicacao
+' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
+!include ../estilo.iuml
+hide empty members
+title Serviços — comunicação e rotinas
+
+class "services.comunicacao" as comunicacao <<módulo>> {
+  + url_absoluta(caminho)
+  + link_revisar_agenda(data_hora)
+  + links_confirmacao(token)
+  + url_descadastro(token)
+  + enfileirar_email(atendimento, tipo, mensagem)
+  + enviar_da_fila(notificacao_id)
+  + reenviar_pendentes(agora)
+  + enviar_confirmacao_d1(atendimento)
+  + enviar_nps_whatsapp(atendimento)
+  + enviar_marketing_com_descadastro(cliente, enviar)
+}
+class MensagemEmail <<serviço>> {
+}
+comunicacao *-- MensagemEmail
+class "services.lembretes" as lembretes <<módulo>> {
+  + a_lembrar(amanha)
+  + enviar_lembretes_d1(amanha)
+  + avisar_sem_desfecho(agora)
+}
+class "services.nps" as nps <<módulo>> {
+  + calcular_nps(promotores, detratores, total)
+  + media_nota(soma, total)
+  + resumo_nps(qs)
+  + candidatos(agora)
+  + enviar_pesquisas()
+  + registrar_avaliacao(atendimento, nota, *, comentario, auto…)
+  + destino_alerta()
+  + alertar_detratores()
+}
+class "services.marketing" as marketing <<módulo>> {
+  + destinatarios_promocao()
+  + oferta(promo)
+  + assunto(promo)
+  + enviar_promocao(promo, *, lote, reenviar)
+  + aniversariantes_do_dia(data)
+  + felicitar_aniversariantes(data)
+}
+class PromocaoJaDisparada <<serviço>> {
+}
+marketing *-- PromocaoJaDisparada
+class "services.feriados" as feriados <<módulo>> {
+  + pascoa(ano)
+  + feriados_moveis(ano)
+  + feriados_do_ano(ano)
+  + anos_padrao()
+  + carregar(anos)
+}
+class "services.links" as links <<módulo>> {
+  + sha256_hex(token)
+  + gerar_token()
+  + emitir(finalidade, alvo, *, expira_em)
+  + resolver(finalidades, token, *, select_related,…)
+  + marcar_usado(link)
+  + revogar(finalidade, alvo)
+  + descartar(token)
+  + vigente(finalidade, alvo)
+  + gerar_link_feed_ics(profissional)
+  + revogar_feed_ics(profissional, *, motivo, request)
+  + emitir_link_formulario(resposta)
+}
+class "services.otp" as otp <<módulo>> {
+  + normalizar_telefone_br(valor)
+  + eh_celular_br(digitos)
+  + solicitar_otp(email, *, request, proposito, telefone…)
+  + verificar_otp(email, codigo, *, proposito)
+  + solicitar_otp_telefone(digitos, *, request, proposito)
+  + verificar_otp_telefone(digitos, codigo, *, proposito)
+  + registrar_verificacao_agendamento(request, digitos)
+  + telefone_verificado_agendamento(request)
+  + limpar_verificacao_agendamento(request)
+  + esperar_latencia_minima(inicio)
+}
+class "services.push" as push <<módulo>> {
+  + get_vapid_public_key()
+  + send_push(subscription, payload)
+  + send_push_to_user(user, payload)
+}
+class "services.agendamento" as agendamento #F2F2F2
+hide agendamento members
+class "services.consentimentos" as consentimentos #F2F2F2
+hide consentimentos members
+comunicacao ..> agendamento
+comunicacao ..> links
+lembretes ..> comunicacao
+lembretes ..> consentimentos
+lembretes ..> push
+marketing ..> comunicacao
+marketing ..> consentimentos
+nps ..> comunicacao
+nps ..> consentimentos
+nps ..> links
+@enduml

@@ -40,7 +40,7 @@ PARTES = OrderedDict([
         'pacote', 'pacote_item', 'compra_pacote', 'compra_pacote_item', 'consumo_sessao', 'regra_comissao',
         'movimento_comissao', 'carteira', 'movimento_carteira'])),
     ('04-er-comunicacao', ('Comunicação, links de acesso e verificação', [
-        'notificacao', 'avaliacao_nps', 'assinatura_push', 'link_acesso', 'codigo_otp'])),
+        'notificacao', 'avaliacao_nps', 'assinatura_push', 'link_acesso', 'codigo_otp', 'execucao_job'])),
     ('05-er-lgpd-seguranca', ('LGPD, termos, auditoria e acesso', [
         'consentimento', 'versao_termo', 'aceite_termo', 'log_auditoria', 'historico_alteracao', 'usuario',
         'configuracao'])),
@@ -276,13 +276,15 @@ def _enum_bloco(nome, cls):
 
 # Camada de servicos: modulo -> grupo (um diagrama por grupo). Modulo novo sem grupo = erro.
 GRUPOS_SERVICOS = OrderedDict([
-    ('10-servicos-agenda', ('Serviços — agenda e atendimento', [
-        'agenda', 'agendamento', 'atendimento', 'disponibilidade', 'retorno', 'pacotes', 'lista_espera',
-        'alertas', 'indicadores', 'gcal'])),
-    ('11-servicos-clinico-comunicacao', ('Serviços — fichas, termos, LGPD e comunicação', [
-        'anamnese', 'termos', 'consentimentos', 'lgpd', 'comunicacao', 'links', 'otp', 'push'])),
+    ('10-servicos-agenda', ('Serviços — agenda, pedido online e atendimento', [
+        'agenda', 'agendamento', 'agendamento_online', 'atendimento', 'disponibilidade', 'retorno',
+        'pacotes', 'precos', 'catalogo', 'lista_espera', 'indicadores'])),
+    ('11-servicos-clinico-lgpd', ('Serviços — fichas, prontuário, termos e LGPD', [
+        'anamnese', 'alertas', 'prontuario', 'termos', 'consentimentos', 'lgpd', 'portal_cliente'])),
     ('12-servicos-financeiro', ('Serviços — financeiro e relatórios', [
         'comissao', 'fidelidade', 'financeiro', 'relatorios'])),
+    ('13-servicos-comunicacao', ('Serviços — comunicação e rotinas', [
+        'comunicacao', 'lembretes', 'nps', 'marketing', 'feriados', 'links', 'otp', 'push'])),
 ])
 
 

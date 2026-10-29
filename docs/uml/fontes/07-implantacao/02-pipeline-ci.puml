@@ -17,10 +17,11 @@ fork again
 fork again
   :Navegador (Playwright)\nwizard de agendamento ponta a ponta;
 fork again
-  :Imagem de produção\nbuild do Dockerfile;
+  :Imagem de produção\nbuild, pre-deploy e start (smoke);
 fork again
-  :pip-audit\nvulnerabilidades (bloqueante);
+  :Auditoria (bloqueante)\npip-audit · npm audit · gitleaks;
 end fork
+:Cobertura combinada\n(SQLite + Postgres) — catraca;
 if (todos verdes?) then (sim)
   :Railway constrói e publica\n(main → produção, dev → testes);
 else (não)

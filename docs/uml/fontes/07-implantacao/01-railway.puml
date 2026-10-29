@@ -5,7 +5,7 @@ title Implantação — Railway (produção na main, ambiente de testes na dev)
 node "GitHub" as GH {
   artifact "branch main" as MAIN
   artifact "branch dev" as DEV
-  [GitHub Actions — CI (8 jobs)] as CI
+  [GitHub Actions — CI (9 jobs)] as CI
 }
 
 cloud "Railway" {
@@ -13,6 +13,9 @@ cloud "Railway" {
     node "serviço web (Docker)" as WEBP {
       artifact "imagem: node:22 (Vite) → python:3.12-slim\nusuário não-root" as IMGP
       component "gunicorn clinica.wsgi\n+ WhiteNoise (estáticos)" as GUNP
+    }
+    node "serviço cron\n(railway.cron.json)" as CRONP {
+      component "rodar_jobs_devidos\na cada 15 min (JOB_AGENDA)" as JOBS
     }
     database "Postgres 18\n(postgres-ssl:18 + volume)" as PGP
   }
@@ -34,7 +37,8 @@ CI --> WEBD : CI verde → build
 WEBP --> PGP : DATABASE_URL (TLS)
 WEBD --> PGD : DATABASE_URL
 USR --> GUNP : HTTPS (HSTS)
-CRON --> GUNP : POST /cron/run/<job>/
+CRON --> GUNP : POST /cron/run/<job>/\n(alternativa ao serviço cron)
+JOBS --> PGP
 
 note right of WEBP
   pre-deploy: migrate_atomico (todas as migrations

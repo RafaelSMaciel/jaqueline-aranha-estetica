@@ -3,7 +3,7 @@ de comunicacao, revogacao do consentimento de saude, pedido de correcao/exclusao
 
 Acesso unico: sessao do OTP (do portal ou do fim do wizard) presa ao telefone do cadastro
 (services/portal_cliente), e cada atendimento so pelo id dentro dessa sessao (anti-IDOR). Nenhum
-token e emitido (o link /reagendar/<token>/ antigo saiu com a 0069).
+token e emitido (o link /reagendar/<token>/ antigo saiu com a 0072).
 """
 import json
 import logging

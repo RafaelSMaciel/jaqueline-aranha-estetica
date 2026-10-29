@@ -6,6 +6,7 @@ autonumber
 actor "Cliente" as C
 participant "Navegador\n(wizard.js)" as N
 participant "views.publico\n.agendamento" as V
+participant "services\n.agendamento_online" as UC
 participant "services\n.disponibilidade" as D
 participant "services.otp" as O
 participant "SMS\n(Zenvia)" as SMS
@@ -37,27 +38,30 @@ V -> O : verificar_otp_telefone() → sessão presa ao celular
 
 C -> N : aceita a Política, responde a ficha e confirma
 N -> V : POST confirmar_agendamento
-V -> V : valida captcha, consentimentos, ficha (schema)\ne trava o horário no cache (30 s)
+V -> V : AgendamentoPublicoForm (entrada) — a view só traduz HTTP
+V -> UC : solicitar(PedidoAgendamento)
+UC -> UC : 7 checagens em ordem (aceite LGPD, ficha válida 12 meses,\nconsentimento de saúde, termos, e-mail, trava do horário 30 s,\nbloqueio/limite de 3 em aberto) — recusa com código
 group transaction.atomic
-  V -> DB : Cliente get_or_create(telefone)
+  UC -> DB : Cliente get_or_create(telefone)\n(nome do cadastro não muda: titular do celular)
   alt cliente bloqueada (3 faltas) ou inativa
-    V --> N : recusa com orientação (WhatsApp)
+    UC --> V : RegraDeNegocio(bloqueado_online) → motivo e revisão
   end
-  V -> AG : validar_horario(prof, proc, início)
-  V -> AG : status_inicial_publico(cliente)
-  AG --> V : PENDENTE (primeira vez)\nou AGENDADO (cliente de confiança)
-  V -> AG : reservar(..., status)
+  UC -> AG : validar_horario(prof, proc, início)
+  UC -> AG : status_inicial_publico(cliente)
+  AG --> UC : PENDENTE (primeira vez)\nou AGENDADO (cliente de confiança)
+  UC -> AG : reservar(..., status)
   AG -> DB : SELECT FOR UPDATE + INSERT atendimento\n(EXCLUDE impede sobreposição)
   alt PENDENTE
-    V -> COM : enfileirar_email(APROVACAO → profissional)
+    UC -> COM : enfileirar_email(APROVACAO → profissional)
   else AGENDADO
-    V -> COM : enfileirar_email(CONFIRMACAO → cliente)
+    UC -> COM : enfileirar_email(CONFIRMACAO → cliente)
   end
-  V -> DB : AceiteTermo (LGPD e procedimento: IP, UA, SHA-256)\nRespostaAnamnese (cifrada), Consentimentos
+  UC -> DB : AceiteTermo (LGPD e procedimento: IP, UA, SHA-256)\nRespostaAnamnese (cifrada), Consentimentos
 end
 DB --> V : commit
 V -> COM : on_commit: enviar_da_fila()
 V -> V : on_commit: push para a profissional
+V -> V : abre a sessão da área da cliente (sem novo SMS, 1 h)
 V --> N : redirect /agendamento/sucesso/
 N --> C : "Solicitação recebida" ou "Agendamento confirmado"
 @enduml
