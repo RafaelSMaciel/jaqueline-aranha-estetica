@@ -40,6 +40,18 @@ class LeituraDeFormularioTests(SimpleTestCase):
             with self.subTest(valor=invalido), self.assertRaises(ValueError):
                 datas.ler_hora(invalido)
 
+    def test_ler_instante_iso(self):
+        # 'Z' do toISOString do navegador vira o horario local; sem offset = fuso da clinica
+        instante = datas.ler_instante_iso('2026-10-29T01:30:00.000Z')
+        self.assertEqual(instante, AGORA_UTC)
+        self.assertEqual((instante.date(), instante.hour), (date(2026, 10, 28), 22))
+        sem_fuso = datas.ler_instante_iso('2026-10-28T22:30:00')
+        self.assertEqual(sem_fuso, AGORA_UTC)
+        self.assertEqual(datas.ler_instante_iso('2026-10-28'), datas.inicio_do_dia(date(2026, 10, 28)))
+        for invalido in ('', 'amanha', '2026-13-01T10:00', None, 5, ['2026-10-28']):
+            with self.subTest(valor=invalido), self.assertRaises(ValueError):
+                datas.ler_instante_iso(invalido)
+
 
 class DiasLocaisTests(TestCase):
     """Filtro por intervalo do dia local: mesmo resultado do __date, sem perder o indice."""

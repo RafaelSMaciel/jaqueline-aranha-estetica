@@ -15,6 +15,7 @@ export default defineConfig({
         app: 'aranha_estetica/static/src/js/app.js',
         wizard: 'aranha_estetica/static/src/js/wizard.js',
         'painel-busca': 'aranha_estetica/static/src/js/painel-busca.js',
+        'painel-calendario': 'aranha_estetica/static/src/js/painel-calendario.js',
         webpush: 'aranha_estetica/static/src/js/webpush.js',
       },
     },
