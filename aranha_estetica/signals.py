@@ -12,6 +12,9 @@ from .models import Configuracao
 
 @receiver([post_save, post_delete], sender=Configuracao)
 def invalidar_cache_branding(sender, instance, **kwargs):
-    """Zera o cache de marca/contatos (utils/branding) quando Configuracao muda."""
+    """Zera o cache de marca/contatos (utils/branding) quando Configuracao muda — e o dos numeros do
+    site (services/prova_social), que le os anos de experiencia da mesma tabela."""
+    from .services import prova_social
     from .utils.branding import invalidar_cache
     invalidar_cache()
+    prova_social.invalidar_cache()
