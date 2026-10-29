@@ -47,10 +47,13 @@ dado de saúde pesa contra a dispensa e nomear não custa nada: a recomendação
 | 12 | Pacotes de sessões (contrato) | pacote comprado (nome e valores congelados na venda), sessões feitas | clientes | execução de contrato | `compra_pacote`, `compra_pacote_item`, `consumo_sessao` | a cliente não é pseudonimizada pela retenção **até 5 anos depois de o pacote expirar ou ser cancelado** (sem validade: da compra) |
 | 13 | Links das mensagens (confirmar presença, avaliar, assinar termo, responder a ficha, descadastrar) e o feed ICS da profissional | só o hash do token + vínculo à mensagem, ficha, cliente ou profissional | clientes | execução de contrato | `link_acesso` | revogados na pseudonimização; vencido ou revogado: apagado após 90 dias |
 
-Os prazos das linhas 1, 3, 8 e 12 são os publicados na política (`conteudo/lgpd.PRAZOS_RETENCAO`) e
-ficam **fixos** em `settings.RETENCAO_*` — sem variável de ambiente: mudar exige versão nova do
-termo LGPD, e o check `aranha.W016` avisa quando o settings diverge do texto da versão vigente. Os
-de limpeza técnica (OTP, texto de mensagem, auditoria, links, axes) seguem ajustáveis por env.
+A seção 11 da política publica os prazos de `conteudo/lgpd.PRAZOS_RETENCAO`. Os de cadastro,
+carência, saúde, ficha sem atendimento e pacote ficam **fixos** em `settings.RETENCAO_*` — sem
+variável de ambiente: mudar exige versão nova do termo LGPD. Os de OTP, texto das mensagens e
+auditoria também estão publicados, mas seguem ajustáveis por env (`RETENCAO_OTP_HORAS`,
+`RETENCAO_NOTIFICACAO_DIAS`, `RETENCAO_LOG_AUDITORIA_DIAS`); links e axes não aparecem no texto. O
+check `aranha.W016` acusa qualquer prazo publicado cujo valor no settings diverge do texto da versão
+vigente.
 
 O inventário coluna a coluna (o que a pseudonimização limpa, apaga, purga por idade ou retém por
 obrigação legal) fica em `aranha_estetica/inventario_lgpd.py`; o teste `test_inventario_lgpd`

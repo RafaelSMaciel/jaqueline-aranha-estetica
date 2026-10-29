@@ -603,9 +603,11 @@ Regra em `services/lista_espera` (form público em `forms/publico.ListaEsperaFor
 
 ## 22. Retenção e esquecimento
 
-Os prazos LGPD são os publicados na política (§21) e ficam **fixos** em `settings.RETENCAO_*`, sem
-variável de ambiente (mudar = versão nova do termo; `aranha.W016` avisa a divergência); os de
-limpeza técnica (OTP, mensagens, auditoria, axes, links) seguem ajustáveis por env.
+Os prazos de cadastro, carência, saúde, ficha sem atendimento e pacote são os publicados na
+política (§21) e ficam **fixos** em `settings.RETENCAO_*`, sem variável de ambiente (mudar = versão
+nova do termo). OTP, texto das mensagens e auditoria também estão publicados, mas seguem ajustáveis
+por env; axes e links não aparecem no texto. `aranha.W016` acusa prazo publicado diferente do
+settings.
 
 | Dado | Regra |
 |---|---|

@@ -790,8 +790,10 @@ Os prazos **LGPD** (`RETENCAO_CLIENTE_INATIVO_DIAS`, `RETENCAO_CARENCIA_SOFT_DEL
 `RETENCAO_PACOTE_APOS_EXPIRAR_DIAS`) são **fixos** em `settings/base.py`, sem variável de
 ambiente: são os publicados na política (`conteudo/lgpd.PRAZOS_RETENCAO`), e mudar exige versão
 nova do termo LGPD — o check `aranha.W016` acusa o settings diferente do texto da versão vigente.
-`services/lgpd.prazos_retencao` os passa às procedures. Os de limpeza técnica (OTP, notificação,
-auditoria, links, axes) seguem por env.
+`services/lgpd.prazos_retencao` os passa às procedures. OTP, texto das notificações e auditoria
+também estão publicados na política, mas seguem por env (`RETENCAO_OTP_HORAS`,
+`RETENCAO_NOTIFICACAO_DIAS`, `RETENCAO_LOG_AUDITORIA_DIAS` — mudar sem versão nova do termo gera o
+W016); links e axes não aparecem no texto.
 
 | Dado | Prazo | Mecanismo |
 |---|---|---|
@@ -944,7 +946,8 @@ settings (`clinica/settings`) leem a env. Em produção:
 `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (SMTP, só no plano Pro) ·
 `AXES_FAILURE_LIMIT` (5), `AXES_COOLOFF_TIME_HOURS` (1), `PASSWORD_RESET_TIMEOUT_SECONDS`
 (3600) · `RETENCAO_OTP_HORAS`, `RETENCAO_NOTIFICACAO_DIAS`,
-`RETENCAO_LOG_AUDITORIA_DIAS` (também a trilha `historico_alteracao`), `RETENCAO_LINK_ACESSO_DIAS`
+`RETENCAO_LOG_AUDITORIA_DIAS` (também a trilha `historico_alteracao`; os três estão publicados na
+política — mudar sem versão nova do termo gera o W016), `RETENCAO_LINK_ACESSO_DIAS`
 (90), `RETENCAO_AXES_LOG_DIAS` (os prazos LGPD — cliente inativa, carência, saúde, ficha, pacote —
 **não** são env: ficam fixos no settings, §9.4) · `DJANGO_LOG_LEVEL` ·
 `EMAIL_TIMEOUT` (10; vale também para as chamadas HTTP do anymail) · `MAILGUN_SENDER_DOMAIN`
