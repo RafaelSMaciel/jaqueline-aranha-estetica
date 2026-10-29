@@ -4,7 +4,7 @@
    {
     "nome": "Cliente",
     "tabela": "cliente",
-    "descricao": "Cliente da clínica: identidade pelo celular (só dígitos, 10–11, único entre ativas); e-mail, CPF, nascimento, CEP e endereço opcionais (ausente = NULL) — CPF, CEP e endereço só pela finalidade (nota fiscal e contrato de pacote); RG, profissão e foto não são coletados (saíram na 0074); contador de faltas e bloqueio do agendamento online; indicação (código próprio + indicadora, base do cashback); exclusão lógica (deletado_em). As autorizações de comunicação ficam na tabela consentimento (histórico, 0050).",
+    "descricao": "Cliente da clínica: identidade pelo celular (só dígitos, 10–11, único entre ativas); e-mail, CPF, nascimento, CEP e endereço opcionais (ausente = NULL) — CPF, CEP e endereço só pela finalidade (nota fiscal e contrato de pacote); RG, profissão e foto não são coletados (saíram na 0074); contador de faltas (FALTOU e cancelamento tardio somam) e bloqueio do agendamento online; revogação do consentimento de dado de saúde (saude_revogada_em, 0075); indicação (código próprio + indicadora, base do cashback); exclusão lógica (deletado_em). As autorizações de comunicação ficam na tabela consentimento (histórico, 0050).",
     "campos": [
      {
       "nome": "nome",
@@ -50,6 +50,10 @@
       "coluna": "eh_bloqueado_online"
      },
      {
+      "nome": "saude_revogada_em",
+      "tipo": "DateTimeField (null)"
+     },
+     {
       "nome": "codigo_indicacao",
       "tipo": "CharField(12) (null)"
      },
@@ -80,6 +84,7 @@
     "metodos": [
      "save: normaliza telefone/CPF (só dígitos), vazio vira NULL e gera codigo_indicacao",
      "registrar_falta / resetar_faltas: contador de faltas consecutivas e bloqueio online no limite",
+     "registrar_cancelamento_tardio: cancelamento pela cliente com menos de 24 h de horário aprovado soma a falta (registrar_falta) sem virar FALTOU",
      "limite_faltas_bloqueio: Configuracao MAX_FALTAS_BLOQUEIO (padrão 3)",
      "soft_delete / delete: exclusão lógica por padrão (hard=True só explícito)",
      "manager padrão exclui clientes com deletado_em"
@@ -293,9 +298,9 @@
      }
     ],
     "metodos": [
-     "clean: espelho legível dos CHECKs por tipo e normalização da RRULE",
+     "clean: espelho legível dos CHECKs por tipo, uma regra por método (datas, bloqueio, origem, folga sobreposta), e normalização da RRULE",
      "ocorrencias(inicio, fim): intervalos que a exceção ocupa na janela (expande a recorrência)",
-     "queryset: ativas, do_profissional_ou_global, cobrindo(dia), folga_global_em(dia), bloqueios_no_intervalo"
+     "queryset: ativas, do_profissional_ou_global, cobrindo(dia), folga_global_em(dia), bloqueios_no_intervalo, vigente_para (a exceção que o painel atualiza ao reenviar o mesmo período)"
     ],
     "constraints": [
      "ck_agenda_excecao_tipo",
@@ -682,7 +687,7 @@
      }
     ],
     "metodos": [
-     "_transicionar: trava a linha, valida TRANSICOES, grava status + LogAuditoria e chama services/atendimento.ao_mudar_status na mesma transação",
+     "_transicionar: trava a linha, valida TRANSICOES (REALIZADO/FALTOU só a partir do início menos TOLERANCIA_DESFECHO, 30 min — desfecho_antes_do_inicio), grava status + LogAuditoria e chama services/atendimento.ao_mudar_status na mesma transação",
      "aprovar / confirmar / cancelar / marcar_realizado / marcar_falta / marcar_reagendado: transições da FSM",
      "clean: fim após início e sem conflito com outro atendimento ativo do profissional",
      "manager: ativos, futuros, passados, hoje, pendentes_aprovacao, realizados, conflito_com, sem_desfecho (já terminou e segue AGENDADO/CONFIRMADO)",
@@ -1119,7 +1124,7 @@
    {
     "nome": "Consentimento",
     "tabela": "consentimento",
-    "descricao": "Histórico append-only de autorizações de comunicação por finalidade × canal (MARKETING/E-MAIL, LEMBRETE_AGENDAMENTO/WHATSAPP, PESQUISA_SATISFACAO/WHATSAPP): concedido ou revogado, origem (inclusive WHATSAPP: o \"PARAR\" respondido no WhatsApp, 0069), texto exibido, IP, navegador, autor e data. Vale a linha mais recente do par; sem linha = não concedido (0050).",
+    "descricao": "Histórico append-only de autorizações de comunicação por finalidade × canal (MARKETING/E-MAIL, LEMBRETE_AGENDAMENTO/WHATSAPP, PESQUISA_SATISFACAO/WHATSAPP): concedido ou revogado, origem (inclusive WHATSAPP: o \"PARAR\" respondido no WhatsApp, 0069; e PORTAL: \"Minhas preferências\" da área da cliente, 0075), texto exibido, IP, navegador, autor e data. Vale a linha mais recente do par; sem linha = não concedido (0050). O consentimento de dado de saúde fica fora desta tabela: a concessão é o aceite SAÚDE e a revogação é cliente.saude_revogada_em.",
     "campos": [
      {
       "nome": "finalidade",
@@ -1136,7 +1141,7 @@
      },
      {
       "nome": "origem",
-      "tipo": "CharField(30) (choices AGENDAMENTO_ONLINE/DESCADASTRO/PAINEL/ESQUECIMENTO/MIGRACAO/ADMIN/WHATSAPP)"
+      "tipo": "CharField(30) (choices AGENDAMENTO_ONLINE/DESCADASTRO/PAINEL/ESQUECIMENTO/MIGRACAO/ADMIN/WHATSAPP/PORTAL)"
      },
      {
       "nome": "texto",
@@ -1179,8 +1184,8 @@
     ],
     "metodos": [
      "save: só INSERT; delete recusado (trigger no Postgres)",
-     "queryset do_titular (a anonimização apaga IP/navegador dentro de sp_anonimizar_cliente)",
-     "services/consentimentos: estado atual, registrar_do_wizard, revogar, registrar pelo painel"
+     "queryset do_titular (a pseudonimização apaga IP/navegador dentro de sp_anonimizar_cliente)",
+     "services/consentimentos: estado atual, registrar_do_wizard, registrar_do_portal (origem PORTAL), revogar, registrar pelo painel; saude_consentida / revogar_saude (dado de saúde)"
     ],
     "constraints": [
      "ck_consentimento_finalidade",
@@ -1196,7 +1201,7 @@
    {
     "nome": "Prontuario",
     "tabela": "prontuario",
-    "descricao": "Ficha base 1:1 da cliente preenchida pela equipe: alergias, contraindicações, histórico, medicamentos, observações e respostas do questionário do prontuário (formulário PRONTUARIO, 0051). Conteúdo cifrado em repouso (0060).",
+    "descricao": "Ficha base 1:1 da cliente preenchida pela equipe: alergias, contraindicações, histórico, medicamentos, observações e respostas do questionário do prontuário (formulário PRONTUARIO, 0051). Conteúdo cifrado em repouso (0060). Expurgado 20 anos depois do último evento de saúde da cliente (etapa saude do sp_purgar_dados_expirados, 0077).",
     "campos": [
      {
       "nome": "alergias",
@@ -1252,7 +1257,7 @@
    {
     "nome": "ProntuarioVersao",
     "tabela": "prontuario_versao",
-    "descricao": "Histórico append-only do prontuário: foto do estado anterior a cada edição (cifrada), com autor e data.",
+    "descricao": "Histórico append-only do prontuário: foto do estado anterior a cada edição (cifrada), com autor e data. DELETE só no expurgo de saúde aos 20 anos (flag local + idade, 0077).",
     "campos": [
      {
       "nome": "autor_nome",
@@ -1299,7 +1304,7 @@
    {
     "nome": "AnotacaoSessao",
     "tabela": "anotacao_sessao",
-    "descricao": "Anotação da sessão de um atendimento (texto cifrado), com autor preservado (PROTECT + snapshot do nome). Append-only: correção = nova anotação.",
+    "descricao": "Anotação da sessão de um atendimento (texto cifrado), com autor preservado (PROTECT + snapshot do nome). Append-only: correção = nova anotação. DELETE só no expurgo de saúde aos 20 anos (fn_anotacao_sessao_imutavel, 0077).",
     "campos": [
      {
       "nome": "autor_nome",
@@ -1477,7 +1482,7 @@
    {
     "nome": "VersaoTermo",
     "tabela": "versao_termo",
-    "descricao": "Termo versionado: LGPD (Política de Privacidade), SAUDE (consentimento para dado de saúde, art. 11) ou PROCEDIMENTO (geral ou de um procedimento); 1 versão ativa por escopo; imutável depois do 1º aceite.",
+    "descricao": "Termo versionado: LGPD (Política de Privacidade), SAUDE (consentimento para dado de saúde, art. 11) ou PROCEDIMENTO (geral ou de um procedimento); 1 versão ativa por escopo; imutável depois do 1º aceite. A v1.0 LGPD é a Política de Privacidade completa (conteudo/lgpd.py; 0045, seed e 0078) e a página /politica-de-privacidade/ mostra a versão vigente.",
     "campos": [
      {
       "nome": "tipo",
@@ -1525,7 +1530,7 @@
      }
     ],
     "metodos": [
-     "lgpd_vigente / saude_vigente / texto_saude_vigente",
+     "lgpd_vigente (também a página da política) / saude_vigente / texto_saude_vigente",
      "sha256_conteudo",
      "save / clean: recusa editar versão já aceita (trigger no Postgres)"
     ],
@@ -1541,7 +1546,7 @@
    {
     "nome": "AceiteTermo",
     "tabela": "aceite_termo",
-    "descricao": "Prova de aceite de termo: cliente, versão, atendimento, IP, navegador e SHA-256 do texto aceito. Imutável e nunca apagado.",
+    "descricao": "Prova de aceite de termo: cliente, versão, atendimento, IP, navegador e SHA-256 do texto aceito. Nunca apagado; só a minimização LGPD muda (IP e navegador saem na pseudonimização — LGPD — e no expurgo de saúde — SAÚDE/PROCEDIMENTO; 0077).",
     "campos": [
      {
       "nome": "ip",
@@ -1589,7 +1594,7 @@
      }
     ],
     "metodos": [
-     "registrar(cliente, versao, request, atendimento): idempotente por cliente + versão"
+     "registrar(cliente, versao, request, atendimento): idempotente por cliente + versão; aceite SAÚDE novo reativa o consentimento de saúde revogado (limpa cliente.saude_revogada_em)"
     ],
     "constraints": [
      "uq_aceite_termo_cliente_versao"
@@ -1725,8 +1730,16 @@
    {
     "nome": "ListaEspera",
     "tabela": "lista_espera",
-    "descricao": "Pedido de aviso de vaga: procedimento, data, turno, profissional desejado opcional e e-mail de contato só da inscrição; 1 pedido pendente por cliente/procedimento/data.",
+    "descricao": "Pedido de aviso de vaga: procedimento, data, turno e profissional desejado opcionais. Anônima (nome_contato + telefone_contato, sem criar cliente) ou ligada à cliente quando o celular foi verificado por OTP — só então aceita e-mail de contato. O aviso grava ultimo_aviso_em e a inscrição continua na fila até a data passar ou a cliente agendar (0076).",
     "campos": [
+     {
+      "nome": "nome_contato",
+      "tipo": "CharField(150) (default=)"
+     },
+     {
+      "nome": "telefone_contato",
+      "tipo": "CharField(11) (null)"
+     },
      {
       "nome": "data_desejada",
       "tipo": "DateField"
@@ -1736,9 +1749,8 @@
       "tipo": "CharField(20) (choices MANHA/TARDE/NOITE, null)"
      },
      {
-      "nome": "notificado",
-      "tipo": "BooleanField (default=False)",
-      "coluna": "eh_notificado"
+      "nome": "ultimo_aviso_em",
+      "tipo": "DateTimeField (null)"
      },
      {
       "nome": "email_contato",
@@ -1758,7 +1770,7 @@
       "campo": "cliente",
       "tipo": "FK",
       "alvo": "Cliente",
-      "multiplicidade": "1",
+      "multiplicidade": "0..1",
       "on_delete": "CASCADE",
       "related_name": "(default)"
      },
@@ -1780,13 +1792,18 @@
      }
     ],
     "metodos": [
-     "save: e-mail vazio vira NULL",
-     "ListaEsperaService.notificar_compativeis"
+     "save: e-mail e telefone de contato vazios viram NULL",
+     "nome / telefone / email_aviso: do cadastro (verificada) ou da inscrição anônima; e-mail só de quem confirmou o celular",
+     "services/lista_espera: inscrever (nunca cria cliente), candidatos / notificar_compativeis (turno e antecedência mínima), encerrar_atendidas (ao agendar), avisar_manual"
     ],
     "constraints": [
      "ck_lista_espera_turno",
      "ck_lista_espera_email_contato_nao_vazio",
-     "uq_lista_espera_pendente"
+     "ck_lista_espera_cliente_ou_contato",
+     "ck_lista_espera_email_contato_so_verificado",
+     "ck_lista_espera_telefone_contato_formato",
+     "uq_lista_espera_cliente",
+     "uq_lista_espera_telefone_contato"
     ],
     "indices": [
      "ix_lista_espera_cliente",
@@ -2442,13 +2459,13 @@
    {
     "de": "PENDENTE",
     "para": "AGENDADO",
-    "acao": "aprovar() — clínica aprova o pedido (botão, lote, seletor do painel ou portal) + e-mail",
+    "acao": "aprovar() — clínica aprova o pedido (botões Aprovar, lote item a item ou portal; sempre pelo AgendamentoService) + e-mail",
     "guarda": "TRANSICOES['PENDENTE']"
    },
    {
     "de": "PENDENTE",
     "para": "CANCELADO",
-    "acao": "cancelar() — rejeitar pedido, cliente cancela (portal) ou job limpeza_status (1 h antes do início, sem aprovação)",
+    "acao": "cancelar() — rejeitar pedido, cliente cancela (portal; PENDENTE nunca conta falta) ou job limpeza_status (1 h antes do início, sem aprovação)",
     "guarda": "TRANSICOES['PENDENTE']"
    },
    {
@@ -2466,19 +2483,19 @@
    {
     "de": "AGENDADO",
     "para": "REALIZADO",
-    "acao": "marcar_realizado() — exige termo aceito ou override auditado",
+    "acao": "marcar_realizado() — só a partir do início; exige termo aceito ou override auditado (services/atendimento.marcar_realizado, painel e portal)",
     "guarda": "TRANSICOES['AGENDADO']"
    },
    {
     "de": "AGENDADO",
     "para": "CANCELADO",
-    "acao": "cancelar()",
+    "acao": "cancelar() — clínica, ou a cliente (portal/link; com menos de 24 h é cancelamento tardio e soma 1 falta)",
     "guarda": "TRANSICOES['AGENDADO']"
    },
    {
     "de": "AGENDADO",
     "para": "FALTOU",
-    "acao": "marcar_falta() — só a equipe",
+    "acao": "marcar_falta() — só a equipe, a partir do início",
     "guarda": "TRANSICOES['AGENDADO']"
    },
    {
@@ -2490,19 +2507,19 @@
    {
     "de": "CONFIRMADO",
     "para": "REALIZADO",
-    "acao": "marcar_realizado() — exige termo aceito ou override auditado",
+    "acao": "marcar_realizado() — só a partir do início; exige termo aceito ou override auditado (services/atendimento.marcar_realizado, painel e portal)",
     "guarda": "TRANSICOES['CONFIRMADO']"
    },
    {
     "de": "CONFIRMADO",
     "para": "CANCELADO",
-    "acao": "cancelar()",
+    "acao": "cancelar() — clínica, ou a cliente (portal/link; com menos de 24 h é cancelamento tardio e soma 1 falta)",
     "guarda": "TRANSICOES['CONFIRMADO']"
    },
    {
     "de": "CONFIRMADO",
     "para": "FALTOU",
-    "acao": "marcar_falta() — só a equipe",
+    "acao": "marcar_falta() — só a equipe, a partir do início",
     "guarda": "TRANSICOES['CONFIRMADO']"
    },
    {
@@ -2538,12 +2555,12 @@
   ],
   "efeitos": [
    "Toda transição: _transicionar trava a linha (select_for_update), valida TRANSICOES contra o status atual do banco, grava status + LogAuditoria e aplica os efeitos (services/atendimento.ao_mudar_status) na MESMA transação: efeito que falha desfaz a transição inteira. Transição inválida levanta Atendimento.TransicaoInvalida (a tela mostra a mensagem).",
-   "Criação (services/agenda.reservar → ao_criar): push \"Novo agendamento\" à profissional no on_commit, best-effort.",
+   "Criação (services/agenda.reservar → ao_criar): push \"Novo agendamento\" à profissional no on_commit, best-effort; as inscrições da cliente na lista de espera do procedimento saem da fila (savepoint).",
    "→ REALIZADO, em ordem: zera faltas e desbloqueia a cliente; debita 1 sessão do item congelado do pacote que vence primeiro (nunca em retorno; validade na data da sessão); lança o CREDITO de comissão (base = valor cobrado, ou valor unitário congelado da sessão de pacote); libera o cashback da indicadora no 1º atendimento pago; deixa o retorno obrigatório devido (a recepção marca com a cliente, valor 0) se o procedimento exige.",
    "→ FALTOU: registrar_falta — soma a falta e suspende o agendamento online no limite (padrão 3).",
-   "→ CANCELADO: lança o ESTORNO da comissão e estorna o cashback; vindo de um estado ativo, avisa a lista de espera. Cancelado pela clínica: e-mail à cliente (fila de e-mail).",
+   "→ CANCELADO: lança o ESTORNO da comissão e estorna o cashback; vindo de um estado ativo, avisa a lista de espera. Cancelado pela clínica: e-mail à cliente (fila de e-mail). Cancelado pela própria cliente com menos de 24 h de um horário aprovado (agenda.cancelar_pela_cliente): cancelamento tardio, soma 1 falta para o bloqueio online.",
    "→ REAGENDADO: vindo de um estado ativo, avisa a lista de espera.",
-   "Lista de espera: seleção dos compatíveis em savepoint na transação de quem liberou a vaga; e-mail e WhatsApp no on_commit; falha no aviso nunca desfaz o cancelamento.",
+   "Lista de espera: seleção dos compatíveis (procedimento, dia, profissional, turno, antecedência mínima) em savepoint na transação de quem liberou a vaga; e-mail e WhatsApp no on_commit só para inscrição ligada ao cadastro; o aviso não tira da fila; falha no aviso nunca desfaz o cancelamento.",
    "Aprovação (PENDENTE → AGENDADO) e rejeição geram e-mail à cliente pela fila de e-mail (Notificacao EMAIL na mesma transação, envio no on_commit, reenvio pelo job emails).",
    "NPS e lembrete D-1 não são disparados por transição: vêm dos jobs nps_24h e lembrete_diario (serviço Cron ou cron HTTP); o lembrete vai por WhatsApp a quem autorizou e por e-mail às demais.",
    "PENDENTE sem aprovação a 1 h do início → CANCELADO pelo job limpeza_status (de hora em hora); AGENDADO/CONFIRMADO sem desfecho nunca viram falta sozinhos: entram no push diário à profissional (job sem_desfecho, 08:00) e a equipe decide falta ou realizado.",
@@ -2572,12 +2589,12 @@
    {
     "id": "RN04",
     "titulo": "Bloqueio online por faltas",
-    "descricao": "Cada falta soma em faltas_consecutivas; ao atingir o limite (regra operacional MAX_FALTAS_BLOQUEIO, inteiro de 1 a 10, padrão 3; valor não numérico ou menor que 1 gravado por fora da tela vale como 3) a cliente fica bloqueada para agendar online — decisão automatizada: o wizard diz o motivo e o caminho de revisão (WhatsApp; LGPD art. 20). Comparecer (REALIZADO) zera o contador e desbloqueia. A clínica ainda pode agendar pelo painel."
+    "descricao": "Cada falta — e cada cancelamento tardio da própria cliente (RN52) — soma em faltas_consecutivas; ao atingir o limite (regra operacional MAX_FALTAS_BLOQUEIO, inteiro de 1 a 10, padrão 3; valor não numérico ou menor que 1 gravado por fora da tela vale como 3) a cliente fica bloqueada para agendar online — decisão automatizada: o wizard diz o motivo e o caminho de revisão (WhatsApp; LGPD art. 20). Comparecer (REALIZADO) zera o contador e desbloqueia. A clínica ainda pode agendar pelo painel."
    },
    {
     "id": "RN05",
     "titulo": "Exclusão lógica da cliente",
-    "descricao": "Excluir cliente é soft delete (deletado_em); exclusão física só explícita. A anonimização segue a RN40/RN41."
+    "descricao": "Excluir cliente é soft delete (deletado_em); exclusão física só explícita. A pseudonimização segue a RN40/RN41."
    },
    {
     "id": "RN06",
@@ -2607,12 +2624,12 @@
    {
     "id": "RN11",
     "titulo": "Pedido público: aprovação ou confiança",
-    "descricao": "O pedido é sempre da titular do celular verificado: com cadastro existente o nome do cadastro fica (nome diferente é ignorado; renomear só pelo painel). Pelo site, no máximo 3 horários futuros ativos por cliente (MAX_ATIVOS_ONLINE; o 4º é recusado e a recepção marca pelo painel). Cliente de confiança — já atendida (1+ REALIZADO), sem falta em aberto, sem bloqueio e com menos de 2 horários futuros — tem o pedido online criado como AGENDADO, com e-mail de confirmação na hora; as demais (primeira vez incluída) ficam PENDENTE e a profissional recebe o e-mail de aprovação. Aprovar (botão, lote, seletor de status do painel ou portal) = AGENDADO + e-mail de confirmação; recusar = CANCELADO + e-mail. Pedido sem decisão a menos de 1 h do início é cancelado pelo job de hora em hora, com o e-mail \"não conseguimos confirmar a tempo\", e a vaga volta para a lista de espera."
+    "descricao": "O pedido é sempre da titular do celular verificado: com cadastro existente o nome do cadastro fica (nome diferente é ignorado; renomear só pelo painel). Pelo site, no máximo 3 horários futuros ativos por cliente (MAX_ATIVOS_ONLINE; o 4º é recusado e a recepção marca pelo painel). Cliente de confiança — já atendida (1+ REALIZADO), sem falta em aberto, sem bloqueio e com menos de 2 horários futuros — tem o pedido online criado como AGENDADO, com e-mail de confirmação na hora; as demais (primeira vez incluída) ficam PENDENTE e a profissional recebe o e-mail de aprovação. Aprovar (botões do painel, em lote — item a item, cada um na sua transação — ou portal) = AGENDADO + e-mail de confirmação; recusar = CANCELADO + e-mail. Pedido sem decisão a menos de 1 h do início é cancelado pelo job de hora em hora, com o e-mail \"não conseguimos confirmar a tempo\", e a vaga volta para a lista de espera."
    },
    {
     "id": "RN12",
     "titulo": "Agendamento interno",
-    "descricao": "A recepção agenda pelo painel (cliente existente ou nova com telefone validado) pela mesma validação do site (services/agenda.validar_horario, com o motivo detalhado para a equipe: conflito, bloqueio, folga, expediente); não há OTP; o atendimento nasce AGENDADO e o valor combinado pode ser registrado."
+    "descricao": "A recepção agenda pelo painel (services/agenda.agendar_pela_recepcao; entrada validada por forms/agenda.AgendamentoPainelForm): cliente existente ou nova (ClienteRapidoForm: nome, telefone com DDD e e-mail opcional, gravada na mesma transação; inativa não agenda), profissional que realiza o procedimento e horário do mesmo SlotService, revalidado no servidor (services/agenda.validar_horario, com o motivo detalhado para a equipe: conflito, bloqueio, folga, expediente); não há OTP; o atendimento nasce AGENDADO, a cliente recebe o e-mail de confirmação e o valor diferente do preço do dia fica como \"Valor combinado pela recepção\" (preço cheio em valor_original); avisa a ficha obrigatória pendente."
    },
    {
     "id": "RN13",
@@ -2627,7 +2644,7 @@
    {
     "id": "RN15",
     "titulo": "Consentimento para dado de saúde (art. 11)",
-    "descricao": "A ficha de anamnese (no wizard ou pelo link) só é gravada com a caixa de consentimento específica marcada; o aceite vira AceiteTermo da versão SAUDE vigente (IP, navegador, SHA-256 do texto) e vai também para a auditoria."
+    "descricao": "A ficha de anamnese (no wizard ou pelo link) só é gravada com a caixa de consentimento específica marcada; o aceite vira AceiteTermo da versão SAUDE vigente (IP, navegador, SHA-256 do texto) e vai também para a auditoria. É a única base do dado de saúde (art. 11 I) e é revogável: RN55."
    },
    {
     "id": "RN16",
@@ -2652,7 +2669,7 @@
    {
     "id": "RN20",
     "titulo": "Máquina de estados do atendimento",
-    "descricao": "PENDENTE → AGENDADO/CANCELADO/REAGENDADO; AGENDADO → CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO; CONFIRMADO → REALIZADO/CANCELADO/FALTOU/REAGENDADO; REALIZADO, CANCELADO, FALTOU e REAGENDADO são terminais. AGENDADO = horário aprovado; CONFIRMADO = a cliente confirmou. Os efeitos da transição (pacote, comissão, cashback, faltas, retorno, lista de espera) gravam na mesma transação do status: tudo ou nada."
+    "descricao": "PENDENTE → AGENDADO/CANCELADO/REAGENDADO; AGENDADO → CONFIRMADO/REALIZADO/CANCELADO/FALTOU/REAGENDADO; CONFIRMADO → REALIZADO/CANCELADO/FALTOU/REAGENDADO; REALIZADO, CANCELADO, FALTOU e REAGENDADO são terminais. AGENDADO = horário aprovado; CONFIRMADO = a cliente confirmou. Os efeitos da transição (pacote, comissão, cashback, faltas, retorno, lista de espera) gravam na mesma transação do status: tudo ou nada. REALIZADO e FALTOU só valem a partir do início (menos 30 min, TOLERANCIA_DESFECHO): antes, a FSM recusa (desfecho_antes_do_inicio)."
    },
    {
     "id": "RN21",
@@ -2662,7 +2679,7 @@
    {
     "id": "RN22",
     "titulo": "Cancelamento pela cliente",
-    "descricao": "Pelo portal (id do atendimento + sessão do OTP) ou pelo link do lembrete D-1, a qualquer momento antes do início, pela FSM; a trilha registra \"[pela cliente]\". Cancelamento feito pela clínica avisa a cliente por e-mail. Quando a cliente cancela ou remarca, a profissional recebe push (\"Cliente cancelou\" / \"Cliente remarcou\")."
+    "descricao": "Pelo portal (id do atendimento + sessão do OTP) ou pelo link do lembrete D-1 (só AGENDADO/CONFIRMADO), a qualquer momento antes do início, por uma regra só (services/agenda.cancelar_pela_cliente, linha travada); a trilha registra \"[pela cliente]\". Com menos de 24 h de horário aprovado é cancelamento tardio (RN52). Cancelamento feito pela clínica avisa a cliente por e-mail. Quando a cliente cancela ou remarca, a profissional recebe push (\"Cliente cancelou\" / \"Cliente remarcou\")."
    },
    {
     "id": "RN23",
@@ -2711,8 +2728,8 @@
    },
    {
     "id": "RN32",
-    "titulo": "Lista de espera",
-    "descricao": "Um pedido pendente por cliente/procedimento/data. Quando um atendimento ativo vira CANCELADO ou REAGENDADO, os pedidos compatíveis recebem e-mail e WhatsApp (com autorização) com link para agendar, sem reserva do horário; notificado só com entrega. O e-mail digitado no formulário anônimo fica só na inscrição."
+    "titulo": "Lista de espera sem cadastro",
+    "descricao": "O formulário público (captcha, honeypot, 20 inscrições/dia por IP) nunca cria nem altera cliente: a inscrição é anônima (nome e celular) e só se liga ao cadastro — e só aceita e-mail de contato — com o celular verificado por SMS na sessão. Uma inscrição por pessoa (cliente ou celular) + procedimento + dia. Quando um atendimento ativo futuro vira CANCELADO ou REAGENDADO, os compatíveis (procedimento, dia, profissional vazio ou igual, turno vazio ou o da vaga, vaga fora da antecedência mínima), em ordem de chegada, recebem e-mail e WhatsApp (com autorização) com link para agendar — só as inscrições ligadas ao cadastro; a anônima a recepção avisa pelo painel. Sem reserva do horário; o aviso grava ultimo_aviso_em e a inscrição continua na fila até a data passar ou a pessoa agendar o procedimento."
    },
    {
     "id": "RN33",
@@ -2722,7 +2739,7 @@
    {
     "id": "RN34",
     "titulo": "Depoimentos",
-    "descricao": "Só aparecem no site com opt-in da cliente, aprovação da clínica, nota ≥ 9 e comentário; nome exibido abreviado; cliente excluída ou anonimizada nunca aparece."
+    "descricao": "Só aparecem no site com opt-in da cliente, aprovação da clínica, nota ≥ 9 e comentário; nome exibido abreviado; cliente excluída ou pseudonimizada nunca aparece."
    },
    {
     "id": "RN35",
@@ -2742,27 +2759,27 @@
    {
     "id": "RN38",
     "titulo": "Alertas de saúde",
-    "descricao": "Alergias, contraindicações, medicamentos e respostas marcadas como alerta de saúde nas fichas aparecem como texto visível no portal, na agenda do painel e na ficha da cliente (calculados em lote); marcador \"ficha pendente\" quando a ficha obrigatória não foi respondida. Onde a ficha vale (global, categoria ou procedimento — todo atendimento é presencial) é decidido por uma regra única (FormularioAnamnese.aplica_a); para cliente agendada pelo painel, o botão \"Link da ficha\" gera o convite (60 dias)."
+    "descricao": "Alergias, contraindicações, medicamentos e respostas marcadas como alerta de saúde nas fichas aparecem como texto visível no portal, na agenda do painel e na ficha da cliente (calculados em lote); marcador \"ficha pendente\" quando a ficha obrigatória não foi respondida. Onde a ficha vale (global, categoria ou procedimento — todo atendimento é presencial) é decidido por uma regra única (FormularioAnamnese.aplica_a); para cliente agendada pelo painel, o botão \"Link da ficha\" gera o convite (60 dias). Quem revogou o consentimento de saúde tem no topo dos alertas \"Consentimento de saúde revogado em dd/mm/aaaa\". A agenda e a visão geral do painel registram na auditoria \"Leu alertas de saúde\" (tabela prontuario, ids das clientes e a tela) quando mostram alerta. Na agenda, o REALIZADO com retorno devido mostra o botão \"Agendar retorno (até dd/mm)\"."
    },
    {
     "id": "RN39",
     "titulo": "Termos versionados e imutáveis",
-    "descricao": "1 versão ativa por escopo (LGPD e SAUDE globais; PROCEDIMENTO geral ou por procedimento). Versão com aceite não pode ser editada (model + trigger): mudar = publicar nova versão. O aceite é imutável e nunca apagado."
+    "descricao": "1 versão ativa por escopo (LGPD e SAUDE globais; PROCEDIMENTO geral ou por procedimento). Versão com aceite não pode ser editada (model + trigger): mudar = publicar nova versão. O aceite é imutável e nunca apagado. O termo LGPD é a Política de Privacidade inteira (RN56)."
    },
    {
     "id": "RN40",
     "titulo": "Retenção de dados",
-    "descricao": "OTP 24 h; texto de notificação 12 meses; auditoria e trilha de dados 5 anos (prontuário 20 anos); link público vencido ou revogado 90 dias; logs de login 90 dias; cliente sem atendimento há 5 anos ou excluída há 30 dias é anonimizada, exceto com prontuário com conteúdo, pacote comprado ou atendimento realizado nos últimos 20 anos; ficha de pedido não realizado apagada após 90 dias; lista de espera vencida apagada. A escrita é das procedures do Postgres (fonte única)."
+    "descricao": "OTP 24 h; texto de notificação 12 meses; auditoria (com o IP) e trilha de dados 5 anos; link público vencido ou revogado 90 dias; logs de login 90 dias. Prazos LGPD fixos no settings (os publicados na política, RN56): cliente sem atendimento há 5 anos ou excluída há 30 dias é pseudonimizada, exceto enquanto houver registro de saúde dentro da janela de 20 anos ou pacote a menos de 5 anos do fim (RN53, RN54); registro de saúde expurgado 20 anos depois do último evento de saúde (RN53); ficha de pedido não realizado apagada após 90 dias; lista de espera apagada quando a data passa ou a pessoa agenda. A escrita é das procedures do Postgres (fonte única)."
    },
    {
     "id": "RN41",
-    "titulo": "Direito ao esquecimento",
-    "descricao": "sp_anonimizar_cliente: anonimiza nome ([ANONIMIZADO-pk]), contatos e documentos; revoga as autorizações vigentes (histórico fica sem IP/navegador); soft delete; apaga OTPs, lista de espera, texto de notificações e fichas que não são de atendimento realizado; retira o depoimento e o comentário do NPS; revoga todos os links públicos; pseudonimiza o nome nos textos da auditoria. Atendimentos, aceites, prontuário e pacotes ficam ligados a titular não identificável."
+    "titulo": "Direito ao esquecimento (pseudonimização)",
+    "descricao": "sp_anonimizar_cliente pseudonimiza (art. 13 §4): nome vira [ANONIMIZADO-pk]; contatos, documentos, nascimento, endereço, código de indicação e quem indicou saem; revoga as autorizações vigentes (histórico fica sem IP/navegador); tira IP/navegador do aceite LGPD (e dos de SAÚDE/procedimento quando não há mais registro de saúde); soft delete; apaga OTPs, a lista de espera (inclusive a inscrição anônima com o mesmo celular), texto de notificações e fichas que não são de atendimento realizado; retira o depoimento e o comentário do NPS; revoga todos os links públicos; pseudonimiza o nome nos textos da auditoria e apaga os detalhes das trilhas LGPD da titular. Atendimentos, aceites, pacotes e o registro de saúde (até o expurgo) ficam ligados a esse id."
    },
    {
     "id": "RN42",
     "titulo": "Acesso aos dados (DSAR)",
-    "descricao": "A cliente baixa os próprios dados em JSON em /lgpd/meus-dados/ com código SMS (propósito DSAR); resposta idêntica exista ou não o cadastro; ação auditada."
+    "descricao": "A cliente baixa os próprios dados em JSON pela área \"Meus agendamentos\" (código confirmado há até 10 min) ou em /lgpd/meus-dados/ com código SMS (propósito DSAR, captcha, 10/h por IP e 5/h por telefone): cadastro, preferências, consentimentos, atendimentos, NPS, aceites, pacotes, carteira, lista de espera, notificações e a declaração do tratamento (finalidades, bases, operadores e prazos, da mesma fonte da política). Sem a ficha de saúde (o celular pode ter mudado de dono): o arquivo diz como pedir. Resposta idêntica exista ou não o cadastro; ação auditada."
    },
    {
     "id": "RN43",
@@ -2808,6 +2825,31 @@
     "id": "RN51",
     "titulo": "Regras operacionais e cadastros da equipe",
     "descricao": "As regras que a dona ajusta formam um registro tipado (models/configuracao.CHAVES): email_admin (e-mail válido ou vazio) e MAX_FALTAS_BLOQUEIO (1 a 10), lidas por Configuracao.ler; a tela Regras operacionais grava só essas chaves (sem chave livre) e \"Restaurar padrão\" apaga a linha. A marca e os contatos têm a tela Identidade visual. Usuários: e-mail único, PROFISSIONAL exige o vínculo (1 login por profissional), ninguém muda o próprio papel nem se desativa e o último ADMIN ativo não sai. Preço base muda por vigência nova a partir de hoje, só quando o valor muda; tirar a habilitação de quem tem atendimento futuro do procedimento é recusado."
+   },
+   {
+    "id": "RN52",
+    "titulo": "Cancelamento tardio conta falta",
+    "descricao": "A cliente sempre pode cancelar online antes do início (a vaga volta para a lista de espera), mas cancelar com menos de 24 h (JANELA_MINIMA_ALTERACAO) um horário já aprovado (AGENDADO/CONFIRMADO) soma 1 em faltas_consecutivas e pode suspender o agendamento online, sem virar FALTOU; pedido PENDENTE não conta. O portal e a página do link avisam antes de confirmar."
+   },
+   {
+    "id": "RN53",
+    "titulo": "Expurgo do registro de saúde aos 20 anos",
+    "descricao": "Prontuário, versões, anotações, fichas e a trilha do prontuário são apagados 20 anos depois do último evento de saúde da cliente (último REALIZADO, edição/versão do prontuário, anotação ou ficha) pela etapa saude do housekeeping, que também tira IP/navegador dos aceites SAÚDE e de procedimento. Os triggers só aceitam o DELETE com a flag local e 20 anos de idade: um prazo menor faz a etapa falhar, nunca apagar antes."
+   },
+   {
+    "id": "RN54",
+    "titulo": "Retenção do pacote",
+    "descricao": "Quem comprou pacote não é pseudonimizada pela retenção até 5 anos depois de o pacote expirar ou ser cancelado (sem validade: da compra) — prazo do contrato."
+   },
+   {
+    "id": "RN55",
+    "titulo": "Consentimento de saúde revogável",
+    "descricao": "A cliente revoga o consentimento de dado de saúde na área \"Meus agendamentos\" (ou a equipe, a pedido, pelo Django admin com motivo): grava cliente.saude_revogada_em e a trilha; vale dali em diante — o registro feito fica pelo prazo de guarda e os alertas mostram a revogação. Um aceite SAÚDE novo (ficha respondida com o consentimento) reativa. A ficha ainda em dia (12 meses) continua valendo no wizard depois da revogação."
+   },
+   {
+    "id": "RN56",
+    "titulo": "Política de Privacidade como fonte única",
+    "descricao": "O texto da política (conteudo/lgpd.py: dados, finalidades e bases, saúde, mensagens, decisões automatizadas, operadores, cookies, segurança, direitos e prazos) é o termo LGPD aceito no wizard, a página /politica-de-privacidade/ (versão vigente, com versão e vigência) e a declaração do \"baixar meus dados\". Os prazos LGPD ficam fixos no settings, sem variável de ambiente; o check aranha.W016 acusa divergência com o texto vigente. Precisa de revisão jurídica da dona antes do go-live."
    }
   ],
   "requisitos_funcionais": [
@@ -2829,7 +2871,7 @@
    {
     "id": "RF04",
     "ator": "Cliente (público)",
-    "descricao": "Acessar \"Meus agendamentos\" com celular ou e-mail cadastrado (código sempre ao celular) e ver agendamentos futuros e passados."
+    "descricao": "Acessar \"Meus agendamentos\" com celular ou e-mail cadastrado (código sempre ao celular) — ou direto ao fim do agendamento online, sem novo SMS — e ver agendamentos futuros e passados, retornos a combinar e o código de indicação; sair só por POST."
    },
    {
     "id": "RF05",
@@ -2839,12 +2881,12 @@
    {
     "id": "RF06",
     "ator": "Cliente (público)",
-    "descricao": "Cancelar um atendimento futuro pelo portal."
+    "descricao": "Cancelar um atendimento futuro pelo portal, com o aviso de que, com menos de 24 h de um horário aprovado, o cancelamento conta como falta."
    },
    {
     "id": "RF07",
     "ator": "Cliente (público)",
-    "descricao": "Confirmar presença ou cancelar pelo link do lembrete D-1 (WhatsApp ou e-mail)."
+    "descricao": "Confirmar presença ou cancelar pelo link do lembrete D-1 (WhatsApp ou e-mail), com o mesmo aviso de cancelamento tardio."
    },
    {
     "id": "RF08",
@@ -2854,7 +2896,7 @@
    {
     "id": "RF09",
     "ator": "Cliente (público)",
-    "descricao": "Entrar na lista de espera e receber aviso de vaga por e-mail/WhatsApp."
+    "descricao": "Entrar na lista de espera sem criar cadastro (nome, celular, procedimento, data, turno e profissional opcionais; captcha, honeypot e limite diário por IP) e, com o celular verificado, receber o aviso de vaga por e-mail/WhatsApp, continuando na fila até a data passar ou agendar."
    },
    {
     "id": "RF10",
@@ -2869,7 +2911,7 @@
    {
     "id": "RF12",
     "ator": "Cliente (público)",
-    "descricao": "Baixar os próprios dados (DSAR) com código SMS, descadastrar-se de marketing e pesquisas por link e parar as mensagens de WhatsApp respondendo \"PARAR\"."
+    "descricao": "Baixar os próprios dados (DSAR, sem a ficha de saúde) com código SMS em \"Meus dados\", descadastrar-se de marketing e pesquisas por link e parar as mensagens de WhatsApp respondendo \"PARAR\"."
    },
    {
     "id": "RF13",
@@ -2884,17 +2926,17 @@
    {
     "id": "RF15",
     "ator": "ADMIN",
-    "descricao": "Aprovar ou rejeitar pedidos PENDENTES (individual ou em lote), com e-mail à cliente."
+    "descricao": "Aprovar ou rejeitar pedidos PENDENTES (individual ou em lote, item a item: o que outra tela decidiu fica de fora sem desfazer os outros), com e-mail à cliente."
    },
    {
     "id": "RF16",
     "ator": "ADMIN (recepção)",
-    "descricao": "Agendar pelo painel para cliente existente ou nova, com os horários do mesmo cálculo do site."
+    "descricao": "Agendar pelo painel para cliente existente ou nova (cadastrada na mesma transação), com os horários do mesmo cálculo do site, valor do dia ou combinado e e-mail de confirmação à cliente."
    },
    {
     "id": "RF17",
     "ator": "ADMIN",
-    "descricao": "Operar a agenda: lista com filtros por dia, calendário com arrastar-e-soltar (motivo detalhado da recusa), mudança de status pela FSM, valor cobrado, link do termo e override \"Realizado sem termo aceito\"."
+    "descricao": "Operar a agenda: lista com filtros por dia e marcadores em lote, seletor de status só para AGENDADO/CONFIRMADO (Realizado e Faltou só a partir do início), calendário com arrastar-e-soltar (motivo detalhado da recusa), valor cobrado, link do termo, override \"Realizado sem termo aceito\", desfazer realização e o botão \"Agendar retorno\" quando o retorno é devido."
    },
    {
     "id": "RF18",
@@ -2939,7 +2981,7 @@
    {
     "id": "RF26",
     "ator": "ADMIN",
-    "descricao": "Ver a lista de espera e avisar manualmente a cliente de uma vaga."
+    "descricao": "Ver a lista de espera (inclusive as inscrições anônimas, com nome e celular de contato) e avisar manualmente uma vaga: e-mail quando há destino e o aviso registrado mesmo sem e-mail."
    },
    {
     "id": "RF27",
@@ -3000,6 +3042,41 @@
     "id": "RF38",
     "ator": "Profissional",
     "descricao": "Consultar \"Minhas comissões\" do mês: cada crédito com a base e a regra, o status e o saldo a receber, sem nome de cliente (só leitura)."
+   },
+   {
+    "id": "RF39",
+    "ator": "Cliente (público)",
+    "descricao": "Em \"Meus agendamentos\", mudar as próprias preferências de comunicação (promoções por e-mail, lembrete e pesquisa por WhatsApp), com o estado vigente à vista e o registro com origem PORTAL."
+   },
+   {
+    "id": "RF40",
+    "ator": "Cliente (público) / ADMIN",
+    "descricao": "Revogar o consentimento de dado de saúde pelo portal (ou a equipe, a pedido, pelo Django admin com motivo), com trilha e o aviso de que a ficha feita fica pelo prazo de guarda."
+   },
+   {
+    "id": "RF41",
+    "ator": "Cliente (público)",
+    "descricao": "Pedir correção ou exclusão dos dados pelo portal: o pedido fica na auditoria com o prazo de resposta (15 dias) e vai por e-mail à clínica (encarregado > e-mail do administrador > e-mail da marca)."
+   },
+   {
+    "id": "RF42",
+    "ator": "Cliente (público)",
+    "descricao": "Baixar os próprios dados pelo portal (sem a ficha de saúde), exigindo código confirmado há até 10 minutos."
+   },
+   {
+    "id": "RF43",
+    "ator": "Cliente (público)",
+    "descricao": "Enviar mensagem pelo formulário de contato, com aceite da política, captcha, honeypot, 5/min e 20/dia por IP e teto diário global; sem caixa de marketing; se o e-mail não sair, a página mantém o texto e oferece o WhatsApp."
+   },
+   {
+    "id": "RF44",
+    "ator": "Sistema",
+    "descricao": "Exibir a Política de Privacidade a partir do termo LGPD vigente (texto, versão e vigência), emoldurado pela identificação da clínica e do encarregado."
+   },
+   {
+    "id": "RF45",
+    "ator": "Sistema",
+    "descricao": "Registrar na auditoria a leitura de alertas de saúde na agenda e na visão geral do painel (\"Leu alertas de saúde\", sem nome de cliente)."
    }
   ],
   "requisitos_nao_funcionais": [
@@ -3021,12 +3098,12 @@
    {
     "id": "RNF04",
     "categoria": "Segurança",
-    "descricao": "OTP com HMAC-SHA256 e a SECRET_KEY, comparação em tempo constante, 5 tentativas, propósitos isolados e desafio preso ao telefone."
+    "descricao": "OTP com HMAC-SHA256 (OTP_HMAC_KEY ou a SECRET_KEY), comparação em tempo constante, 5 tentativas, propósitos isolados, desafio preso ao telefone e latência mínima no pedido de código do portal e do \"Meus dados\" (a resposta não revela, nem pelo tempo, quem é cliente)."
    },
    {
     "id": "RNF05",
     "categoria": "Segurança",
-    "descricao": "Rate-limit em camadas: cotas de SMS (telefone, IP, global), limites por IP nos endpoints públicos, django-axes no login; captcha Turnstile no pedido de código."
+    "descricao": "Rate-limit em camadas: cotas de SMS (telefone, IP, global), limites por IP nos endpoints e formulários públicos (lista de espera, contato com teto diário global, \"Meus dados\" também por telefone), 30 ações de escrita por minuto por usuário na agenda do painel, django-axes no login; captcha Turnstile no pedido de código, no contato e na lista de espera; honeypot nos formulários sem login."
    },
    {
     "id": "RNF06",
@@ -3036,7 +3113,7 @@
    {
     "id": "RNF07",
     "categoria": "Segurança",
-    "descricao": "Segredos só em variáveis de ambiente, lidas e validadas só nos settings (ruff TID251; .env.example conferido contra o código); SECRET_KEY obrigatória fora de DEBUG; DJANGO_ENV inválido derruba o boot; system checks aranha.W001–W015 apontam configuração de produção faltando e os erros E001–E004 (sem chave de cifragem, sem Postgres, segredo fraco, OTP acima do teto do banco) barram o pre-deploy."
+    "descricao": "Segredos só em variáveis de ambiente, lidas e validadas só nos settings (ruff TID251; .env.example conferido contra o código); SECRET_KEY obrigatória fora de DEBUG; DJANGO_ENV inválido derruba o boot; system checks aranha.W001–W016 apontam configuração de produção faltando e os erros E001–E004 (sem chave de cifragem, sem Postgres, segredo fraco, OTP acima do teto do banco) barram o pre-deploy."
    },
    {
     "id": "RNF08",
@@ -3051,17 +3128,17 @@
    {
     "id": "RNF10",
     "categoria": "LGPD",
-    "descricao": "Retenção automatizada (OTP, notificações, auditoria, trilha, links, logs de login, clientes inativas/excluídas, fichas de pedidos não realizados, lista de espera) e esquecimento com pseudonimização, executados por procedures do Postgres; inventário LGPD coluna a coluna conferido por teste."
+    "descricao": "Retenção automatizada (OTP, notificações, auditoria, trilha, links, logs de login, clientes inativas/excluídas, fichas de pedidos não realizados, lista de espera, registro de saúde aos 20 anos do último evento, pacote 5 anos após o fim) e esquecimento por pseudonimização, executados por procedures do Postgres; prazos LGPD fixos no settings e conferidos contra o texto publicado (aranha.W016); inventário LGPD coluna a coluna conferido por teste."
    },
    {
     "id": "RNF11",
     "categoria": "LGPD",
-    "descricao": "Direitos do titular: acesso/portabilidade (DSAR em JSON), correção pela clínica, revogação de consentimento, anonimização."
+    "descricao": "Direitos do titular pela área da cliente: acesso/portabilidade (JSON sem a ficha de saúde), pedido de correção ou exclusão com prazo, preferências e revogação de consentimento (inclusive o de saúde), e pseudonimização pela clínica."
    },
    {
     "id": "RNF12",
     "categoria": "LGPD",
-    "descricao": "Trilha de auditoria (log_auditoria) e trilha de dados (historico_alteracao, por trigger) com autor, IP e origem, ambas append-only no banco; PII mascarada em logs e no Sentry (send_default_pii=False)."
+    "descricao": "Trilha de auditoria (log_auditoria) e trilha de dados (historico_alteracao, por trigger) com autor, IP e origem, ambas append-only no banco; a leitura de alerta de saúde nas listas do painel também vai para a auditoria; PII mascarada em logs e no Sentry (send_default_pii=False)."
    },
    {
     "id": "RNF13",
@@ -3091,7 +3168,7 @@
    {
     "id": "RNF18",
     "categoria": "Qualidade",
-    "descricao": "Cerca de 1.850 testes automatizados em 112 arquivos, num runner só (manage.py test); CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard no Chromium (Playwright), imagem Docker com smoke do pre-deploy e do start, pip-audit, npm audit e gitleaks bloqueantes; ruff, import-linter, mypy nos services e cobertura combinada (SQLite + Postgres) com catraca (≈ 87 %)."
+    "descricao": "Cerca de 1.950 testes automatizados em 122 arquivos, num runner só (manage.py test); CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard no Chromium (Playwright), imagem Docker com smoke do pre-deploy e do start, pip-audit, npm audit e gitleaks bloqueantes; ruff, import-linter, mypy nos services e cobertura combinada (SQLite + Postgres) com catraca (≈ 87 %)."
    },
    {
     "id": "RNF19",
@@ -3101,7 +3178,7 @@
    {
     "id": "RNF20",
     "categoria": "Manutenibilidade",
-    "descricao": "Camadas views → services/utils → models e áreas de views independentes verificadas por import-linter; fontes únicas (services/agenda, services/atendimento, SlotService, preços, Branding, termos, consentimentos); recusas tipadas (RegraDeNegocio); contrato JSON único (utils/respostas) e telefone numa fonte só (utils/telefone); Django Forms no painel; componentes cotton e Alpine CSP; documentação viva e requisitos gerados a partir de dados versionados."
+    "descricao": "Camadas views → services/utils → models e áreas de views independentes verificadas por import-linter; fontes únicas (services/agenda, services/atendimento, SlotService, preços, Branding, termos, consentimentos); recusas tipadas (RegraDeNegocio); contrato JSON único (utils/respostas) e telefone numa fonte só (utils/telefone); Django Forms no painel; componentes cotton e Alpine CSP; textos que também são regra (política de privacidade, FAQ) gerados das constantes (conteudo/); documentação viva e requisitos gerados a partir de dados versionados."
    },
    {
     "id": "RNF21",
@@ -3128,7 +3205,7 @@
    },
    {
     "nome": "Cliente cadastrada",
-    "descricao": "Cliente com cadastro ativo (mesmo celular). Entra em \"Meus agendamentos\" por celular ou e-mail (o código vai ao celular do cadastro), reagenda (até 24 h antes) e cancela pela sessão do portal, confirma presença pelo link do lembrete D-1, aceita termos pendentes e exerce os direitos LGPD (exportar dados, descadastrar)."
+    "descricao": "Cliente com cadastro ativo (mesmo celular). Entra em \"Meus agendamentos\" por celular ou e-mail (o código vai ao celular do cadastro) ou direto ao fim do agendamento online, reagenda (até 24 h antes) e cancela pela sessão do portal (com menos de 24 h de horário aprovado conta falta), confirma presença pelo link do lembrete D-1, aceita termos pendentes e exerce os direitos LGPD (preferências, revogação do consentimento de saúde, pedido de correção/exclusão, exportar dados sem a ficha de saúde, descadastrar)."
    },
    {
     "nome": "Profissional",
@@ -3156,7 +3233,7 @@
      "Cliente cadastrada",
      "Serviços externos"
     ],
-    "fluxo": "Cliente escolhe procedimento, data/horário e profissional (botão Continuar a cada etapa), informa dados, aceita a política e os termos, consente o dado de saúde, escolhe as autorizações de comunicação e responde a ficha; confirma o celular com código SMS (UC02). O form confere idade ≥ 18 e o celular verificado; o caso de uso services/agendamento_online.solicitar revalida termo LGPD, horário (services/agenda.validar_horario), fichas (12 meses) e termos; trava o slot (cache + SELECT FOR UPDATE + EXCLUDE), cria a cliente ou usa o cadastro da titular do telefone (o nome do cadastro fica; bloqueio online e teto de 3 horários ativos), registra os consentimentos (histórico), grava o atendimento PENDENTE com o preço da data (services/agenda.reservar), os aceites com prova (LGPD, SAÚDE, procedimento) e a ficha cifrada; o pedido de aprovação à profissional entra na fila de e-mail e o push sai no on_commit.",
+    "fluxo": "Cliente escolhe procedimento, data/horário e profissional (botão Continuar a cada etapa), informa dados, aceita a política e os termos, consente o dado de saúde, escolhe as autorizações de comunicação e responde a ficha; confirma o celular com código SMS (UC02). O form confere idade ≥ 18 e o celular verificado; o caso de uso services/agendamento_online.solicitar revalida termo LGPD, horário (services/agenda.validar_horario), fichas (12 meses) e termos; trava o slot (cache + SELECT FOR UPDATE + EXCLUDE), cria a cliente ou usa o cadastro da titular do telefone (o nome do cadastro fica; bloqueio online e teto de 3 horários ativos), registra os consentimentos (histórico), grava o atendimento PENDENTE com o preço da data (services/agenda.reservar), os aceites com prova (LGPD, SAÚDE, procedimento) e a ficha cifrada; o pedido de aprovação à profissional entra na fila de e-mail, o push sai no on_commit, a cliente sai da lista de espera do procedimento e a área \"Meus agendamentos\" abre sem novo SMS.",
     "inclui": [
      "UC02",
      "UC03"
@@ -3199,7 +3276,7 @@
     "atores": [
      "Cliente cadastrada"
     ],
-    "fluxo": "Pelo portal (id + sessão do OTP) ou pelo link do lembrete D-1: atendimento ativo e futuro vai para CANCELADO pela FSM (trilha \"[pela cliente]\"); a vaga é oferecida à lista de espera.",
+    "fluxo": "Pelo portal (id + sessão do OTP) ou pelo link do lembrete D-1 (só AGENDADO/CONFIRMADO): services/agenda.cancelar_pela_cliente trava a linha e leva o atendimento ativo e futuro a CANCELADO pela FSM (trilha \"[pela cliente]\"); com menos de 24 h de um horário aprovado é cancelamento tardio — soma 1 falta (o portal e a página avisam antes); a vaga é oferecida à lista de espera.",
     "inclui": []
    },
    {
@@ -3209,7 +3286,7 @@
      "Cliente cadastrada",
      "Serviços externos"
     ],
-    "fluxo": "Cliente informa celular ou e-mail; se houver cadastro, o código vai ao celular do cadastro (resposta sempre igual); após o código, sessão de 1 h presa ao telefone com agendamentos futuros e passados, reagendar e cancelar.",
+    "fluxo": "Cliente informa celular ou e-mail; se houver cadastro, o código vai ao celular do cadastro (resposta e tempo sempre iguais); após o código — ou ao fim do agendamento online, sem novo SMS — sessão de 1 h presa ao telefone com agendamentos futuros e passados, reagendar, cancelar, minhas preferências, revogação do consentimento de saúde, pedido de correção/exclusão e baixar meus dados (código de até 10 min). Sair só por POST.",
     "inclui": [
      "UC02"
     ]
@@ -3229,7 +3306,7 @@
     "atores": [
      "Visitante / Cliente (público, sem login)"
     ],
-    "fluxo": "Pelo menu ou pelo \"Avise-me se vagar\" do wizard (procedimento, data e profissional já preenchidos), informa nome, celular, procedimento, data, turno/profissional e e-mail opcional; sistema normaliza o telefone e registra o pedido (e-mail só na inscrição). Quando uma vaga compatível abre, recebe aviso por e-mail/WhatsApp.",
+    "fluxo": "Pelo menu ou pelo \"Avise-me se vagar\" do wizard (procedimento, data e profissional já preenchidos), informa nome, celular, procedimento, data, turno/profissional e e-mail opcional; captcha, honeypot e limite diário por IP. O sistema nunca cria cadastro: a inscrição é anônima, salvo se o celular foi verificado na sessão (aí se liga ao cadastro e guarda o e-mail só nela). Quando uma vaga compatível abre (dia, profissional, turno), a inscrição ligada ao cadastro recebe aviso por e-mail/WhatsApp e continua na fila até a data passar ou agendar.",
     "inclui": []
    },
    {
@@ -3267,7 +3344,7 @@
      "Cliente cadastrada",
      "Serviços externos"
     ],
-    "fluxo": "Baixar os dados em JSON após código SMS (DSAR: cadastro, consentimentos com histórico, atendimentos, fichas, prontuário, aceites, NPS, pacotes, carteira), descadastrar-se por link (revoga marketing e pesquisa) e responder \"PARAR\" no WhatsApp (revoga lembrete e pesquisa por WhatsApp).",
+    "fluxo": "Baixar os dados em JSON (portal com código de até 10 min ou \"Meus dados\" com código SMS — DSAR: cadastro, preferências, consentimentos com histórico, atendimentos, aceites, NPS, pacotes, carteira, lista de espera e a declaração do tratamento; a ficha de saúde não sai pelo site), mudar as preferências de comunicação, revogar o consentimento de saúde, pedir correção ou exclusão (prazo de 15 dias, e-mail à clínica), descadastrar-se por link (revoga marketing e pesquisa) e responder \"PARAR\" no WhatsApp (revoga lembrete e pesquisa por WhatsApp).",
     "inclui": [
      "UC02"
     ]
@@ -3300,7 +3377,7 @@
     "atores": [
      "Profissional"
     ],
-    "fluxo": "Agenda do dia/semana e pedidos pendentes com alertas de saúde; aprovar/rejeitar; marcar realizado (termo aceito ou override auditado); anotar a sessão; abrir a ficha quando há vínculo.",
+    "fluxo": "Agenda do dia/semana e pedidos pendentes com alertas de saúde; aprovar/rejeitar; marcar realizado a partir do início (termo aceito ou override auditado — a mesma regra do painel); anotar a sessão; abrir a ficha quando há vínculo.",
     "inclui": []
    },
    {
@@ -3309,7 +3386,7 @@
     "atores": [
      "Administrador (ADMIN)"
     ],
-    "fluxo": "Lista com filtros por dia e marcadores (termo pendente, ficha pendente, alertas); aprovar/rejeitar individual ou em lote (e-mail pela fila); mudar status pela FSM (409 sem termo, salvo override); calendário com arrastar-e-soltar (services/agenda.mover, motivo detalhado da recusa); valor cobrado; link do termo.",
+    "fluxo": "Lista com filtros por dia e marcadores em lote (termo pendente, ficha pendente, alertas, pacote, crédito; a leitura de alerta vai para a auditoria); aprovar/rejeitar individual ou em lote, item a item (e-mail pela fila); seletor de status só para AGENDADO/CONFIRMADO, com Realizado/Faltou a partir do início (409 sem termo, salvo override; 409 antes do início); calendário com arrastar-e-soltar (services/agenda.mover, motivo detalhado da recusa); valor cobrado; link do termo; \"Agendar retorno\" quando devido.",
     "inclui": []
    },
    {
@@ -3368,7 +3445,7 @@
      "Administrador (ADMIN)",
      "Serviços externos"
     ],
-    "fluxo": "Ver pedidos com contatos e avisar manualmente uma vaga por e-mail.",
+    "fluxo": "Ver as inscrições (ligadas ao cadastro ou anônimas, com nome e celular de contato) e avisar manualmente uma vaga: e-mail quando há destino, aviso registrado (ultimo_aviso_em) e auditado mesmo sem e-mail — a recepção completa pelo WhatsApp ou telefone.",
     "inclui": []
    },
    {
@@ -3415,7 +3492,7 @@
     "atores": [
      "Administrador (ADMIN)"
     ],
-    "fluxo": "Buscar cliente ou cadastrar nova (telefone validado), escolher procedimento, profissional habilitado e horário do SlotService; valor com promoção ou combinado; atendimento nasce AGENDADO, auditado; aviso de ficha pendente.",
+    "fluxo": "Buscar cliente (sem acento) ou cadastrar nova (nome, telefone com DDD, e-mail opcional — na mesma transação), escolher procedimento, profissional que o realiza e horário do SlotService (revalidado no servidor, motivo detalhado da recusa); valor do dia (promoção) ou combinado; services/agenda.agendar_pela_recepcao cria o atendimento AGENDADO, enfileira o e-mail de confirmação à cliente e audita; aviso de ficha pendente.",
     "inclui": [
      "UC03"
     ]
@@ -3456,6 +3533,27 @@
     ],
     "fluxo": "No portal, \"Minhas comissões\" do mês (?mes=, pela data do atendimento): cada crédito com a base, a regra e o status, os totais por status e o saldo a receber, sem nome de cliente; só leitura.",
     "inclui": []
+   },
+   {
+    "id": "UC32",
+    "nome": "Contatar a clínica pelo site",
+    "atores": [
+     "Visitante / Cliente (público, sem login)"
+    ],
+    "fluxo": "Preenche nome, e-mail, telefone opcional, assunto e mensagem e aceita a política; o sistema confere captcha, honeypot, limite por IP e o teto diário global e envia ao e-mail de contato da clínica (reply-to = a pessoa); sem envio, a página mantém o texto e oferece o WhatsApp. Nada fica no banco.",
+    "inclui": []
+   },
+   {
+    "id": "UC33",
+    "nome": "Revogar o consentimento de saúde",
+    "atores": [
+     "Cliente cadastrada",
+     "Administrador (ADMIN)"
+    ],
+    "fluxo": "Na área \"Meus agendamentos\" (ou a equipe, a pedido, pela ação do Django admin com motivo): o sistema grava cliente.saude_revogada_em e a trilha; os alertas passam a mostrar a revogação; a ficha feita fica pelo prazo de guarda; um aceite SAÚDE novo reativa.",
+    "inclui": [
+     "UC06"
+    ]
    }
   ]
  },
@@ -3467,7 +3565,7 @@
    },
    {
     "nome": "Navegador (painel ADMIN + portal do profissional)",
-    "papel": "App-shell PWA da equipe com 2FA, Django Forms, calendário (FullCalendar) e Web Push. O portal do profissional tem casca própria (profissional/base.html)."
+    "papel": "App-shell PWA da equipe com 2FA, Django Forms, calendário (FullCalendar) e Web Push; a agenda usa os módulos do Vite painel-status e painel-calendario (POST JSON pelo lib/requisicao.js). O portal do profissional tem casca própria (profissional/base.html)."
    },
    {
     "nome": "Django App (gunicorn)",
@@ -3475,11 +3573,15 @@
    },
    {
     "nome": "services/agenda e services/atendimento",
-    "papel": "Fonte única das regras de horário (validar_horario, reservar, reagendar, mover) e dos efeitos de criar/mudar status do atendimento, chamados explicitamente na transação da FSM."
+    "papel": "Fonte única das regras de horário (validar_horario, reservar, reagendar, mover) e das portas com caso de uso próprio (agendar_pela_recepcao, cancelar_pela_cliente com o cancelamento tardio), e dos efeitos de criar/mudar status do atendimento (ao_criar, ao_mudar_status), chamados explicitamente na transação da FSM; marcar_realizado e registrar_valor_cobrado são os casos de uso da equipe."
    },
    {
     "nome": "services/agendamento_online (caso de uso)",
     "papel": "O pedido de agendamento pelo site, testável sem HTTP: forms/agendamento.AgendamentoPublicoForm lê o POST e confere o OTP, solicitar(PedidoAgendamento) tem a regra inteira e recusa com RegraDeNegocio + código; a view só liga os dois. A vitrine sai de services/precos e o catálogo (preço base, habilitações) de services/catalogo."
+   },
+   {
+    "nome": "Área da cliente e LGPD (services/portal_cliente, services/lgpd, conteudo/lgpd.py)",
+    "papel": "Sessão do portal presa ao telefone (OTP ou fim do wizard), preferências e revogação de saúde (services/consentimentos), pedidos LGPD com prazo, export sem a ficha de saúde; a Política de Privacidade em conteudo/lgpd.py é o termo LGPD, a página e a declaração do DSAR."
    },
    {
     "nome": "Jobs (jobs.py, jobs_manutencao.py)",
@@ -3491,7 +3593,7 @@
    },
    {
     "nome": "PostgreSQL 18",
-    "papel": "37 tabelas de domínio no padrão SQL; invariantes por EXCLUDE, CHECK, UNIQUE parciais e 47 triggers; trilha historico_alteracao; 24 funções fn_*, 9 views vw_* de relatório (faturamento por competência) e 4 procedures sp_* (retenção/LGPD, expiração de pacotes); extensões btree_gist, pg_trgm e unaccent."
+    "papel": "37 tabelas de domínio no padrão SQL; invariantes por EXCLUDE, CHECK, UNIQUE parciais e 47 triggers; trilha historico_alteracao; 25 funções fn_*, 9 views vw_* de relatório (faturamento por competência) e 4 procedures sp_* (retenção/LGPD com expurgo de saúde aos 20 anos e pseudonimização, expiração de pacotes); extensões btree_gist, pg_trgm e unaccent."
    },
    {
     "nome": "Cache e sessão",
@@ -3525,7 +3627,7 @@
    },
    {
     "nome": "Cloudflare Turnstile",
-    "uso": "Captcha no pedido de código OTP."
+    "uso": "Captcha no pedido de código OTP (wizard, portal e \"Meus dados\"), no contato e na lista de espera."
    },
    {
     "nome": "Sentry",
@@ -3550,7 +3652,7 @@
    "services/agenda.reservar: conflito com SELECT FOR UPDATE, preço da data e INSERT do atendimento PENDENTE num savepoint (corrida perdida para o EXCLUDE vira HorarioIndisponivel).",
    "Na mesma transação: Notificacao EMAIL de aprovação à profissional (fila), AceiteTermo LGPD, de procedimento e SAÚDE (IP, navegador, SHA-256), fichas cifradas e LogAuditoria do consentimento art. 11; a trilha historico_alteracao registra o atendimento.",
    "Após o commit: e-mail à profissional e push (best-effort); a trava do cache é liberada.",
-   "A cliente vê a página de sucesso (aguardando aprovação da clínica); a clínica aprova (AGENDADO + e-mail) ou rejeita."
+   "A cliente vê a página de sucesso (aguardando aprovação da clínica) com a área \"Meus agendamentos\" já aberta (sem novo SMS); a clínica aprova (AGENDADO + e-mail) ou rejeita."
   ],
   "rotas": [
    {
@@ -3566,12 +3668,12 @@
    {
     "grupo": "Site público",
     "rota": "/contato/, /termos-de-uso/, /politica-de-privacidade/",
-    "funcao": "Contato (e-mail do Branding) e textos legais"
+    "funcao": "Contato (e-mail de contato da clínica; captcha, honeypot, limites e teto diário, sem caixa de marketing) e textos legais (a política é o texto do termo LGPD vigente)"
    },
    {
     "grupo": "Site público",
     "rota": "/lista-espera/ (+ sucesso/)",
-    "funcao": "Pedido de aviso de vaga"
+    "funcao": "Pedido de aviso de vaga sem criar cadastro (captcha, honeypot, 20/dia por IP)"
    },
    {
     "grupo": "Site público",
@@ -3600,8 +3702,13 @@
    },
    {
     "grupo": "Cliente",
-    "rota": "/meus-agendamentos/ (+ otp/enviar/, otp/verificar/, sair/)",
-    "funcao": "Portal da cliente (código sempre ao celular)"
+    "rota": "/meus-agendamentos/ (+ otp/enviar/, otp/verificar/, POST sair/)",
+    "funcao": "Área da cliente (código sempre ao celular; também aberta no fim do wizard; sair só por POST)"
+   },
+   {
+    "grupo": "Cliente",
+    "rota": "POST /meus-agendamentos/preferencias/, saude/revogar/, pedido/, meus-dados/",
+    "funcao": "Minhas preferências (origem PORTAL), revogar o consentimento de saúde, pedido de correção ou exclusão e baixar meus dados (código de até 10 min)"
    },
    {
     "grupo": "Cliente",
@@ -3621,7 +3728,7 @@
    {
     "grupo": "Cliente",
     "rota": "/lgpd/meus-dados/, /lgpd/unsubscribe/<token>/",
-    "funcao": "DSAR com OTP e descadastro (o aviso de cookies não grava nada no servidor)"
+    "funcao": "\"Meus dados\" (export sem a ficha de saúde, com OTP) e descadastro (o aviso de cookies não grava nada no servidor)"
    },
    {
     "grupo": "Equipe",
@@ -3651,7 +3758,7 @@
    {
     "grupo": "Painel",
     "rota": "/painel/agendamentos/ (+ novo/, bulk/, <pk>/aprovar|rejeitar|termo-link|ficha-link|valor|desfazer-realizacao/), /painel/atualizar-status/, /painel/retornos/",
-    "funcao": "Agenda em lista, agendamento interno, aprovação, links do termo e da ficha, valor cobrado, desfazer realização, mudança de status, retornos a marcar"
+    "funcao": "Agenda em lista (marcadores em lote, \"Agendar retorno\"), agendamento interno, aprovação um a um e em lote item a item, links do termo e da ficha, valor cobrado, desfazer realização, seletor de status (409 termo_pendente e desfecho_antes_do_inicio), retornos a marcar"
    },
    {
     "grupo": "Painel",
