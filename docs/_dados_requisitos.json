@@ -2850,6 +2850,11 @@
     "id": "RN56",
     "titulo": "Política de Privacidade como fonte única",
     "descricao": "O texto da política (conteudo/lgpd.py: dados, finalidades e bases, saúde, mensagens, decisões automatizadas, operadores, cookies, segurança, direitos e prazos) é o termo LGPD aceito no wizard, a página /politica-de-privacidade/ (versão vigente, com versão e vigência) e a declaração do \"baixar meus dados\". Os prazos LGPD ficam fixos no settings, sem variável de ambiente; o check aranha.W016 acusa divergência com o texto vigente. Precisa de revisão jurídica da dona antes do go-live."
+   },
+   {
+    "id": "RN57",
+    "titulo": "Números do site só com dado real",
+    "descricao": "Os números do site público (home, \"Sobre\" e páginas de serviço) saem de services/prova_social, nunca escritos à mão: nota média = média do NPS (0–10) ÷ 2, em 5 estrelas desenhadas em meias, só com 10 ou mais respostas; clientes atendidas = clientes distintas com atendimento REALIZADO, só a partir de 50 e arredondadas para baixo (\"127\" vira \"120+\"); tratamentos = procedimentos agendáveis online; anos de experiência = regra operacional anos_experiencia (inteiro opcional de 1 a 60; em branco não aparece). Número abaixo do mínimo some da página. Recalculados a cada 10 minutos (cache), e na hora quando a configuração muda."
    }
   ],
   "requisitos_funcionais": [
@@ -2991,7 +2996,7 @@
    {
     "id": "RF28",
     "ator": "ADMIN",
-    "descricao": "Gerir usuários da equipe (sem trancar a equipe fora; desligamento revoga o feed iCal), as regras operacionais (registro tipado: e-mail do alerta e faltas para pausar o online), a identidade visual (contatos e marca), notificações, pré-visualizar e-mails e consultar a auditoria."
+    "descricao": "Gerir usuários da equipe (sem trancar a equipe fora; desligamento revoga o feed iCal), as regras operacionais (registro tipado: e-mail do alerta, faltas para pausar o online e anos de experiência do site), a identidade visual (contatos e marca), notificações, pré-visualizar e-mails e consultar a auditoria."
    },
    {
     "id": "RF29",
@@ -3077,13 +3082,23 @@
     "id": "RF45",
     "ator": "Sistema",
     "descricao": "Registrar na auditoria a leitura de alertas de saúde na agenda e na visão geral do painel (\"Leu alertas de saúde\", sem nome de cliente)."
+   },
+   {
+    "id": "RF46",
+    "ator": "Sistema",
+    "descricao": "Mostrar no site público só números com dado real — nota média do NPS (com 10+ respostas), clientes atendidas (a partir de 50, arredondadas para baixo), tratamentos agendáveis online e anos de experiência informados pela clínica —, escondendo o que não atinge o mínimo."
+   },
+   {
+    "id": "RF47",
+    "ator": "Cliente (público)",
+    "descricao": "Consultar as perguntas frequentes por categoria na página /duvidas/ (agendamento, pagamentos e pacotes, tratamentos, privacidade e dados), com respostas geradas das regras que o sistema aplica; a página inicial mostra as 5 em destaque e leva para a lista completa."
    }
   ],
   "requisitos_nao_funcionais": [
    {
     "id": "RNF01",
     "categoria": "Segurança",
-    "descricao": "Content-Security-Policy com nonce por request, sem unsafe-inline em script-src/style-src e sem handlers inline; libs de CDN só por caminho versionado e com SRI; frame-ancestors none (exceto o widget)."
+    "descricao": "Content-Security-Policy com nonce por request, sem unsafe-inline em script-src/style-src e sem handlers inline; nenhum CDN (bibliotecas de terceiros pelo npm, no bundle do Vite; o único host externo de script é o captcha); frame-ancestors none (exceto o widget)."
    },
    {
     "id": "RNF02",
@@ -3168,12 +3183,12 @@
    {
     "id": "RNF18",
     "categoria": "Qualidade",
-    "descricao": "Cerca de 1.950 testes automatizados em 122 arquivos, num runner só (manage.py test); CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard no Chromium (Playwright), imagem Docker com smoke do pre-deploy e do start, pip-audit, npm audit e gitleaks bloqueantes; ruff, import-linter, mypy nos services e cobertura combinada (SQLite + Postgres) com catraca (≈ 87 %)."
+    "descricao": "Cerca de 2.020 testes automatizados em 124 arquivos, num runner só (manage.py test); CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard e painel no Chromium (Playwright), varredura visual de todas as rotas (desktop claro e celular escuro: erros de página, JS e CSP, rolagem lateral e acessibilidade pelo axe-core), imagem Docker com smoke do pre-deploy e do start, pip-audit, npm audit e gitleaks bloqueantes; ruff, import-linter, mypy nos services e cobertura combinada (SQLite + Postgres) com catraca (≈ 87 %)."
    },
    {
     "id": "RNF19",
     "categoria": "Usabilidade",
-    "descricao": "Interface pt-BR em tom de estética e bem-estar; contraste AA nos tokens, foco visível, formulários acessíveis, diálogos nativos e respeito a prefers-reduced-motion; wizard com botão Continuar operável por teclado; tema claro/escuro automático; fontes locais; PWA instalável para o site e para a equipe."
+    "descricao": "Interface pt-BR em tom de estética e bem-estar, em caixa de frase; contraste AA nos tokens, foco visível, formulários acessíveis, diálogos nativos e respeito a prefers-reduced-motion; telas da equipe num design system de componentes (texto base de 15px, nada abaixo de 12px, abas acessíveis, tabela que vira cartões no celular); wizard com as etapas visíveis e botão Continuar fixo no celular, operável por teclado; tema claro/escuro automático; fontes locais; fotos responsivas (WebP com JPEG de reserva, dimensões reservadas); PWA instalável para o site e para a equipe."
    },
    {
     "id": "RNF20",
@@ -3561,11 +3576,11 @@
   "componentes": [
    {
     "nome": "Navegador (site público + wizard)",
-    "papel": "Páginas server-render com Vite, Tailwind CSS v4, Alpine.js (build CSP) e componentes django-cotton; uma entrada JS por tela; fontes locais; PWA com service worker (só páginas públicas)."
+    "papel": "Páginas server-render com Vite, Tailwind CSS v4, Alpine.js (build CSP) e componentes django-cotton; uma entrada JS por tela; CSS das páginas no site.css (só tokens); fontes locais; fotos responsivas (tag foto: WebP + JPEG das variantes geradas por scripts/imagens.py); números do site de services/prova_social; PWA com service worker (só páginas públicas)."
    },
    {
     "nome": "Navegador (painel ADMIN + portal do profissional)",
-    "papel": "App-shell PWA da equipe com 2FA, Django Forms, calendário (FullCalendar) e Web Push; a agenda usa os módulos do Vite painel-status e painel-calendario (POST JSON pelo lib/requisicao.js). O portal do profissional tem casca própria (profissional/base.html)."
+    "papel": "App-shell PWA da equipe com 2FA, Django Forms, calendário (FullCalendar) e Web Push, num design system próprio (componentes.css + componentes cotton: botão, campo, cartão, selo, aviso, KPI, menu de ações, diálogo, tabela responsiva, abas) com o comportamento em painel.js (vanilla); a agenda usa os módulos do Vite painel-status e painel-calendario (POST JSON pelo lib/requisicao.js) e a visão geral o painel-visao-geral; FullCalendar e Chart.js vêm do npm no bundle, sem CDN. O portal do profissional tem casca própria (profissional/base.html), no mesmo design system."
    },
    {
     "nome": "Django App (gunicorn)",
@@ -3674,6 +3689,11 @@
     "grupo": "Site público",
     "rota": "/lista-espera/ (+ sucesso/)",
     "funcao": "Pedido de aviso de vaga sem criar cadastro (captcha, honeypot, 20/dia por IP)"
+   },
+   {
+    "grupo": "Site público",
+    "rota": "/duvidas/",
+    "funcao": "Perguntas frequentes por categoria (a página inicial mostra as 5 em destaque)"
    },
    {
     "grupo": "Site público",

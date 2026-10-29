@@ -1,6 +1,7 @@
 # Desenvolvimento local
 
-Guia do dia a dia: ambiente igual ao CI, testes rápidos, ganchos e o que o CI confere.
+Guia do dia a dia: ambiente igual ao CI, testes rápidos, ganchos, o que o CI confere e as fotos do
+site.
 Visão do sistema e runbook de produção: [PROJECT.md](PROJECT.md).
 
 ## 1. Ambiente igual ao CI e à imagem
@@ -40,7 +41,7 @@ vão na pasta dela (`tests/conta/`, `infra/`, `jobs/`, `painel/`, `publico/`, `s
 
 | Comando | Quando |
 |---|---|
-| `python manage.py test aranha_estetica --exclude-tag migracoes` | Dia a dia — ~1.950 testes em ~40 s |
+| `python manage.py test aranha_estetica --exclude-tag migracoes` | Dia a dia — ~2.020 testes em ~40 s |
 | `python manage.py test aranha_estetica.tests.test_x --keepdb` | Um módulo: o banco de teste (`.cache/db_test.sqlite3`) fica pronto entre execuções (~15 s → ~2 s) |
 | `python manage.py test aranha_estetica --tag migracoes` | Data migrations (descem e sobem a cadeia; lento) — antes do merge |
 | `python manage.py test aranha_estetica` | Tudo |
@@ -59,14 +60,26 @@ vão na pasta dela (`tests/conta/`, `infra/`, `jobs/`, `painel/`, `publico/`, `s
     python manage.py test aranha_estetica --exclude-tag migracoes
   ```
 
-- **Navegador** (`tests/test_wizard_browser.py`, Playwright + Chromium; regras que só existem
-  no `wizard.js`). Pulado sem Playwright/Chromium/bundle; no CI reprova (`EXIGE_NAVEGADOR=1`).
+- **Navegador** (Playwright + Chromium): `tests/test_wizard_browser.py` (regras que só existem no
+  `wizard.js`), `tests/painel/test_status_navegador.py` (seletor de status, lote e FullCalendar do
+  bundle) e `tests/test_crawl_visual.py` — a varredura visual: toda rota pública, da equipe e da
+  profissional em 1366px (claro) e 390px (escuro), reprovando erro HTTP/JS/console/CSP, rolagem
+  lateral no celular, template vazando e violação serious/critical do axe-core (que vem do
+  `npm ci`, devDependency). Pulados sem Playwright/Chromium/bundle (a varredura também sem o
+  axe-core); no CI reprovam (`EXIGE_NAVEGADOR=1`).
 
   ```bash
   python -m playwright install chromium        # uma vez
-  npm run build
+  npm ci && npm run build
   TESTE_VITE_BUILD=1 python manage.py test aranha_estetica.tests.test_wizard_browser
+  TESTE_VITE_BUILD=1 python manage.py test aranha_estetica.tests.painel.test_status_navegador
+  TESTE_VITE_BUILD=1 python manage.py test aranha_estetica.tests.test_crawl_visual
+  # uma tela só (trecho do nome da rota em tests/test_rotas.ROTAS):
+  TESTE_VITE_BUILD=1 VARREDURA_ROTAS=painel_clientes python manage.py test aranha_estetica.tests.test_crawl_visual
   ```
+
+  Achado de terceiro que não dá para corrigir aqui entra na lista `PERMITIDOS` do teste, com o
+  motivo — nunca desligando a regra do axe.
 
 - **Cobertura** (catraca do CI: `fail_under` em `pyproject.toml` só sobe). O coverage roda em modo
   paralelo (um arquivo `.cache/coverage.*` por execução): junte antes do relatório. No CI o job
@@ -129,4 +142,26 @@ lidos do `railway.json`. O job `auditoria-deps` é bloqueante: `pip-audit` no `r
 gitleaks no histórico do push. O `tests/test_deploy_config.CiFixadoTests` reprova pin solto.
 
 Antes de mexer no `package.json`, rode `npm audit --package-lock-only --audit-level=high`
-localmente (o mesmo do CI).
+localmente (o mesmo do CI). Lib de terceiro do navegador entra aqui, como o FullCalendar e o
+Chart.js (versão exata), e é importada num módulo do Vite — nunca por `<script src>` de CDN
+(`test_csp` reprova).
+
+## 6. Fotos do site
+
+As fotos do site ficam em `aranha_estetica/static/assets/clinica/*.webp` (originais). O que o
+navegador baixa são as variantes de `static/assets/clinica/variantes/` — WebP e JPEG de reserva em
+480, 768 e 1024 px (sem ampliar: a maior é a largura original) + `manifest.json` com largura e altura
+—, servidas pela tag `{% foto 'nome' alt='...' sizes='...' %}` (`templatetags/site_tags`;
+`prioridade=True` só na foto do topo). As variantes são **versionadas no git**: a imagem de produção
+não gera nada.
+
+```bash
+python scripts/imagens.py              # gera/atualiza as variantes e o manifest (foto nova ou trocada)
+python scripts/imagens.py --verificar  # só confere: sai 1 se faltar variante ou o manifest estiver velho
+```
+
+Requer Pillow, que vem do `requirements-dev.txt` (a imagem de produção não tem). Com a mesma versão do
+Pillow a saída é determinística — rodar de novo sem foto nova não muda nenhum arquivo. A suíte faz a
+mesma conferência do `--verificar` (`test_site_tags.FotoResponsivaTests`): foto nova sem rodar o
+script reprova no CI. Moldura sem foto real usa a arte da marca (`partials/_arte_marca.html`) —
+nunca foto inventada ou de outro site.
