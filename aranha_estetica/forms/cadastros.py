@@ -1,4 +1,5 @@
-"""Forms dos cadastros do painel: equipe (usuario) e regras operacionais (configuracao).
+"""Forms dos cadastros do painel: equipe (usuario, profissional + grade semanal) e regras operacionais
+(configuracao).
 
 A regra de dominio fica no clean() do Form; a view so faz is_valid() e persiste. Mesmo contrato de
 forms/painel: invalido -> avisar_erros(request, form) + a tela de volta com o digitado e o erro no campo.
@@ -6,9 +7,10 @@ forms/painel: invalido -> avisar_erros(request, form) + a tela de volta com o di
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 
-from ..models import Profissional, Usuario
+from ..models import Procedimento, Profissional, Usuario
 from ..models.configuracao import CHAVES, chave_do_registro
 from ..utils.email import email_configurado
+from ..utils.parse import id_int
 
 
 # ─── Equipe: usuarios ─────────────────────────────────────────────────
@@ -106,6 +108,116 @@ class UsuarioEdicaoForm(UsuarioForm):
               and not Usuario.objects.filter(papel=Usuario.PAPEL_ADMIN, ativo=True).exclude(pk=usuario.pk).exists()):
             self.add_error(None, 'É preciso manter ao menos um administrador ativo.')
         return dados
+
+
+# ─── Equipe: profissionais e grade semanal ────────────────────────────
+
+# Ordem de exibicao (seg..dom) e mapeamento p/ AgendaHorario.dia_semana
+# (ISO 8601: 1=segunda ... 7=domingo = date.isoweekday()).
+DIAS_SEMANA = [
+    ('segunda', 'Segunda-feira'),
+    ('terca', 'Terça-feira'),
+    ('quarta', 'Quarta-feira'),
+    ('quinta', 'Quinta-feira'),
+    ('sexta', 'Sexta-feira'),
+    ('sabado', 'Sábado'),
+    ('domingo', 'Domingo'),
+]
+DIA_NUMERO = {
+    'segunda': 1, 'terca': 2, 'quarta': 3, 'quinta': 4,
+    'sexta': 5, 'sabado': 6, 'domingo': 7,
+}
+HORA_INICIO_PADRAO = '09:00'
+HORA_FIM_PADRAO = '18:00'
+
+
+class CampoIds(forms.Field):
+    """Ids de um grupo de checkboxes (getlist) -> set[int]. Id malformado ('²', 'abc') e ignorado: so vem
+    de HTML adulterado (a tela nunca o oferece) e nao pode virar 500 (utils/parse.id_int)."""
+    widget = forms.MultipleHiddenInput
+
+    def to_python(self, value):
+        return {pk for pk in map(id_int, value or []) if pk is not None}
+
+
+class ProfissionalForm(forms.ModelForm):
+    """Dados do profissional + quais procedimentos ele realiza (Habilitacao, so os ativos: os da tela).
+
+    Sem rotulo nos campos: as mensagens ja dizem o campo (avisar_erros nao prefixa)."""
+    nome = forms.CharField(max_length=100, error_messages={
+        'required': 'O nome do profissional é obrigatório.',
+        'max_length': 'O nome do profissional pode ter no máximo 100 caracteres.'})
+    especialidade = forms.CharField(required=False)
+    ativo = forms.BooleanField(required=False)
+    procedimentos = CampoIds(required=False)
+
+    class Meta:
+        model = Profissional
+        fields = ['nome', 'especialidade', 'ativo']
+
+    def clean_procedimentos(self):
+        ids = self.cleaned_data.get('procedimentos') or set()
+        if not ids:
+            return set()
+        return set(Procedimento.objects.filter(ativo=True, pk__in=ids).values_list('pk', flat=True))
+
+
+class _HoraOuVazio(forms.TimeField):
+    """input type=time ('HH:MM' ou 'HH:MM:SS'). Hora invalida conta como vazia: o clean do dia diz o que
+    falta, e um dia desmarcado nao recusa o envio por causa da hora que ficou no campo escondido."""
+    input_formats = ['%H:%M', '%H:%M:%S']
+
+    def to_python(self, value):
+        try:
+            return super().to_python(value)
+        except forms.ValidationError:
+            return None
+
+
+class GradeSemanalForm(forms.Form):
+    """Grade semanal: uma linha por dia, com os nomes de campo da tela (trabalha_<dia>, hora_inicio_<dia>,
+    hora_fim_<dia>). clean(): dia marcado precisa das duas horas e de fim depois do inicio (nunca e
+    descartado em silencio); dia desmarcado ignora as horas. `janelas` = {dia: (inicio, fim)}."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.janelas = {}
+        for key, _nome in DIAS_SEMANA:
+            self.fields[f'trabalha_{key}'] = forms.BooleanField(required=False)
+            self.fields[f'hora_inicio_{key}'] = _HoraOuVazio(required=False)
+            self.fields[f'hora_fim_{key}'] = _HoraOuVazio(required=False)
+
+    def clean(self):
+        dados = super().clean()
+        self.janelas = {}
+        for key, nome in DIAS_SEMANA:
+            if not dados.get(f'trabalha_{key}'):
+                continue
+            inicio, fim = dados.get(f'hora_inicio_{key}'), dados.get(f'hora_fim_{key}')
+            if not inicio or not fim:
+                self.add_error(None, f'{nome}: informe a hora de início e a de fim.')
+            elif fim <= inicio:
+                self.add_error(None, f'{nome}: a hora de fim deve ser depois da hora de início.')
+            else:
+                self.janelas[key] = (inicio, fim)
+        return dados
+
+    def linhas(self):
+        """Linhas da tela: o que foi enviado (re-render apos erro) ou a grade vazia (cadastro novo)."""
+        enviado = self.is_bound
+        if enviado:
+            self.is_valid()   # cleaned_data: os campos da grade nunca recusam (o erro e do dia, no clean)
+        return [
+            {
+                'key': key,
+                'nome': nome,
+                'marcado': bool(enviado and self.cleaned_data.get(f'trabalha_{key}')),
+                'hora_inicio': (self.data.get(f'hora_inicio_{key}') if enviado else '') or HORA_INICIO_PADRAO,
+                'hora_fim': (self.data.get(f'hora_fim_{key}') if enviado else '') or HORA_FIM_PADRAO,
+                'janelas_extras': 0,
+            }
+            for key, nome in DIAS_SEMANA
+        ]
 
 
 # ─── Regras operacionais (Configuracao) ───────────────────────────────
