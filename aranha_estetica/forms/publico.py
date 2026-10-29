@@ -65,3 +65,46 @@ class ListaEsperaForm(_AntiRobo):
 
     def clean_turno(self):
         return self.cleaned_data.get('turno') or None
+
+
+ASSUNTOS_CONTATO = {
+    'agendamento': 'Agendamento',
+    'duvida': 'Dúvidas sobre procedimentos',
+    'orcamento': 'Solicitar orçamento',
+    'parceria': 'Parcerias',
+    'outros': 'Outros',
+}
+MSG_OBRIGATORIO = 'Preencha todos os campos obrigatórios.'
+
+
+class ContatoForm(_AntiRobo):
+    """Formulario de contato (names do template mantidos). Sem caixa de marketing (decisao 48): o
+    opt-in de promocoes so existe no agendamento, onde ha prova do consentimento."""
+    name = forms.CharField(max_length=150, error_messages={'required': MSG_OBRIGATORIO})
+    email = forms.EmailField(
+        max_length=254, error_messages={'required': MSG_OBRIGATORIO, 'invalid': 'Informe um e-mail válido.'},
+    )
+    phone = forms.CharField(max_length=30, required=False)
+    subject = forms.ChoiceField(choices=list(ASSUNTOS_CONTATO.items()),
+                                error_messages={'required': MSG_OBRIGATORIO, 'invalid_choice': MSG_OBRIGATORIO})
+    message = forms.CharField(max_length=5000, error_messages={'required': MSG_OBRIGATORIO})
+    privacy = forms.BooleanField(error_messages={'required': 'Aceite a Política de Privacidade para enviar.'})
+
+    def clean_name(self):
+        nome = ' '.join((self.cleaned_data.get('name') or '').split())
+        if not nome:
+            raise ValidationError(MSG_OBRIGATORIO)
+        return nome
+
+    def clean_phone(self):
+        bruto = (self.cleaned_data.get('phone') or '').strip()
+        if not bruto:
+            return ''
+        digitos = telefones.valido_ou_vazio(bruto)
+        if not digitos:
+            raise ValidationError('Informe um telefone válido com DDD ou deixe em branco.')
+        return digitos
+
+    @property
+    def assunto(self) -> str:
+        return ASSUNTOS_CONTATO.get(self.cleaned_data.get('subject'), 'Outros')
