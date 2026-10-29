@@ -181,6 +181,17 @@ class ConfirmarAgendamentoTests(TestCase):
         self._post()
         self.assertNotIn('otp_agendamento_telefone', self.client.session)
 
+    def test_sucesso_abre_a_area_da_cliente_sem_novo_sms(self):
+        """Decisao 39: o celular acabou de ser verificado no wizard — 'Meus agendamentos' ja abre."""
+        from aranha_estetica.services import portal_cliente
+
+        self._post()
+        atendimento = Atendimento.objects.get()
+        self.assertEqual(self.client.session[portal_cliente.SESSAO_MEUS_AGENDAMENTOS], atendimento.cliente.telefone)
+        resp = self.client.get(reverse('aranha:meus_agendamentos'))
+        self.assertContains(resp, atendimento.procedimento.nome)
+        self.assertContains(resp, 'Minhas preferências')
+
     def test_telefone_com_ddi_e_normalizado(self):
         verificar_sessao(self.client, '17999991111')
         resp = self._post(with_otp=False, telefone='+55 (17) 99999-1111')
