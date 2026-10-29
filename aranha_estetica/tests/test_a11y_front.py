@@ -110,6 +110,37 @@ class TemaEscuroTests(SimpleTestCase):
         self.assertEqual(re.findall(r'#[0-9a-fA-F]{3,6}\b', site), [])
 
 
+class SitePublicoSemEstiloInlineTests(SimpleTestCase):
+    """O CSS das paginas do site mora no static/src/css/site.css (tokens): nada de style="..." nem
+    <style> por pagina. Fora: o widget de iframe (CSS proprio, sem o bundle do Vite) e o
+    especialidades, cujas regras das abas sao geradas por categoria (precisam do laco do template)."""
+
+    PASTAS = ('publico', 'agendamento', 'estrutura', 'cotton/chrome', 'partials')
+    SEM_BUNDLE = {'agendamento/embed.html'}
+    STYLE_GERADO = {'publico/especialidades.html'}
+
+    def _arquivos(self):
+        for pasta in self.PASTAS:
+            for arq in sorted((_TEMPLATES / pasta).rglob('*.html')):
+                rel = arq.relative_to(_TEMPLATES).as_posix()
+                if rel not in self.SEM_BUNDLE:
+                    yield rel, arq.read_text(encoding='utf-8')
+
+    def test_sem_atributo_style(self):
+        achados = [rel for rel, html in self._arquivos() if re.search(r'\sstyle="', html)]
+        self.assertEqual(achados, [])
+
+    def test_sem_bloco_style_por_pagina(self):
+        achados = [rel for rel, html in self._arquivos()
+                   if rel not in self.STYLE_GERADO
+                   and re.search(r'(?<!<noscript>)<style[\s>]', re.sub(r'\{#.*?#\}', '', html))]
+        self.assertEqual(achados, [])
+
+    def test_sem_cor_crua_nas_classes(self):
+        achados = [rel for rel, html in self._arquivos() if re.search(r'(?:bg|text|border|from|to)-\[#', html)]
+        self.assertEqual(achados, [])
+
+
 class PaletaDeStatusTests(SimpleTestCase):
     """Achado 167: status do atendimento pintado com 4 paletas (Material) fora dos tokens --st-*."""
 
