@@ -13,9 +13,14 @@ class ComissaoService <<serviço>> {
   + {static} recalcular()
   + {static} estornar_para_desfazer()
   + {static} marcar_paga()
+  + {static} pagar_pendentes()
+  + {static} repasse()
   + {static} estornar_comissao()
   + {static} saldos_por_profissional()
   + {static} saldo_a_pagar()
+  + {static} ha_regra_ativa()
+  + {static} totais_por_status()
+  + {static} profissionais_do_filtro()
   + {static} resumo_por_profissional()
 }
 comissao *-- ComissaoService
@@ -31,17 +36,33 @@ class FidelidadeService <<serviço>> {
 }
 fidelidade *-- FidelidadeService
 class "services.financeiro" as financeiro <<módulo>> {
+  + competencia(dia)
+  + competencia_do_param(valor)
   + atendimentos_faturados(qs)
-  + vendas_pacote(qs)
   + producao(qs)
-  + creditos_indicacao_usados(desde)
+  + creditos_indicacao_usados(periodo)
   + ticket_medio(total, qtd)
   + resumo_avulsos(qs)
-  + resumo_pacotes(qs)
+  + resumo_pacotes(periodo)
+  + resumo_receita(periodo)
+  + no_show(periodo)
+  + ultimos_12_meses(ate)
   + valor_gasto_cliente(cliente)
 }
-class "services.relatorios" as relatorios <<módulo>> {
-  + planilha_gerencial(inicio, fim)
+class Periodo <<serviço>> {
+  + {static} inicio_dt()
+  + {static} fim_dt()
+  + {static} ultimo_dia()
+  + {static} filtro()
+  + {static} param()
+  + {static} rotulo()
+  + {static} anterior()
+  + {static} seguinte()
 }
+financeiro *-- Periodo
+class "services.relatorios" as relatorios <<módulo>> {
+  + planilha_gerencial(periodo)
+}
+relatorios ..> comissao
 relatorios ..> financeiro
 @enduml

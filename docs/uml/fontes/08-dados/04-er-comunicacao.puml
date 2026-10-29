@@ -52,7 +52,6 @@ entity "link_acesso" as link_acesso {
   * <b>id</b> : bigint <<PK>>
   --
   * finalidade : varchar(30)
-  atendimento_id : bigint <<FK>>
   notificacao_id : bigint <<FK>>
   resposta_formulario_id : bigint <<FK>>
   cliente_id : bigint <<FK>>
@@ -79,6 +78,16 @@ entity "codigo_otp" as codigo_otp {
   ip_origem : inet
 }
 
+entity "execucao_job" as execucao_job {
+  * <b>id</b> : bigint <<PK>>
+  --
+  * job : varchar(40)
+  * dia : date
+  * iniciado_em : timestamptz
+  concluido_em : timestamptz
+  * resultado : text
+}
+
 entity "atendimento" as atendimento #F2F2F2 {
 }
 
@@ -97,7 +106,6 @@ entity "usuario" as usuario #F2F2F2 {
 atendimento ||--o{ notificacao : atendimento_id
 atendimento ||--o| avaliacao_nps : atendimento_id
 usuario ||--o{ assinatura_push : usuario_id
-atendimento |o--o{ link_acesso : atendimento_id
 notificacao |o--o{ link_acesso : notificacao_id
 resposta_formulario |o--o{ link_acesso : resposta_formulario_id
 cliente |o--o{ link_acesso : cliente_id

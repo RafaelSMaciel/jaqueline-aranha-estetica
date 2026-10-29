@@ -10,11 +10,15 @@ actor "Profissional" as P
 rectangle "Área da cliente (Meus agendamentos)" {
   usecase "Entrar com o celular (OTP)" as UC1
   usecase "Ver próximos e anteriores" as UC2
-  usecase "Cancelar um agendamento\n(antes do início)" as UC3
+  usecase "Cancelar um agendamento\n(< 24 h conta como falta)" as UC3
   usecase "Remarcar\n(até 24 h antes)" as UC4
   usecase "Ver crédito e código\nde indicação" as UC5
   usecase "Ver retorno sem custo\na marcar" as UC6
   usecase "Ver sessão do pacote\n(restam N)" as UC7
+  usecase "Gerir preferências\nde comunicação" as UC8
+  usecase "Revogar o consentimento\nde dado de saúde" as UC9
+  usecase "Pedir correção ou exclusão\n(LGPD, prazo de 15 dias)" as UC10
+  usecase "Baixar meus dados\n(sem saúde)" as UC11
 }
 
 rectangle "Links individuais (token, sem login)" {
@@ -34,6 +38,14 @@ UC4 ..> UC2 : <<extend>>
 UC5 ..> UC2 : <<extend>>
 UC6 ..> UC2 : <<extend>>
 UC7 ..> UC2 : <<extend>>
+C --> UC8
+C --> UC9
+C --> UC10
+C --> UC11
+UC8 ..> UC1 : <<include>>
+UC9 ..> UC1 : <<include>>
+UC10 ..> UC1 : <<include>>
+UC11 ..> UC1 : <<include>>
 C --> UL1
 C --> UL2
 UL3 ..> UL2 : <<extend>>\n(pesquisa ativa)

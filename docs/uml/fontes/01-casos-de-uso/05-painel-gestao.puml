@@ -12,6 +12,7 @@ rectangle "Painel — gestão" {
     usecase "Manter profissionais\ne expediente" as C2
     usecase "Manter promoções\ne disparar campanha" as C3
     usecase "Manter pacotes" as C4
+    usecase "Prorrogar validade\nde um pacote vendido" as C5
   }
   package "Clientes e saúde" {
     usecase "Consultar a ficha da cliente" as S1
@@ -26,12 +27,13 @@ rectangle "Painel — gestão" {
     usecase "Cancelar compra\ne reembolsar" as F2
     usecase "Ver faturamento,\nticket médio e rankings" as F3
     usecase "Exportar relatório\n(Excel)" as F4
-    usecase "Pagar comissões" as F5
+    usecase "Repassar comissões em lote\n(recibo para imprimir)" as F5
+    usecase "Manter regras de comissão\n(regra usada só desativa)" as F7
     usecase "Acompanhar NPS e\npublicar depoimentos" as F6
   }
   package "Administração" {
     usecase "Gerir usuários e 2FA" as G1
-    usecase "Ajustar configurações\ne identidade visual" as G2
+    usecase "Ajustar regras operacionais\ne identidade visual" as G2
     usecase "Consultar a auditoria" as G3
     usecase "Acompanhar notificações\ne prévias de e-mail" as G4
   }
@@ -53,6 +55,8 @@ A --> F3
 A --> F4
 A --> F5
 A --> F6
+A --> F7
+A --> C5
 A --> G1
 A --> G2
 A --> G3

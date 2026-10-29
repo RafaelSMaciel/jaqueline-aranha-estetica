@@ -15,10 +15,6 @@ entity "profissional" as profissional {
   * eh_ativo : boolean
   * antecedencia_minima_horas : smallint
   * antecedencia_maxima_dias : smallint
-  * gcal_token_renovacao : text
-  * gcal_calendario_ref : varchar(200)
-  * gcal_token_sincronizacao : text
-  gcal_sincronizado_em : timestamptz
   * criado_em : timestamptz
   * atualizado_em : timestamptz
 }
@@ -33,8 +29,6 @@ entity "procedimento" as procedimento {
   * duracao_minutos : smallint
   * intervalo_minutos : smallint
   * categoria : varchar(20)
-  * modalidade : varchar(12)
-  * url_videoconferencia : varchar(500)
   * url_imagem_destaque : varchar(500)
   * eh_ativo : boolean
   * tem_retorno_obrigatorio : boolean
@@ -77,6 +71,8 @@ entity "promocao" as promocao {
   * data_fim : date
   * eh_ativo : boolean
   * url_imagem : text
+  envio_cursor : bigint
+  disparada_em : timestamptz
   * criado_em : timestamptz
   * atualizado_em : timestamptz
 }
@@ -98,7 +94,6 @@ entity "agenda_excecao" as agenda_excecao {
   profissional_id : bigint <<FK>>
   * tipo : varchar(20)
   * origem : varchar(20)
-  origem_ref : varchar(255)
   data_inicio : date
   data_fim : date
   hora_inicio : time
@@ -138,12 +133,14 @@ entity "atendimento" as atendimento {
 entity "lista_espera" as lista_espera {
   * <b>id</b> : bigint <<PK>>
   --
-  * cliente_id : bigint <<FK>>
+  cliente_id : bigint <<FK>>
+  * nome_contato : varchar(150)
+  telefone_contato : varchar(11)
   * procedimento_id : bigint <<FK>>
   profissional_desejado_id : bigint <<FK>>
   * data_desejada : date
   turno_desejado : varchar(20)
-  * eh_notificado : boolean
+  ultimo_aviso_em : timestamptz
   email_contato : varchar(254)
   * criado_em : timestamptz
   * atualizado_em : timestamptz
@@ -220,12 +217,11 @@ atendimento ||--o| avaliacao_nps : atendimento_id
 procedimento ||--o{ pacote_item : procedimento_id
 procedimento ||--o{ compra_pacote_item : procedimento_id
 atendimento ||--o| consumo_sessao : atendimento_id
-cliente ||--o{ lista_espera : cliente_id
+cliente |o--o{ lista_espera : cliente_id
 procedimento ||--o{ lista_espera : procedimento_id
 profissional |o--o{ lista_espera : profissional_desejado_id
 procedimento |o--o{ formulario : procedimento_id
 atendimento |o--o{ resposta_formulario : atendimento_id
-atendimento |o--o{ link_acesso : atendimento_id
 profissional |o--o{ link_acesso : profissional_id
 atendimento |o--o{ movimento_carteira : atendimento_id
 profissional |o--o{ regra_comissao : profissional_id

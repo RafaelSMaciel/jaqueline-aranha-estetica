@@ -27,6 +27,7 @@ class CompraPacote <<Entity>> {
   + valor_reembolsado : Decimal
   + status : StatusCompraPacote
   + data_expiracao : date [0..1]
+  + cancelado_em : datetime [0..1]
   --
   + {static} vender(pacote, cliente, valor_pago, **campos)
   + congelar_itens()
@@ -57,11 +58,16 @@ class RegraComissao <<Entity>> {
   + percentual : Decimal [0..1]
   + valor : Decimal [0..1]
   + ativo : bool
+  --
+  + /especificidade «property»
+  + foi_usada()
 }
 
 class MovimentoComissao <<Entity>> {
   + tipo : TipoMovimentoComissao
   + valor : Decimal
+  + base_calculo : Decimal [0..1]
+  + percentual_aplicado : Decimal [0..1]
   + observacoes : str
   + criado_em : datetime
   --
@@ -94,13 +100,11 @@ class MovimentoCarteira <<Entity>> {
 }
 
 enum OrigemMovimentoCarteira {
-  VALE_PRESENTE
   CANCELAMENTO
   AJUSTE_MANUAL
   USO_AGENDAMENTO
   CASHBACK_INDICACAO
   CASHBACK_ESTORNO
-  OUTRO
 }
 
 enum StatusCompraPacote {

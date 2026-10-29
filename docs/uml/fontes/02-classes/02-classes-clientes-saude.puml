@@ -8,8 +8,6 @@ class Cliente <<Entity>> {
   + nome : str
   + data_nascimento : date [0..1]
   + cpf : str [0..1]
-  + rg : str [0..1]
-  + profissao : str [0..1]
   + email : str [0..1]
   + telefone : str [0..1]
   + cep : str [0..1]
@@ -17,13 +15,14 @@ class Cliente <<Entity>> {
   + ativo : bool
   + faltas_consecutivas : int
   + bloqueado_online : bool
-  + foto_url : str
+  + saude_revogada_em : datetime [0..1]
   + codigo_indicacao : str [0..1]
   + criado_em : datetime
   + atualizado_em : datetime
   + deletado_em : datetime [0..1]
   --
   + {static} limite_faltas_bloqueio()
+  + registrar_cancelamento_tardio()
   + registrar_falta()
   + resetar_faltas()
   + soft_delete()
@@ -63,7 +62,6 @@ class FormularioAnamnese <<Entity>> {
   + tipo : str
   + escopo : str
   + categoria : str
-  + modalidade : str
   + schema_json : json
   + ativo : bool
   + obrigatorio : bool
@@ -71,7 +69,6 @@ class FormularioAnamnese <<Entity>> {
   + atualizado_em : datetime
   --
   + aplica_a(procedimento)
-  + /eh_prontuario «property»
 }
 class FormularioAnamneseQuerySet <<QuerySet>> {
   + aplicaveis_a(procedimento)

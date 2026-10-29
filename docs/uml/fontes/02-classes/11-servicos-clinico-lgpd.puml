@@ -1,17 +1,29 @@
-@startuml 11-servicos-clinico-comunicacao
+@startuml 11-servicos-clinico-lgpd
 ' GERADO por docs/uml/gerar_uml.py a partir do codigo — nao edite a mao.
 !include ../estilo.iuml
 hide empty members
-title Serviços — fichas, termos, LGPD e comunicação
+title Serviços — fichas, prontuário, termos e LGPD
 
 class "services.anamnese" as anamnese <<módulo>> {
   + validar_respostas(schema, dados)
   + convidar(formulario, atendimento)
+  + valida_desde(em)
+  + fichas_em_dia(cliente, em)
   + fichas_pendentes(atendimento)
   + convite_pesquisa(atendimento)
 }
+class "services.alertas" as alertas <<módulo>> {
+  + alertas_por_cliente(clientes)
+  + ids_com_ficha_pendente(atendimentos)
+  + marcar_atendimentos(atendimentos, *, valores)
+  + registrar_leitura_saude(request, cliente_ids, tela)
+}
+class "services.prontuario" as prontuario <<módulo>> {
+  + vinculo_clinico(profissional, cliente, *, escrita)
+}
 class "services.termos" as termos <<módulo>> {
   + q_termos_aplicaveis(procedimento_id)
+  + vale_para(versao, procedimento)
   + termos_aplicaveis(procedimento)
   + termos_pendentes(cliente, procedimento, *, so_procedime…)
   + aceita_assinatura(atendimento)
@@ -33,8 +45,15 @@ class "services.consentimentos" as consentimentos <<módulo>> {
   + historico(cliente)
   + resumo_painel(cliente)
   + par_da_chave(chave)
+  + preferencias_portal(cliente)
+  + registrar_do_portal(cliente, marcados, *, request)
+  + saude_consentida(cliente)
+  + revogar_saude(cliente, *, origem, request, usuario, …)
 }
 class "services.lgpd" as lgpd <<módulo>> {
+  + prazos_retencao()
+  + sobre_o_tratamento()
+  + exportar_dados(cliente, *, incluir_saude)
 }
 class LgpdService <<serviço>> {
   + {static} exportar_dados_cliente()
@@ -46,44 +65,33 @@ class LgpdService <<serviço>> {
   + {static} aplicar_retencao()
 }
 lgpd *-- LgpdService
-class "services.comunicacao" as comunicacao <<módulo>> {
-  + link_revisar_agenda(data_hora)
-  + enfileirar_email(atendimento, tipo, mensagem)
-  + enviar_da_fila(notificacao_id)
-  + reenviar_pendentes(agora)
+class "services.portal_cliente" as portal_cliente <<módulo>> {
+  + abrir_sessao(request, telefone, *, verificado_em)
+  + abrir_sessao_do_wizard(request, telefone)
+  + telefone_da_sessao(request)
+  + encerrar_sessao(request)
+  + sessao_recente(request, janela)
+  + clientes_da_sessao(request)
+  + cliente_da_sessao(request)
+  + atendimento_da_sessao(request, pk)
+  + registrar_pedido(cliente, tipo, descricao, *, request)
 }
-class "services.links" as links <<módulo>> {
-  + sha256_hex(token)
-  + gerar_token()
-  + emitir(finalidade, alvo, *, expira_em)
-  + resolver(finalidades, token, *, select_related,…)
-  + marcar_usado(link)
-  + revogar(finalidade, alvo)
-  + descartar(token)
-  + vigente(finalidade, alvo)
-  + gerar_link_feed_ics(profissional)
-  + aplicada_em_0049()
-  + emitir_link_formulario(resposta)
-}
-class "services.otp" as otp <<módulo>> {
-  + normalizar_telefone_br(valor)
-  + eh_celular_br(digitos)
-  + solicitar_otp(email, *, request, proposito, telefone…)
-  + verificar_otp(email, codigo, *, proposito)
-  + solicitar_otp_telefone(digitos, *, request, proposito)
-  + verificar_otp_telefone(digitos, codigo, *, proposito)
-  + registrar_verificacao_agendamento(request, digitos)
-  + telefone_verificado_agendamento(request)
-  + limpar_verificacao_agendamento(request)
-}
-class "services.push" as push <<módulo>> {
-  + get_vapid_public_key()
-  + send_push(subscription, payload)
-  + send_push_to_user(user, payload)
-}
-class "services.agendamento" as agendamento #F2F2F2
-hide agendamento members
+class "services.fidelidade" as fidelidade #F2F2F2
+hide fidelidade members
+class "services.links" as links #F2F2F2
+hide links members
+class "services.nps" as nps #F2F2F2
+hide nps members
+class "services.otp" as otp #F2F2F2
+hide otp members
+class "services.pacotes" as pacotes #F2F2F2
+hide pacotes members
+alertas ..> anamnese
+alertas ..> fidelidade
+alertas ..> pacotes
+alertas ..> termos
 anamnese ..> links
-comunicacao ..> agendamento
+portal_cliente ..> nps
+portal_cliente ..> otp
 termos ..> links
 @enduml

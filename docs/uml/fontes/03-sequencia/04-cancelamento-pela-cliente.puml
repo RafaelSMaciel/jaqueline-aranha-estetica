@@ -5,6 +5,7 @@ autonumber
 
 actor "Cliente" as C
 participant "views.publico\n(portal / API)" as V
+participant "services.agenda\n.cancelar_pela_cliente" as AG
 participant "Atendimento\n(FSM)" as AT
 participant "ao_mudar_status" as EF
 participant "ComissaoService\nFidelidadeService" as FIN
@@ -13,12 +14,16 @@ participant "Push\n(profissional)" as P
 database "PostgreSQL" as DB
 
 C -> V : POST cancelar (sessão do OTP)
-V -> DB : atendimento da cliente da sessão FOR UPDATE
+V -> AG : cancelar_pela_cliente(id, origem='portal')
+AG -> DB : atendimento da cliente da sessão FOR UPDATE
 alt já começou ou não está ativo
-  V --> C : 400 "não pode mais ser cancelado"
+  AG --> V : RegraDeNegocio → 400 "não pode mais ser cancelado"
 end
 group transaction.atomic
-  V -> AT : cancelar(motivo, pela_cliente=True)
+  AG -> AT : cancelar(motivo, pela_cliente=True)
+  alt faltam menos de 24 h e estava aprovado
+    AG -> DB : cancelamento tardio: soma 1 falta\n(o modal avisou antes)
+  end
   AT -> DB : UPDATE status = CANCELADO + LogAuditoria [pela cliente]
   AT -> EF : ao_mudar_status(AGENDADO, CANCELADO, pela_cliente=True)
   EF -> FIN : estornar comissão e cashback;\ndevolver crédito de indicação usado

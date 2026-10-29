@@ -21,9 +21,10 @@ L --> ADM : feito + registro LGPD (autor, IP)
 == Retenção (job lgpd_purgar, domingo 03:00) ==
 CR -> L : aplicar_retencao()
 L -> B : CALL sp_aplicar_retencao_lgpd()
-B -> DB : fn_clientes_para_anonimizar():\ninativas há 5 anos ou excluídas há 30 dias,\nexceto com saúde/pacote dentro do prazo legal
+B -> DB : fn_clientes_para_anonimizar():\ninativas há 5 anos ou excluídas há 30 dias,\nexceto com saúde (20 anos do último evento)\nou pacote (5 anos após expirar/cancelar)
 DB -> DB : sp_anonimizar_cliente para cada uma
 DB -> DB : apaga fichas de pedidos não realizados (90 dias)\ne inscrições vencidas da lista de espera
+DB -> DB : etapa "saúde": prontuário, versões e anotações\n20 anos após o último evento de saúde
 L --> CR : {clientes, fichas, esperas}
 
 note right of L
