@@ -309,7 +309,8 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   de provedor respondem no formato que o provedor espera.
 - **Telefone** (`utils/telefone.py`, fonte única): forma canônica gravada em `Cliente.telefone` e
   usada no OTP, nas buscas e no webhook do WhatsApp (só dígitos, DDD + número, sem DDI/zero de
-  tronco), E.164 só para telefone BR válido (destino de SMS/WhatsApp) e a máscara de log.
+  tronco), E.164 só para telefone BR válido (destino de SMS/WhatsApp), a exibição
+  (`formatar`, filtro builtin `{{ tel|telefone }}` → "(17) 99999-0001") e a máscara de log.
 - **Preço**: `utils/precos.py` — preço vigente por data (profissional > base) e promoção
   vigente na data; `preco_com_promocao()` é o valor gravado no atendimento. A vitrine (cards do
   wizard, widget embutido, `/especialidades/`, página do serviço, `/promocoes/`) sai de uma função
@@ -1676,7 +1677,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   `os.environ`/`os.getenv` fora dali (exceções no `pyproject.toml`); variável nova entra também no
   `.env.example` (`EnvExampleTests`).
 - Resposta JSON de view = `utils/respostas` (`json_ok`/`json_erro`/`json_recusa`); telefone =
-  `utils/telefone` (normalizar, validar, E.164, máscara), fonte única da forma canônica.
+  `utils/telefone` (normalizar, validar, E.164, exibição, máscara), fonte única da forma canônica.
 - Entrada de formulário do painel = Django Form (`forms/`), não `request.POST.get` campo a campo;
   erro vira `messages.error` por `forms.painel.avisar_erros`.
 - Recusa de regra = `excecoes.RegraDeNegocio` com mensagem pronta para a tela (nunca `None`/
@@ -1708,7 +1709,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   ignora padding em `<a>`); texto do botão escuro (`#23200f`). `test_email_texto.EmailNoOutlookTests` cobra.
 - Títulos com só a 1ª maiúscula ("Lista de espera", "Perguntas frequentes"); nome de tratamento do
   catálogo e sigla ficam como são. Dinheiro sempre `{{ valor|brl }}` (R$ 1.350,00; filtro builtin,
-  `utils/formatos.formatar_brl`), nunca `R$ {{ x|floatformat }}`.
+  `utils/formatos.formatar_brl`), nunca `R$ {{ x|floatformat }}`; telefone exibido sempre
+  `{{ tel|telefone }}` (o canônico cru fica só em `href`/`value`).
 - Migrations: nunca editar migration já aplicada em produção; DDL só-Postgres via `RunPython`
   com checagem de vendor; teste no Postgres (CI) antes do merge.
 - Commits: Conventional Commits (`feat(scope)`, `fix(scope)`, `docs(scope)`...).
