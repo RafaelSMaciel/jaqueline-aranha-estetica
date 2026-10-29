@@ -1,6 +1,6 @@
 {% menu_publico as menu %}
 {% with nl="px-3 py-2 rounded-full text-sm font-medium no-underline transition hover:bg-fundo hover:text-marca" %}
-<header x-data="navMenu" class="sticky top-0 z-50 border-b border-borda bg-superficie/95 backdrop-blur supports-[backdrop-filter]:bg-superficie/80">
+<header x-data="navMenu" x-on:keydown.escape.window="fecharTeclado" class="sticky top-0 z-50 border-b border-borda bg-superficie/95 backdrop-blur supports-[backdrop-filter]:bg-superficie/80">
   <div class="mx-auto max-w-6xl flex items-center justify-between gap-3 px-6 py-3.5">
 
     <a href="{% url 'aranha:inicio' %}" class="font-serif text-lg font-bold text-texto no-underline shrink-0">{{ CLINIC_NAME }}</a>
@@ -24,7 +24,7 @@
       <c-cta-agendar class="hidden sm:inline-flex items-center rounded-full bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca no-underline hover:opacity-90 transition" />
 
       {# Hambúrguer mobile #}
-      <button type="button" x-on:click="alternar" x-bind:aria-expanded="aberto" aria-controls="nav-mobile"
+      <button type="button" x-ref="botao" x-on:click="alternar" x-bind:aria-expanded="aberto" aria-controls="nav-mobile"
               aria-label="Abrir menu de navegação"
               class="md:hidden p-2 rounded-full text-texto hover:bg-fundo transition">
         <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
