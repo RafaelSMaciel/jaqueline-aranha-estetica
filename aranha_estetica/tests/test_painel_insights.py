@@ -361,6 +361,17 @@ class ConfiguracoesTests(_AdminBase):
         chaves = {r['chave'] for r in resp.context['regras']}
         self.assertEqual(chaves, {'email_admin', 'MAX_FALTAS_BLOQUEIO', 'anos_experiencia'})
 
+    def test_regra_opcional_pode_ficar_em_branco(self):
+        """anos_experiencia e opcional: padrao "em branco", campo sem required e salvar vazio vale."""
+        resp = self.client.get(reverse('aranha:admin_configuracoes'))
+        html = resp.content.decode()
+        campo = html[html.index('id="regra-anos_experiencia"'):]
+        campo = campo[:campo.index('>')]
+        self.assertNotIn('required', campo)
+        self.assertNotIn('Padrão: .', html)
+        self.client.post(reverse('aranha:admin_criar_configuracao'), {'chave': 'anos_experiencia', 'valor': ''})
+        self.assertEqual(Configuracao.ler('anos_experiencia'), '')
+
 
 class BrandingTests(_AdminBase):
     def _post(self, **dados):

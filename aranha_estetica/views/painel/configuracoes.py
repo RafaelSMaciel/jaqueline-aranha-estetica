@@ -38,7 +38,8 @@ def _regras(recusa=None):
         gravado = linha.valor if linha is not None else ''
         regra = {
             'chave': nome, 'rotulo': definicao.rotulo, 'descricao': definicao.descricao,
-            'email': definicao.tipo == TIPO_EMAIL, 'minimo': definicao.minimo, 'maximo': definicao.maximo,
+            'email': definicao.tipo == TIPO_EMAIL, 'opcional': definicao.opcional,
+            'minimo': definicao.minimo, 'maximo': definicao.maximo,
             'padrao': definicao.default, 'linha': linha, 'valor': gravado,
             'gravado_invalido': _recusado(definicao, gravado),
             'erro': '',
