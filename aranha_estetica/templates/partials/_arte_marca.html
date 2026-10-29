@@ -2,8 +2,9 @@
 Arte da marca para moldura sem foto real (nunca foto inventada ou de outro site): gradiente nos
 tokens + ramo em traco fino + selo com o icone. Decorativa (aria-hidden): o texto ao lado diz o
 que e. Ocupa a moldura do template (w-full h-full); o mesmo visual em todas as paginas.
-  icone  — brilho (padrao) | folha | gota | presente | flor
-  rotulo — opcional, em serifa italica sob o selo
+  icone     — brilho (padrao) | folha | gota | presente | flor
+  rotulo    — opcional, em serifa italica sob o selo
+  monograma — opcional: iniciais no lugar do icone (profissional sem foto)
 Uso: {% include 'partials/_arte_marca.html' with icone='folha' rotulo='Corporais' %}
 {% endcomment %}
 <div class="arte-marca{% if classe %} {{ classe }}{% endif %}" aria-hidden="true">
@@ -22,6 +23,9 @@ Uso: {% include 'partials/_arte_marca.html' with icone='folha' rotulo='Corporais
     <path d="M66 88C50 81 44 67 46 54c14 6 22 18 20 34Z"/>
     <path d="M72 68c13-11 26-12 37-8-8 12-22 16-37 8Z"/>
   </svg>
+  {% if monograma %}
+  <span class="monograma arte-marca__monograma">{{ monograma }}</span>
+  {% else %}
   <span class="arte-marca__selo">
     <svg class="arte-marca__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" focusable="false">
       {% if icone == 'folha' %}
@@ -37,5 +41,6 @@ Uso: {% include 'partials/_arte_marca.html' with icone='folha' rotulo='Corporais
       {% endif %}
     </svg>
   </span>
+  {% endif %}
   {% if rotulo %}<span class="arte-marca__rotulo">{{ rotulo }}</span>{% endif %}
 </div>

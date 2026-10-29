@@ -116,9 +116,16 @@ def promocoes(request):
 
 
 def equipe(request):
-    """Pagina publica com a equipe de profissionais ativos."""
+    """Equipe: com uma profissional, a pagina e "Sobre a profissional" (foto ou monograma,
+    especialidade, bio e os tratamentos que ela realiza, do catalogo); com 2+, a grade."""
     profissionais = list(Profissional.objects.filter(ativo=True).order_by('nome'))
-    return render(request, 'publico/equipe.html', {'profissionais': profissionais})
+    tratamentos = []
+    if len(profissionais) == 1:
+        tratamentos = list(
+            Procedimento.objects.filter(ativo=True, habilitacao__profissional=profissionais[0])
+            .exclude(slug__isnull=True).exclude(slug='').order_by('categoria', 'nome').distinct()
+        )
+    return render(request, 'publico/equipe.html', {'profissionais': profissionais, 'tratamentos': tratamentos})
 
 
 # Titulo editorial de cada categoria do catalogo; categoria nova sem titulo usa o rotulo do model

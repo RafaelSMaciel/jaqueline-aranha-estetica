@@ -113,6 +113,12 @@ def iniciais(nome):
 
 
 @register.filter
+def itens_especialidade(texto):
+    """'Biomédica · Estética facial e corporal · Injetáveis' -> 3 selos (separador ·, ; ou |)."""
+    return [p.strip() for p in re.split(r'[·;|•]', str(texto or '')) if p.strip()]
+
+
+@register.filter
 def primeiro_nome(nome):
     """'Dra. Ana de Souza' -> 'Ana' (botao "Agendar com Ana"); sem nome util, o nome como veio."""
     partes = _partes_do_nome(nome)
