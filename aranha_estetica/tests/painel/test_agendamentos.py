@@ -3,9 +3,11 @@ pelo service e os marcadores da lista calculados na view."""
 import json
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.messages import get_messages
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -101,6 +103,21 @@ class PortalUsaOMesmoCasoDeUsoTests(_Painel):
         self.assertEqual(at.status, 'REALIZADO')
         log = LogAuditoria.objects.get(acao='Realizado sem termo aceito')
         self.assertEqual(log.usuario_id, user.pk)
+
+
+class JsDoStatusNoViteTests(SimpleTestCase):
+    """O JS do select e do calendario saiu dos templates p/ entradas do Vite (CSP: sem inline)."""
+
+    def test_entradas_no_vite_e_templates_sem_copia_inline(self):
+        raiz = Path(settings.BASE_DIR)
+        vite = (raiz / 'vite.config.js').read_text(encoding='utf-8')
+        for entrada in ('painel-status', 'painel-calendario'):
+            self.assertIn(f"'{entrada}': 'aranha_estetica/static/src/js/{entrada}.js'", vite)
+        templates = raiz / 'aranha_estetica' / 'templates' / 'painel'
+        for nome in ('agendamentos.html', 'overview.html', 'calendar.html'):
+            html = (templates / nome).read_text(encoding='utf-8')
+            self.assertNotIn('fetch(', html, nome)
+            self.assertNotIn('X-CSRFToken', html, nome)
 
 
 # ─── Lista da agenda: select so quando vale, marcadores e retorno ─────
