@@ -398,3 +398,46 @@
     letter-spacing: 0.08em; text-transform: uppercase; color: var(--cor-cromo-suave);
   }
 }
+
+/* ── FullCalendar (painel/calendar.html) ──
+   FORA de camada de proposito: o FullCalendar 6 injeta CSS sem camada (style[data-fullcalendar]),
+   que venceria qualquer regra em @layer. As cores saem dos tokens (claro/escuro). */
+.calendario-painel.fc {
+  --fc-border-color: var(--cor-borda);
+  --fc-page-bg-color: var(--cor-superficie);
+  --fc-neutral-bg-color: var(--cor-fundo);
+  --fc-neutral-text-color: var(--cor-texto-suave);
+  --fc-list-event-hover-bg-color: var(--cor-fundo-realce);
+  --fc-today-bg-color: color-mix(in srgb, var(--cor-marca-forte) 12%, transparent);
+  --fc-now-indicator-color: var(--cor-erro);
+  --fc-button-text-color: var(--cor-texto);
+  --fc-button-bg-color: var(--cor-superficie);
+  --fc-button-border-color: var(--cor-borda-forte);
+  --fc-button-hover-bg-color: var(--cor-fundo-realce);
+  --fc-button-hover-border-color: var(--cor-borda-campo);
+  --fc-button-active-bg-color: var(--cor-marca-forte);
+  --fc-button-active-border-color: var(--cor-marca-forte);
+  --fc-highlight-color: color-mix(in srgb, var(--cor-marca-forte) 20%, transparent);
+  padding: 1rem 1.25rem 1.25rem; color: var(--cor-texto); font-size: var(--text-corpo);
+}
+.calendario-painel.fc .fc-toolbar { flex-wrap: wrap; gap: 0.75rem; }
+.calendario-painel.fc .fc-toolbar-title { font-family: var(--heading-font); font-size: 1.25rem; font-weight: 600; text-transform: capitalize; }
+.calendario-painel.fc .fc-button {
+  padding: 0.4375rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 700; text-transform: none; box-shadow: none;
+}
+.calendario-painel.fc .fc-button-primary:not(:disabled).fc-button-active,
+.calendario-painel.fc .fc-button-primary:not(:disabled):active { color: var(--cor-sobre-marca); }
+.calendario-painel.fc .fc-button-primary:disabled { opacity: 0.55; }
+.calendario-painel.fc .fc-button:focus { box-shadow: none; }
+.calendario-painel.fc .fc-button:focus-visible { outline: 2px solid var(--cor-foco); outline-offset: 2px; }
+.calendario-painel.fc .fc-col-header-cell-cushion,
+.calendario-painel.fc .fc-daygrid-day-number,
+.calendario-painel.fc .fc-list-day-cushion a { color: var(--cor-texto); text-decoration: none; font-weight: 700; }
+.calendario-painel.fc .fc-timegrid-slot-label-cushion { font-size: var(--text-legenda); color: var(--cor-texto-suave); }
+.calendario-painel.fc .fc-event { cursor: grab; font-size: var(--text-legenda); border-radius: 0.375rem; }
+.calendario-painel.fc .fc-event:active { cursor: grabbing; }
+.calendario-painel.fc .fc-list-event-title a { color: var(--cor-texto); }
+@media (max-width: 640px) {
+  .calendario-painel.fc { padding: 0.75rem; }
+  .calendario-painel.fc .fc-toolbar-title { font-size: 1.0625rem; }
+}

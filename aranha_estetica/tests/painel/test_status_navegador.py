@@ -109,19 +109,24 @@ class SelectDeStatusNavegadorTests(StaticLiveServerTestCase):
         self.assertTrue(LogAuditoria.objects.filter(acao='Realizado sem termo aceito', registro_id=at.pk).exists())
 
     def test_calendario_carrega_eventos_pelo_modulo(self):
-        """painel-calendario.js le a rota do data-url-eventos e monta o FullCalendar (CDN)."""
+        """painel-calendario.js le a rota do data-url-eventos e monta o FullCalendar (npm, no bundle
+        do Vite: sem rede externa) com o CSS injetado no <style data-fullcalendar> do nonce."""
         criar_atendimento(criar_cliente('Rita Calendário'), self.prof, self.proc)
-        erros = []
+        erros, console = [], []
         self.page.on('pageerror', lambda exc: erros.append(str(exc)))
+        self.page.on('console', lambda m: console.append(m.text) if m.type == 'error' else None)
+        externos = []
+        self.page.on('request', lambda r: externos.append(r.url) if not r.url.startswith(self.live_server_url) else None)
         with self.page.expect_response(lambda r: reverse('aranha:admin_calendar_events') in r.url) as resp:
             self.page.goto(f"{self.live_server_url}{reverse('aranha:admin_calendar')}")
-            if not self.page.evaluate('!!window.FullCalendar'):
-                self.skipTest('FullCalendar do CDN indisponivel (sem rede)')
         self.assertEqual(resp.value.status, 200)
         self.page.wait_for_selector('.fc-event')
         self.assertIn('Rita Calendário', self.page.text_content('#calendar'))
         self.assertEqual(self.page.get_attribute('.fc-prev-button', 'aria-label'), 'Período anterior')
-        self.assertEqual(erros, [])
+        # o CSS do FullCalendar entrou (sem 'unsafe-inline'): a grade tem layout de verdade
+        self.assertGreater(self.page.evaluate("document.querySelector('style[data-fullcalendar]').sheet.cssRules.length"), 50)
+        self.assertEqual(self.page.get_attribute('table.fc-scrollgrid', 'role'), 'presentation')
+        self.assertEqual((erros, console, externos), ([], [], []))
 
     def test_barra_do_lote_aparece_com_pendente_marcado(self):
         pendente = criar_atendimento(criar_cliente('Paula'), self.prof, self.proc, status='PENDENTE')

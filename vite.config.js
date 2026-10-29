@@ -19,7 +19,9 @@ export default defineConfig({
         'painel-busca': 'aranha_estetica/static/src/js/painel-busca.js',
         // select de status e lote de Aprovar/Recusar das listas do painel (agenda e visao geral)
         'painel-status': 'aranha_estetica/static/src/js/painel-status.js',
+        // FullCalendar e Chart.js do npm (empacotados aqui; nada de CDN)
         'painel-calendario': 'aranha_estetica/static/src/js/painel-calendario.js',
+        'painel-visao-geral': 'aranha_estetica/static/src/js/painel-visao-geral.js',
         webpush: 'aranha_estetica/static/src/js/webpush.js',
       },
     },
