@@ -454,9 +454,13 @@ class ListaEsperaNomeTests(_AdminTestCase):
 
 # ─── Templates: popover no celular, reenvio com termo, SRI, extras ────
 class TemplatesPainelTests(TestCase):
-    def test_popover_de_valor_entra_no_fluxo_no_celular(self):
+    def test_valor_e_desfazer_em_modal_no_celular(self):
+        # antes: popover absolute que saia da tela a 375px; agora <dialog> (showModal ocupa a tela
+        # do celular, foco preso) aberto pelo menu de acoes da linha
         html = (TEMPLATES / 'painel' / 'agendamentos.html').read_text(encoding='utf-8')
-        self.assertIn('static sm:absolute sm:right-0', html)
+        self.assertIn('data-abrir-dialogo="dlg-valor-{{ agend.pk }}"', html)
+        self.assertIn('<c-dialogo id="dlg-valor-{{ agend.pk }}"', html)
+        self.assertIn('data-abrir-dialogo="dlg-desfazer-{{ agend.pk }}"', html)
         self.assertNotIn('class="absolute right-0', html)
 
     def test_status_reenvia_com_override_quando_servidor_pede_termo(self):
@@ -467,14 +471,14 @@ class TemplatesPainelTests(TestCase):
         self.assertIn("data.codigo === 'termo_pendente'", js)
         self.assertIn('payload.sem_termo = true', js)
 
-    def test_calendario_com_sri(self):
+    def test_calendario_sem_cdn(self):
+        # FullCalendar do npm (bundle do Vite): sem <script> externo; o CSS que ele injeta entra
+        # pelo <style data-fullcalendar> com o nonce da pagina
         html = (TEMPLATES / 'painel' / 'calendar.html').read_text(encoding='utf-8')
-        scripts = re.findall(r'<script[^>]*\ssrc="https://cdn\.jsdelivr\.net/[^>]*>', html)
-        self.assertEqual(len(scripts), 2)
-        for tag in scripts:
-            self.assertIn('integrity="sha384-', tag)
-            self.assertIn('crossorigin="anonymous"', tag)
-            self.assertIn('nonce="{{ csp_nonce }}"', tag)
+        self.assertNotIn('cdn.jsdelivr.net', html)
+        self.assertIn('<style data-fullcalendar nonce="{{ csp_nonce }}"></style>', html)
+        js = (TEMPLATES.parent / 'static' / 'src' / 'js' / 'painel-calendario.js').read_text(encoding='utf-8')
+        self.assertIn("from '@fullcalendar/core'", js)
 
     def test_alerta_em_lote_considera_respostas_extras(self):
         from aranha_estetica.services.alertas import alertas_por_cliente
