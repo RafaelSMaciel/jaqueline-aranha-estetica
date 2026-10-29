@@ -17,10 +17,24 @@ from ...services import otp as otp_service
 from ...utils import datas
 from ...utils import telefone as telefones
 from ...utils.datas import ler_data
+from ...utils.parse import id_int
 
 logger = logging.getLogger(__name__)
 
 TURNOS = [('MANHA', 'Manhã'), ('TARDE', 'Tarde'), ('NOITE', 'Noite')]
+
+
+def _prefill_do_wizard(params) -> dict:
+    """?procedimento=&profissional=&data= do wizard -> form_data (so ids e data validos)."""
+    prefill = {campo: str(id_int(params.get(campo))) for campo in ('procedimento', 'profissional')
+               if id_int(params.get(campo)) is not None}
+    try:
+        dia = ler_data(params.get('data', ''))
+    except ValueError:
+        dia = None
+    if dia is not None and dia >= datas.hoje():
+        prefill['data_desejada'] = dia.isoformat()
+    return prefill
 
 
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
@@ -54,6 +68,8 @@ def lista_espera_publica(request):
     }
 
     if request.method != 'POST':
+        # Vindo do wizard ("Avise-me se vagar" num dia sem horario): ja chega preenchido
+        context['form_data'] = _prefill_do_wizard(request.GET)
         return render(request, 'publico/lista_espera.html', context)
 
     nome = request.POST.get('nome', '').strip()[:150]
