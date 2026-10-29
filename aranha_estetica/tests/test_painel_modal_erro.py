@@ -15,7 +15,8 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from aranha_estetica.forms.painel import ProcedimentoForm, TermoForm, avisar_erros
+from aranha_estetica.forms.cadastros import ProcedimentoForm
+from aranha_estetica.forms.painel import TermoForm, avisar_erros
 from aranha_estetica.models import Pacote, Procedimento, Promocao, Usuario
 
 from .factories import criar_pacote, criar_procedimento, criar_profissional
