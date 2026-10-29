@@ -5,8 +5,8 @@ conhece a sessao. Aqui fica a regra, testavel sem HTTP e reutilizavel por outra 
 
 1. termo LGPD vigente (sem ele nao ha prova do aceite: nada e gravado);
 2. horario (``agenda.validar_horario``: habilitacao, futuro, feriado/recesso e o slot oferecido);
-3. fichas de anamnese do procedimento (schema + obrigatorias) e, havendo resposta, o
-   consentimento especifico de dado de saude (LGPD art. 11);
+3. fichas de anamnese do procedimento (schema + obrigatorias que a titular nao tem em dia — a
+   ficha vale 12 meses, D14) e, havendo resposta, o consentimento de dado de saude (LGPD art. 11);
 4. termos de procedimento que a titular ainda nao aceitou (services/termos) — marcados no wizard;
 5. e-mail que ja e de outro cadastro (evita sequestro e IntegrityError);
 6. lock do horario no cache: serializa confirmacoes simultaneas (depois o banco decide);
@@ -19,7 +19,7 @@ Toda recusa e ``RegraDeNegocio`` com ``codigo``; a view so mostra ``mensagem``.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -43,9 +43,10 @@ from ..models import (
     VersaoTermo,
 )
 from ..utils.auditoria import registrar_log
+from ..utils.datas import fmt_local
 from ..utils.email import email_configurado
 from ..utils.formatos import formatar_brl
-from . import agenda, comunicacao, consentimentos, termos
+from . import agenda, anamnese, comunicacao, consentimentos, termos
 from .agendamento import formatar_data_hora, formatar_valor_atendimento
 from .anamnese import validar_respostas
 
@@ -116,12 +117,14 @@ def solicitar(pedido: PedidoAgendamento, *, request: HttpRequest | None = None) 
 
     agenda.validar_horario(pedido.profissional, pedido.procedimento, pedido.inicio)
 
-    fichas = fichas_respondidas(pedido.anamneses, pedido.procedimento)
+    titular = Cliente.objects.filter(telefone=pedido.telefone).first()
+    # Ficha obrigatoria respondida nos ultimos 12 meses (D14) nao e exigida de novo
+    fichas = fichas_respondidas(pedido.anamneses, pedido.procedimento,
+                                em_dia=anamnese.fichas_em_dia(titular, pedido.inicio))
     if fichas and not pedido.consent_saude:
         # Dado de saude (LGPD art. 11): nada e gravado sem o consentimento destacado.
         raise RegraDeNegocio(MSG_CONSENT_SAUDE, codigo='consent_saude_ausente')
 
-    titular = Cliente.objects.filter(telefone=pedido.telefone).first()
     termos_aceitos = _termos_aceitos(pedido, titular)
 
     if pedido.email and Cliente.objects.filter(email__iexact=pedido.email).exclude(
@@ -167,12 +170,14 @@ def _preenchida(valor) -> bool:
     return valor is not None and str(valor).strip() != ''
 
 
-def fichas_respondidas(respostas: Mapping[str, Any], procedimento) -> list[tuple[FormularioAnamnese, dict]]:
+def fichas_respondidas(respostas: Mapping[str, Any], procedimento, *,
+                       em_dia: Collection[int] = ()) -> list[tuple[FormularioAnamnese, dict]]:
     """[(formulario, respostas limpas)] das fichas do procedimento que vao ser gravadas.
 
     So as ANAMNESE ativas que valem p/ o procedimento (FormularioAnamnese.aplicaveis_a); resposta
-    de outro formulario e ignorada. Ficha obrigatoria e sempre validada; a opcional so quando a
-    cliente comecou a responder. Conteudo validado contra o schema (services.anamnese).
+    de outro formulario e ignorada. Ficha obrigatoria pendente (fora de ``em_dia``, os ids que a
+    titular respondeu dentro da validade — D14) e sempre validada; a opcional, ou a obrigatoria em
+    dia, so quando a cliente comecou a responder ("Atualizar"). Conteudo validado contra o schema.
     """
     fichas = []
     formularios = (
@@ -185,7 +190,8 @@ def fichas_respondidas(respostas: Mapping[str, Any], procedimento) -> list[tuple
             brutas = {}
         schema = formulario.schema_json if isinstance(formulario.schema_json, list) else []
         chaves = {c.get('key') for c in schema if isinstance(c, dict)}
-        if not (formulario.obrigatorio or any(_preenchida(v) for k, v in brutas.items() if k in chaves)):
+        exigida = formulario.obrigatorio and formulario.pk not in em_dia
+        if not (exigida or any(_preenchida(v) for k, v in brutas.items() if k in chaves)):
             continue
         limpas, erros = validar_respostas(schema, brutas)
         if erros:
@@ -195,6 +201,12 @@ def fichas_respondidas(respostas: Mapping[str, Any], procedimento) -> list[tuple
         if limpas:
             fichas.append((formulario, limpas))
     return fichas
+
+
+def fichas_em_dia_do_wizard(cliente: Cliente | None, inicio: datetime | None = None) -> dict[str, str]:
+    """{id do formulario: 'dd/mm/aaaa'} das fichas que a titular tem em dia no horario escolhido
+    (D14; sem horario, agora): o wizard mostra "Sua ficha de dd/mm esta em dia" e nao a exige."""
+    return {str(fid): fmt_local(quando, '%d/%m/%Y') for fid, quando in anamnese.fichas_em_dia(cliente, inicio).items()}
 
 
 def _gravar_fichas(cliente, atendimento, fichas, *, request) -> None:

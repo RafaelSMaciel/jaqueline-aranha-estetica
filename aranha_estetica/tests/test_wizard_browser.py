@@ -281,6 +281,32 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         self.assertTrue(self.page.eval_on_selector('#form-nome', 'el => el.readOnly'))
         self.assertIn('outra pessoa', self.page.text_content('#nome-titular-aviso'))
 
+    # ─── D14: ficha em dia nao e pedida de novo ───
+    def test_ficha_em_dia_vira_aviso_com_atualizar(self):
+        form = self._ficha(True, [
+            {'key': 'gestante', 'tipo': 'bool', 'label': 'Está gestante?', 'obrigatorio': True},
+        ])
+        self.page.route('**/agendamento/otp/solicitar/', lambda route: self._json(route, {'ok': True, 'canal': 'SMS'}))
+        self.page.route('**/agendamento/otp/verificar/', lambda route: self._json(route, {
+            'ok': True, 'aviso': '', 'aviso_mensagem': '', 'prefill': None,
+            'fichas_em_dia': {str(form.pk): '10/03/2026'},
+        }))
+        self._ir_para_passo_3()
+        sel = f'[data-form-id="{form.pk}"][data-field-key="gestante"]'
+        self.assertTrue(self._required(sel))   # antes do SMS: obrigatoria
+        self.page.click('#btn-enviar-otp')
+        self.page.wait_for_selector('#otp-field', state='visible')
+        self.page.fill('#otp-codigo', '123456')
+        self.page.click('#btn-verificar-otp')
+        aviso = self.page.wait_for_selector('.ficha-em-dia')
+        self.assertIn('Sua ficha de 10/03/2026 está em dia', aviso.text_content())
+        self.assertFalse(self._required(sel))
+        self.assertFalse(self.page.is_visible(sel))
+        self.page.click('.ficha-atualizar')
+        self.assertTrue(self.page.is_visible(sel))
+        self.page.select_option(sel, 'sim')   # respondeu: o consentimento de saude volta a valer
+        self.assertTrue(self._required('#form-consent-saude'))
+
     def test_codigo_incorreto_mostra_a_mensagem_do_servidor(self):
         self.page.route('**/agendamento/otp/solicitar/', lambda route: self._json(route, {'ok': True, 'canal': 'SMS'}))
         self.page.route('**/agendamento/otp/verificar/', lambda route: self._json(route, {

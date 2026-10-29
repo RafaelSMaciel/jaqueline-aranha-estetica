@@ -346,6 +346,11 @@
     }
     .ficha-titulo { font-weight: 700; color: var(--cor-texto); font-size: 0.85rem; margin-bottom: 0.5rem; }
     .ficha-campo { margin-bottom: 0.5rem; }
+    .ficha-em-dia { font-size: 0.82rem; color: var(--cor-texto-suave); margin: 0 0 0.25rem; }
+    .ficha-atualizar {
+        background: none; border: 0; padding: 0; color: var(--cor-marca); font-weight: 700;
+        text-decoration: underline; cursor: pointer; font-size: inherit;
+    }
     .ficha-rotulo { display: block; font-size: 0.78rem; color: var(--cor-texto-suave); font-weight: 600; margin-bottom: 0.2rem; }
     .ficha-opcao { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--cor-texto); }
     .ficha-entrada {
@@ -772,6 +777,7 @@
 {# JSON crus via json_script — Django escapa <,>,&,' p/ XSS-safe #}
 {{ formularios_anamnese_data|json_script:"formularios-anamnese-data" }}
 {{ termos_procedimento_data|json_script:"termos-procedimento-data" }}
+{{ otp_fichas_em_dia|json_script:"fichas-em-dia-data" }}
 {# Config do wizard: resolve tags Django aqui no template, expõe para wizard.js #}
 <script nonce="{{ csp_nonce }}">
   window.WIZARD_CFG = {

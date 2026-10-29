@@ -193,6 +193,25 @@ class OtpAgendamentoEndpointTests(TestCase):
         self.assertEqual(resp.json()['prefill']['nome'], 'Joana')
         self.assertEqual(resp.json()['prefill']['email'], 'joana@example.com')
 
+    def test_verificacao_diz_quais_fichas_estao_em_dia_no_horario(self):
+        """D14: ficha de 11 meses antes do horario escolhido esta em dia; a vencida nao aparece."""
+        from aranha_estetica.models import FormularioAnamnese, RespostaAnamnese
+
+        cli = criar_cliente(nome='Rita', telefone='17999990001')
+        em_dia = FormularioAnamnese.objects.create(nome='Geral', tipo='ANAMNESE', escopo='GLOBAL', obrigatorio=True,
+                                                   schema_json=[{'key': 'a', 'tipo': 'text', 'label': 'A'}])
+        vencida = FormularioAnamnese.objects.create(nome='Antiga', tipo='ANAMNESE', escopo='GLOBAL', obrigatorio=True,
+                                                    schema_json=[{'key': 'b', 'tipo': 'text', 'label': 'B'}])
+        inicio = timezone.localtime() + timedelta(days=20)
+        RespostaAnamnese.objects.create(formulario=em_dia, cliente=cli, respostas_json={'a': 'x'},
+                                        respondida_em=inicio - timedelta(days=335))
+        RespostaAnamnese.objects.create(formulario=vencida, cliente=cli, respostas_json={'b': 'x'},
+                                        respondida_em=inicio - timedelta(days=400))
+        self.client.post(self.url_sol, {'telefone': '17999990001'})
+        resp = self.client.post(self.url_ver, {'telefone': '17999990001', 'codigo': self.codigos['17999990001'],
+                                               'inicio': inicio.isoformat()})
+        self.assertEqual(list(resp.json()['fichas_em_dia']), [str(em_dia.pk)])
+
     def test_prefill_traz_estado_dos_opt_ins(self):
         # gap1-03: o wizard mostra os checkboxes como estao no cadastro
         criar_cliente(nome='Rita', telefone='17999990001', consent_whatsapp_confirmacao=True)

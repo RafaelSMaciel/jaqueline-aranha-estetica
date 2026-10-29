@@ -219,3 +219,56 @@ class ResumoConfirmacaoTests(_Base):
         self.assertEqual(resumo['valor'], 'Sessão do pacote Glow (restam 2)')
         self.assertEqual((resumo['valor_cheio'], resumo['promocao']), ('', ''))
         self.assertTrue(resumo['reagendamento'])
+
+
+class FichaEmDiaTests(_Base):
+    """D14: a ficha vale 12 meses — so a obrigatoria pendente ou vencida e pedida de novo (wizard,
+    painel e convite com a mesma regra)."""
+
+    def setUp(self):
+        super().setUp()
+        self.cli = criar_cliente(nome='Dora Teste', telefone='17988887777')
+        self.ficha = FormularioAnamnese.objects.create(
+            nome='Ficha geral', tipo='ANAMNESE', escopo='GLOBAL', obrigatorio=True,
+            schema_json=[{'key': 'gestante', 'tipo': 'bool', 'label': 'Está gestante?', 'obrigatorio': True}],
+        )
+
+    def _respondida(self, meses_antes):
+        RespostaAnamnese.objects.create(formulario=self.ficha, cliente=self.cli, respostas_json={'gestante': False},
+                                        respondida_em=_inicio() - timedelta(days=round(meses_antes * 30.5)))
+
+    def test_ficha_global_obrigatoria_e_exigida_de_quem_nunca_respondeu(self):
+        self._recusa('ficha_invalida')
+
+    def test_ficha_de_11_meses_nao_e_exigida(self):
+        self._respondida(11)
+        self.assertIsNotNone(self._solicitar())
+        self.assertEqual(RespostaAnamnese.objects.count(), 1)   # nada novo gravado
+
+    def test_ficha_de_13_meses_e_exigida(self):
+        self._respondida(13)
+        self._recusa('ficha_invalida')
+
+    def test_atualizar_a_ficha_em_dia_grava_a_nova_resposta(self):
+        self._respondida(2)
+        self._solicitar(anamneses={str(self.ficha.pk): {'gestante': 'sim'}}, consent_saude=True)
+        self.assertEqual(RespostaAnamnese.objects.count(), 2)
+
+    def test_painel_usa_a_mesma_validade(self):
+        from aranha_estetica.services.alertas import ids_com_ficha_pendente
+        from aranha_estetica.services.anamnese import fichas_pendentes
+
+        at = criar_atendimento(self.cli, self.prof, self.proc, data_hora=_inicio())
+        self._respondida(13)
+        self.assertEqual(ids_com_ficha_pendente([at]), {at.pk})
+        self.assertEqual(fichas_pendentes(at), [self.ficha])
+        self._respondida(11)
+        self.assertEqual(ids_com_ficha_pendente([at]), set())
+        self.assertEqual(fichas_pendentes(at), [])
+
+    def test_wizard_recebe_a_data_da_ficha_em_dia(self):
+        self._respondida(3)
+        em_dia = agendamento_online.fichas_em_dia_do_wizard(self.cli, _inicio())
+        self.assertEqual(list(em_dia), [str(self.ficha.pk)])
+        self.assertRegex(em_dia[str(self.ficha.pk)], r'^\d{2}/\d{2}/\d{4}$')
+        self.assertEqual(agendamento_online.fichas_em_dia_do_wizard(None), {})
