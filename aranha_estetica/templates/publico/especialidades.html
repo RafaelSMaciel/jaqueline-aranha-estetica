@@ -62,11 +62,7 @@
 
         {# Imagem da categoria #}
         <div class="group rounded-xl overflow-hidden aspect-[4/3]">
-          <img src="{% static 'assets/clinica/atendimento-1.webp' %}"
-               alt="{{ grupo.label }}"
-               width="800" height="600"
-               loading="lazy" decoding="async"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+          {% foto 'atendimento-1' alt=grupo.label sizes="(min-width: 1152px) 410px, (min-width: 1024px) 36vw, 112vw" classe="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" %}
         </div>
 
         {# Listagem de procedimentos #}
@@ -193,11 +189,7 @@
       {# Tratamentos Faciais Injetáveis #}
       <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="aspect-[16/9] overflow-hidden">
-          <img src="{% static 'assets/clinica/facial-2.webp' %}"
-               alt="Tratamentos Faciais Injetáveis"
-               width="800" height="450"
-               loading="lazy" decoding="async"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+          {% foto 'facial-2' alt="Tratamento facial com luz de LED" sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw" classe="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" %}
         </div>
         <div class="p-6 flex flex-col flex-1 gap-3">
           <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">
@@ -246,11 +238,7 @@
       {# Skin Care #}
       <article class="group rounded-xl overflow-hidden border border-borda bg-superficie flex flex-col">
         <div class="aspect-[16/9] overflow-hidden">
-          <img src="{% static 'assets/clinica/facial-3.webp' %}"
-               alt="Skin Care"
-               width="800" height="450"
-               loading="lazy" decoding="async"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+          {% foto 'facial-3' alt="Máscara facial durante um cuidado com a pele" sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw" classe="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" %}
         </div>
         <div class="p-6 flex flex-col flex-1 gap-3">
           <div class="w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center">

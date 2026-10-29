@@ -1,0 +1,8 @@
+/* Site publico: o CSS proprio das paginas (antes em <style> por template) e os tokens so do site.
+   Importado pelo app.css (uma linha). So var(--cor-*) de tokens.css aqui: cor nova vira um
+   --site-* que referencia um token existente. Regra de pagina fica sob a classe da pagina
+   (.pagina-agendamento, .pagina-portal): nome de classe generico (.agend-card) tambem existe no
+   painel, e este arquivo vai para todas as telas. */
+
+/* {% foto %} (site_tags): o <picture> nao vira caixa; o <img> preenche a moldura do template */
+.foto { display: contents; }

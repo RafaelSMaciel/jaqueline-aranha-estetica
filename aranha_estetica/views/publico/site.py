@@ -159,12 +159,13 @@ def depoimentos(request):
 
 def galeria(request):
     """Pagina publica com galeria estatica da clinica."""
-    # Apenas fotos genuinamente esteticas/spa (curadoria de marca).
+    # Apenas fotos genuinamente esteticas/spa (curadoria de marca). nome = arquivo em
+    # static/assets/clinica (sem extensao): o {% foto %} serve as variantes do scripts/imagens.py.
     fotos = [
-        {'src': 'assets/clinica/espaco-2.webp', 'titulo': 'Recepção'},
-        {'src': 'assets/clinica/atendimento-1.webp', 'titulo': 'Sala de avaliação'},
-        {'src': 'assets/clinica/facial-2.webp', 'titulo': 'Tratamento facial com LED'},
-        {'src': 'assets/clinica/facial-3.webp', 'titulo': 'Máscara facial'},
+        {'nome': 'espaco-2', 'titulo': 'Recepção'},
+        {'nome': 'atendimento-1', 'titulo': 'Sala de avaliação'},
+        {'nome': 'facial-2', 'titulo': 'Tratamento facial com LED'},
+        {'nome': 'facial-3', 'titulo': 'Máscara facial'},
     ]
     return render(request, 'publico/galeria.html', {'fotos': fotos})
 

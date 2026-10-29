@@ -15,3 +15,5 @@ import-linter==2.15
 # tipos nos services (pyproject.toml [tool.mypy])
 mypy==1.18.2
 django-stubs[compatible-mypy]==5.2.7
+# variantes responsivas das fotos do site (scripts/imagens.py; saida versionada em static/assets/clinica/variantes)
+Pillow==12.3.0
