@@ -49,8 +49,8 @@ def _regras(recusa=None):
     return regras
 
 
-def _tela(request, recusa=None, status=200):
-    return render(request, 'painel/configuracoes.html', {'regras': _regras(recusa)}, status=status)
+def _tela(request, recusa=None):
+    return render(request, 'painel/configuracoes.html', {'regras': _regras(recusa)})
 
 
 def _devolver_recusa(request, form):
@@ -76,7 +76,7 @@ def _gravar(request, nome, valor, linha=None):
         linha.save(update_fields=['valor', 'descricao', 'atualizado_em'])
         registrar_log(request.user, f'Editou configuracao: {linha.chave}', 'configuracao', linha.pk,
                       detalhes={'valor_antigo': antes, 'valor_novo': texto}, request=request)
-    messages.success(request, f'"{definicao.rotulo}" atualizada.')
+    messages.success(request, f'Regra "{definicao.rotulo}" atualizada.')
     return redirect('aranha:admin_configuracoes')
 
 
@@ -121,5 +121,5 @@ def admin_excluir_configuracao(request, pk):
     chave = linha.chave
     linha.delete()
     registrar_log(request.user, f'Excluiu configuracao: {chave}', 'configuracao', pk, request=request)
-    messages.success(request, f'"{definicao.rotulo}" voltou ao padrão.')
+    messages.success(request, f'Regra "{definicao.rotulo}" voltou ao padrão.')
     return redirect('aranha:admin_configuracoes')
