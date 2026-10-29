@@ -20,6 +20,31 @@
 /* {% foto %} (site_tags): o <picture> nao vira caixa; o <img> preenche a moldura do template */
 .foto { display: contents; }
 
+/* Celular com recorte (viewport-fit=cover no base_v2): o conteudo nao entra sob o entalhe na horizontal */
+.site-publico { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* ── Aviso de cookies (cotton/chrome/cookie_consent.html): faixa fina no pe, acima da barra do iPhone ── */
+.aviso-cookies {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 50;
+  padding-top: .625rem; padding-bottom: max(.625rem, env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--cor-superficie) 96%, transparent);
+  border-top: 1px solid var(--cor-borda);
+  box-shadow: 0 -8px 24px rgb(0 0 0 / .06);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+/* enquanto a faixa existe, WhatsApp e "voltar ao topo" sobem para nao ficar atras dela */
+.site-publico :is(.zap-float, .to-top) { margin-bottom: env(safe-area-inset-bottom); }
+.site-publico:has(.aviso-cookies) :is(.zap-float, .to-top) { translate: 0 -4.75rem; }
+
+/* Botao flutuante do WhatsApp: pulso no verde do token (o do app.css era o verde cru da marca) */
+.site-publico .zap-float { animation-name: site-zap-pulso; }
+@keyframes site-zap-pulso {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--site-whatsapp) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 14px color-mix(in srgb, var(--site-whatsapp) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--site-whatsapp) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .site-publico .zap-float { animation: none; } }
+
 /* ── Arte da marca (partials/_arte_marca.html): moldura sem foto real ── */
 .arte-marca {
   position: relative; isolation: isolate; overflow: hidden;
