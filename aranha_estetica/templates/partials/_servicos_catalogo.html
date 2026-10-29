@@ -12,7 +12,7 @@ desativado some daqui sozinho. Uso: {% include 'partials/_servicos_catalogo.html
     {% if s.descricao %}<p class="text-texto-suave text-sm leading-relaxed">{{ s.descricao }}</p>{% endif %}
     <p class="text-sm text-texto-suave">
       {% if s.duracao_minutos %}Cerca de {{ s.duracao_minutos }} min{% endif %}
-      {% if s.preco %}{% if s.duracao_minutos %} · {% endif %}a partir de <strong class="text-texto">{{ s.preco|brl }}</strong>{% if s.preco_cheio %} <s class="opacity-70">{{ s.preco_cheio|brl }}</s>{% endif %}{% endif %}
+      {% if s.preco %}{% if s.duracao_minutos %} · {% endif %}a partir de <strong class="text-texto">{{ s.preco|brl }}</strong>{% if s.preco_cheio %} <s class="text-texto-suave"><span class="sr-only">Preço sem promoção: </span>{{ s.preco_cheio|brl }}</s>{% endif %}{% endif %}
     </p>
     {% if s.promocao %}<p class="text-xs font-semibold text-marca">{{ s.promocao }}</p>{% endif %}
     <div class="mt-auto flex flex-wrap gap-4 pt-2">
