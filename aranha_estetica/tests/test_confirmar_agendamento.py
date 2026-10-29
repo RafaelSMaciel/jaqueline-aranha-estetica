@@ -84,13 +84,21 @@ class ConfirmarAgendamentoTests(TestCase):
         self.assertIn('às 10:00', dados['data_hora'])
         self.assertTrue(dados['pendente'])
 
-    def test_reutiliza_cliente_existente_e_atualiza_nome(self):
-        Cliente.objects.create(nome='Antigo Nome', telefone='17999991111')
-        self._post(nome='Nome Novo')
+    def test_reutiliza_cliente_existente_e_mantem_o_nome_da_titular(self):
+        """D16: o agendamento e da titular do celular verificado; nome diferente no POST e ignorado
+        (vai p/ o log) — renomear so pelo painel, com auditoria."""
+        cliente = Cliente.objects.create(nome='Antigo Nome', telefone='17999991111')
+        with self.assertLogs('aranha_estetica.services.agendamento_online', 'INFO') as logs:
+            resp = self._post(nome='Nome Novo')
 
+        self.assertIn('sucesso', resp.url)
         clientes = Cliente.objects.filter(telefone='17999991111')
         self.assertEqual(clientes.count(), 1)
-        self.assertEqual(clientes.first().nome, 'Nome Novo')
+        self.assertEqual(clientes.first().nome, 'Antigo Nome')
+        self.assertEqual(Atendimento.objects.get().cliente, cliente)
+        self.assertTrue(any('booking_nome_divergente' in linha for linha in logs.output))
+        self.assertNotIn('Nome Novo', ''.join(logs.output))   # sem PII no log
+        self.assertEqual(self.client.session['agendamento_sucesso']['nome'], 'Antigo Nome')
 
     def test_rejeita_quando_campos_faltando(self):
         resp = self._post(telefone='', with_otp=False)

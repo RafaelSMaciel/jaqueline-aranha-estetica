@@ -23,21 +23,18 @@ from ...constants import JANELA_MINIMA_ALTERACAO
 from ...models import Atendimento, Consentimento, Notificacao, Profissional
 from ...models.agendamentos import STATUS_FINALIZADOS
 from ...excecoes import RegraDeNegocio, TransicaoInvalida
-from ...services import agenda, comunicacao, consentimentos, portal_cliente
-from ...services.agendamento import formatar_data_hora
+from ...services import agenda, agendamento_online, comunicacao, consentimentos, portal_cliente
+from ...services.agendamento_online import MSG_BLOQUEADO_ONLINE
 from ...utils.datas import ler_data
-from ...utils.formatos import formatar_brl
-from ...services.disponibilidade import profissionais_para
+from ...services.disponibilidade import horarios_agrupados, profissionais_para
 from ...utils.auditoria import registrar_log
 from ...utils.captcha import turnstile_enabled, turnstile_site_key
 from ...utils.datas import hoje
-from ...utils.email import email_configurado
 from ...utils.parse import id_int
 from ...utils.pii import mask_telefone
 from ...utils.respostas import json_erro, json_ok, json_recusa
 from ...utils.sms import sms_disponivel
-from .agendamento_api import agrupar_horarios
-from .agendamento import MSG_BLOQUEADO_ONLINE
+from .agendamento import SESSAO_SUCESSO
 from .lgpd import resposta_export
 
 logger = logging.getLogger(__name__)
@@ -145,7 +142,7 @@ def _horarios(request, atendimento):
     procedimento = atendimento.procedimento
     return JsonResponse({
         'data': dia.isoformat(),
-        'horarios': agrupar_horarios(
+        'horarios': horarios_agrupados(
             procedimento, profissionais_para(procedimento), dia,
             ignorar_atendimento_id=atendimento.pk, com_preco=False,
         ),
@@ -220,7 +217,6 @@ def _reagendar(request, atendimento, *, url_voltar, url_horarios):
         messages.error(request, 'Profissional indisponível.')
         return redirect(url_voltar)
 
-    procedimento = atendimento.procedimento
     try:
         with transaction.atomic():
             # Mesma regra de horario das outras portas; antigo -> REAGENDADO + novo com o preco
@@ -246,34 +242,8 @@ def _reagendar(request, atendimento, *, url_voltar, url_horarios):
         )
         messages.error(request, 'Ocorreu um erro ao reagendar. Tente novamente.')
         return redirect(url_voltar)
-    antigo = novo.reagendado_de
-
-    data_fmt = formatar_data_hora(nova_data)
-    pendente = novo.status == Atendimento.STATUS_PENDENTE
-
-    if novo.eh_retorno:
-        valor_txt = 'Sem custo (retorno)'
-    elif novo.valor_cobrado is not None:
-        valor_txt = formatar_brl(novo.valor_cobrado)
-    else:
-        valor_txt = 'A consultar'
-    em_promocao = bool(
-        novo.promocao_id and novo.valor_original is not None
-        and novo.valor_cobrado is not None and novo.valor_original > novo.valor_cobrado
-    )
-    request.session['agendamento_sucesso'] = {
-        'nome': antigo.cliente.nome,
-        'procedimento': procedimento.nome,
-        'profissional': profissional.nome,
-        'data_hora': data_fmt,
-        'valor': valor_txt,
-        'valor_cheio': formatar_brl(novo.valor_original) if em_promocao else '',
-        'promocao': novo.promocao.nome if em_promocao else '',
-        'pendente': pendente,
-        'reagendamento': True,
-        # So promete acompanhamento por e-mail se o backend entrega de fato
-        'email': bool(antigo.cliente.email) and email_configurado(),
-    }
+    # Mesmo resumo do pedido pelo site (valor do pacote/retorno/promocao numa regra so)
+    request.session[SESSAO_SUCESSO] = agendamento_online.resumo_confirmacao(novo, reagendamento=True)
     return redirect('aranha:agendamento_sucesso')
 
 

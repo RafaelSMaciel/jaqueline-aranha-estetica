@@ -66,5 +66,5 @@ class CaptchaNoPedidoDeCodigoTests(TestCase):
             resp = self.client.post(reverse('aranha:solicitar_otp_agendamento'),
                                     {'telefone': '17999990001', 'cf-turnstile-response': 'tok'})
         self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.json()['erro'], 'captcha')
+        self.assertEqual(resp.json()['codigo'], 'captcha')
         self.assertFalse(CodigoOtp.objects.exists())

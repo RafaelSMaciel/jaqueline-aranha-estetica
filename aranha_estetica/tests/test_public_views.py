@@ -790,21 +790,32 @@ class PoliticaPrivacidadeTests(TestCase):
 
 
 class ContratoErroApiAgendamentoTests(TestCase):
-    """O wizard le `erro` (nunca `error`) e mostra o motivo do 4xx em vez de "sem horarios"."""
+    """APIs do wizard no contrato de utils/respostas: {ok: false, codigo, mensagem} (nunca `error`/
+    `erro`); o wizard mostra a mensagem do 4xx em vez de "sem horarios"."""
 
-    def test_4xx_do_agendamento_usam_a_chave_erro(self):
+    def test_4xx_do_agendamento_seguem_o_contrato(self):
         for nome, params in (('aranha:api_horarios_disponiveis', {}),
-                             ('aranha:api_horarios_disponiveis', {'data': 'x', 'procedimento_id': 'y'})):
-            with self.subTest(params=params):
+                             ('aranha:api_horarios_disponiveis', {'data': 'x', 'procedimento_id': 'y'}),
+                             ('aranha:api_dias_disponiveis', {'mes': '2026-13', 'procedimento_id': '1'})):
+            with self.subTest(nome=nome, params=params):
                 resp = self.client.get(reverse(nome), params)
                 self.assertEqual(resp.status_code, 400)
-                self.assertIn('erro', resp.json())
-                self.assertNotIn('error', resp.json())
+                corpo = resp.json()
+                self.assertIs(corpo['ok'], False)
+                self.assertTrue(corpo['codigo'])
+                self.assertTrue(corpo['mensagem'])
+                self.assertNotIn('error', corpo)
+                self.assertNotIn('erro', corpo)
+
+    def test_otp_do_wizard_segue_o_contrato(self):
+        resp = self.client.post(reverse('aranha:verificar_otp_agendamento'), {'telefone': '17999990001', 'codigo': ''})
+        self.assertEqual(resp.json(), {'ok': False, 'codigo': 'dados_ausentes', 'mensagem': 'Informe o código de 6 dígitos.'})
 
     def test_wizard_mostra_o_motivo_do_servidor(self):
         from django.conf import settings
         from pathlib import Path
         js = (Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'src' / 'js' / 'wizard.js').read_text(encoding='utf-8')
         self.assertIn('if (!res.ok)', js)
-        self.assertIn('data.erro ||', js)
+        self.assertIn('data.mensagem ||', js)
+        self.assertNotIn('.erro', js)
 
