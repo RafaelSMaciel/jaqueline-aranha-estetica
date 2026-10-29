@@ -1,15 +1,9 @@
 import logging
 
-from django.conf import settings
-from django.contrib import messages
-from django.core.exceptions import ValidationError
-from django.core.mail import EmailMessage
-from django.core.validators import validate_email
 from django.db import OperationalError, ProgrammingError
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
-from django_ratelimit.decorators import ratelimit
 
 from ...models import (
     AvaliacaoNPS,
@@ -20,7 +14,8 @@ from ...models import (
 from ...utils import datas
 from ...utils.branding import get_branding
 from ...utils.email import email_configurado
-from ...utils.pii import mask_email, nome_publico
+from ...utils.pii import nome_publico
+from .contato import destino_contato
 from ...utils.precos import _promocao_aplicavel, aplicar_promocao, preco_base_map, promocao_vigente
 
 logger = logging.getLogger(__name__)
@@ -52,7 +47,7 @@ def _faq_canais(branding: dict) -> tuple[str, str]:
         ('por telefone', branding.get('CLINIC_PHONE')),
         ('por e-mail', branding.get('CLINIC_EMAIL')),
     ) if valor]
-    if _destino_contato() and email_configurado():
+    if destino_contato() and email_configurado():
         exclusao.append('pelo formulário de contato')
     exclusao.append('presencialmente na clínica')
     como_excluir = (
@@ -145,114 +140,6 @@ def favicon(request):
 def limite_excedido(request, exception=None):
     """Pagina amigavel de rate-limit (settings.RATELIMIT_VIEW)."""
     return render(request, '429.html', status=429)
-
-
-# ─── Contato ───
-
-ASSUNTOS_CONTATO = {
-    'agendamento': 'Agendamento',
-    'duvida': 'Dúvidas sobre procedimentos',
-    'orcamento': 'Solicitar orçamento',
-    'parceria': 'Parcerias',
-    'outros': 'Outros',
-}
-
-
-def _destino_contato() -> str:
-    """Caixa que recebe o formulario: Branding/env CLINIC_EMAIL -> DEFAULT_FROM_EMAIL (se nao for noreply)."""
-    destino = (get_branding().get('CLINIC_EMAIL') or getattr(settings, 'CLINIC_EMAIL', '') or '').strip()
-    if destino:
-        return destino
-    padrao = (getattr(settings, 'DEFAULT_FROM_EMAIL', '') or '').strip()
-    local = padrao.split('<')[-1].split('@')[0].lower()
-    if not padrao or local.startswith(('noreply', 'no-reply', 'nao-responda', 'naoresponda')):
-        return ''
-    return padrao
-
-
-@ratelimit(key='ip', rate='5/m', method='POST', block=True)
-def agenda_contato(request):
-    """Pagina de contato publico com form POST funcional (PRG).
-
-    Se o e-mail nao puder ser entregue, NAO finge sucesso: re-renderiza o
-    formulario com os dados preenchidos e oferece o WhatsApp.
-    """
-    if request.method == 'POST':
-        name = request.POST.get('name', '').strip()[:150]
-        email = request.POST.get('email', '').strip()[:254]
-        phone = request.POST.get('phone', '').strip()[:30]
-        subject = request.POST.get('subject', '').strip()
-        message = request.POST.get('message', '').strip()[:5000]
-        privacy = request.POST.get('privacy', '')
-        marketing = request.POST.get('marketing', '') == '1'
-
-        form_data = {
-            'name': name, 'email': email, 'phone': phone,
-            'subject': subject, 'message': message, 'marketing': marketing,
-        }
-
-        faltando = not all([name, email, subject, message, privacy])
-        if faltando:
-            messages.error(request, 'Preencha todos os campos obrigatórios.')
-            return render(request, 'publico/contato.html', {'form_data': form_data})
-
-        try:
-            validate_email(email)
-        except ValidationError:
-            messages.error(request, 'Informe um e-mail válido.')
-            return render(request, 'publico/contato.html', {'form_data': form_data})
-
-        assunto = ASSUNTOS_CONTATO.get(subject, 'Outros')
-        destino = _destino_contato()
-        corpo = (
-            f'Nome: {name}\n'
-            f'E-mail: {email}\n'
-            f'Telefone: {phone or "não informado"}\n'
-            f'Assunto: {assunto}\n'
-            f'Aceita receber novidades e promoções: {"sim" if marketing else "não"}\n\n'
-            f'Mensagem:\n{message}'
-        )
-
-        enviado = 0
-        # console/dummy fora de DEBUG 'enviam' (retornam 1) mas nada chega: falha fechado
-        if destino and email_configurado():
-            try:
-                enviado = EmailMessage(
-                    subject=f'Contato site: {assunto}',
-                    body=corpo,
-                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
-                    to=[destino],
-                    reply_to=[email],
-                ).send(fail_silently=False)
-            except Exception:  # noqa: BLE001 — qualquer falha de envio vira aviso honesto
-                logger.exception(
-                    'contato_email_falha',
-                    extra={'from_email': mask_email(email), 'subject': subject},
-                )
-        else:
-            logger.error(
-                'contato_email_indisponivel',
-                extra={'tem_destino': bool(destino), 'from_email': mask_email(email)},
-            )
-
-        if not enviado:
-            b = get_branding()
-            outro_canal = any(b.get(k) for k in ('WHATSAPP_NUMERO', 'CLINIC_PHONE', 'CLINIC_EMAIL'))
-            messages.error(
-                request,
-                'Não conseguimos enviar sua mensagem agora. Seus dados continuam no '
-                'formulário: tente de novo mais tarde'
-                + (' ou use outro canal de contato desta página.' if outro_canal else '.'),
-            )
-            return render(request, 'publico/contato.html', {
-                'form_data': form_data,
-                'envio_falhou': True,
-            })
-
-        messages.success(request, 'Mensagem enviada! Entraremos em contato em breve.')
-        return redirect('aranha:agenda_contato')
-
-    return render(request, 'publico/contato.html')
 
 
 # ─── Promocoes / precos de vitrine ───

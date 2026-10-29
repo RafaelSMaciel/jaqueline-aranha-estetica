@@ -7,6 +7,7 @@ from ..views.publico import (
     agendamento,
     agendamento_api,
     confirmacao,
+    contato,
     formularios,
     lgpd,
     lista_espera,
@@ -23,7 +24,7 @@ urlpatterns = [
     path('quem-somos/', site.quem_somos, name='quem_somos'),
     path('termos-de-uso/', site.termos_uso, name='termos_uso'),
     path('politica-de-privacidade/', lgpd.politica_privacidade, name='politica_privacidade'),
-    path('contato/', site.agenda_contato, name='agenda_contato'),
+    path('contato/', contato.agenda_contato, name='agenda_contato'),
     path('promocoes/', site.promocoes, name='promocoes'),
     path('favicon.ico', site.favicon, name='favicon'),
     # ─── Serviços ───
