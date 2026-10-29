@@ -1,52 +1,38 @@
-"""AJAX/API do wizard de agendamento — horarios e dias disponiveis.
+"""AJAX do wizard de agendamento — calendario do mes e horarios do dia.
 
-Disponibilidade vem SEMPRE do SlotService (services/disponibilidade.py):
-feriado, folga/horario diferente, bloqueios (inclusive recorrentes/globais),
-buffer, min_notice, max_advance e sobreposicao no intervalo inteiro.
+Calendario: ``disponibilidade.dias_com_expediente`` (expediente, feriado/folga, bloqueio do dia
+inteiro, max_advance). Horarios: ``disponibilidade.horarios_agrupados`` sobre o SlotService
+(ocupacao no intervalo inteiro, buffer, antecedencia, bloqueios). Aqui so os parametros e o JSON
+no contrato de utils/respostas: sucesso {"ok": true, ...}; erro {"ok": false, "codigo", "mensagem"}.
 """
 import logging
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 
-from django.db.models import Q
-from django.http import JsonResponse
-from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
-from ...models import (
-    AgendaExcecao,
-    AgendaHorario,
-    Procedimento,
-)
-from ...services.disponibilidade import SlotService, profissionais_para
+from ...models import Procedimento
+from ...services.disponibilidade import dias_com_expediente, horarios_agrupados, profissionais_para
+from ...utils.datas import ler_data, ler_mes
 from ...utils.parse import id_int
-from ...utils.precos import preco_com_promocao
-from ...utils.datas import ler_data
+from ...utils.respostas import json_erro, json_ok
 
 logger = logging.getLogger(__name__)
+
+MSG_PARAMETROS = 'Parâmetros obrigatórios: data, procedimento_id'
 
 
 def _procedimento_ativo(procedimento_id):
     """(procedimento, JsonResponse de erro)."""
     procedimento_id = str(procedimento_id or '').strip()
     if not procedimento_id:
-        return None, JsonResponse({'erro': 'Parâmetros obrigatórios: data, procedimento_id'}, status=400)
+        return None, json_erro('parametros_ausentes', MSG_PARAMETROS)
     pk = id_int(procedimento_id)
     if pk is None:
-        return None, JsonResponse({'erro': 'Parâmetro inválido'}, status=400)
-    try:
-        return Procedimento.objects.get(pk=pk, ativo=True), None
-    except Procedimento.DoesNotExist:
-        return None, JsonResponse({'erro': 'Procedimento não encontrado'}, status=404)
-
-
-def _preco_json(procedimento, profissional, dia):
-    """{'valor', 'valor_cheio', 'promocao'} (strings decimais; None = a consultar)."""
-    valor, promocao, cheio = preco_com_promocao(procedimento, profissional, dia)
-    return {
-        'valor': str(valor) if valor is not None else None,
-        'valor_cheio': str(cheio) if promocao is not None else None,
-        'promocao': promocao.nome if promocao is not None else '',
-    }
+        return None, json_erro('parametro_invalido', 'Parâmetro inválido')
+    procedimento = Procedimento.objects.filter(pk=pk, ativo=True).first()
+    if procedimento is None:
+        return None, json_erro('procedimento_nao_encontrado', 'Procedimento não encontrado', status=404)
+    return procedimento, None
 
 
 def _profissionais(request, procedimento):
@@ -64,37 +50,6 @@ def _profissionais(request, procedimento):
     return profissionais
 
 
-def agrupar_horarios(procedimento, profissionais, dia, ignorar_atendimento_id=None, com_preco=True):
-    """[{'horario', 'datetime_iso', 'profissionais': [...]}] ordenado por horario.
-
-    ignorar_atendimento_id: o atendimento sendo reagendado nao ocupa o proprio
-    horario (mesma regra do POST do reagendamento). com_preco=False omite o
-    preco (o reagendamento mantem o valor ja combinado).
-    """
-    agrupados = {}
-    for prof in profissionais:
-        slots = SlotService.slots_livres(
-            prof, dia, procedimento, ignorar_atendimento_id=ignorar_atendimento_id,
-        )
-        if not slots:
-            continue
-        info = {'id': prof.pk, 'nome': prof.nome}
-        if com_preco:
-            # Preco NA DATA do atendimento p/ este profissional (promocao inclusa):
-            # o resumo do wizard mostra exatamente o valor que o booking grava.
-            info.update(_preco_json(procedimento, prof, dia))
-        for hhmm in slots:
-            if hhmm not in agrupados:
-                inicio = timezone.make_aware(datetime.combine(dia, time.fromisoformat(hhmm)))
-                agrupados[hhmm] = {
-                    'horario': hhmm,
-                    'datetime_iso': inicio.isoformat(),
-                    'profissionais': [],
-                }
-            agrupados[hhmm]['profissionais'].append(info)
-    return [agrupados[k] for k in sorted(agrupados)]
-
-
 @ratelimit(key='ip', rate='30/m', method='GET', block=True)
 def api_horarios_disponiveis(request):
     """AJAX: horarios livres (hora local) de uma data p/ um procedimento.
@@ -103,93 +58,41 @@ def api_horarios_disponiveis(request):
     """
     data_str = request.GET.get('data', '')
     if not data_str or not request.GET.get('procedimento_id'):
-        return JsonResponse({'erro': 'Parâmetros obrigatórios: data, procedimento_id'}, status=400)
-
+        return json_erro('parametros_ausentes', MSG_PARAMETROS)
     try:
-        data_selecionada = ler_data(data_str)
+        dia = ler_data(data_str)
     except ValueError:
-        return JsonResponse({'erro': 'Data inválida'}, status=400)
+        return json_erro('data_invalida', 'Data inválida')
 
     procedimento, erro = _procedimento_ativo(request.GET.get('procedimento_id'))
     if erro:
         return erro
-
-    return JsonResponse({
-        'data': data_str,
-        'procedimento': procedimento.nome,
-        'duracao': procedimento.duracao_minutos,
-        'horarios': agrupar_horarios(
-            procedimento, _profissionais(request, procedimento), data_selecionada,
-        ),
-    })
+    return json_ok(
+        data=data_str,
+        procedimento=procedimento.nome,
+        duracao=procedimento.duracao_minutos,
+        horarios=horarios_agrupados(procedimento, _profissionais(request, procedimento), dia),
+    )
 
 
 @ratelimit(key='ip', rate='30/m', method='GET', block=True)
 def api_dias_disponiveis(request):
-    """AJAX: dias do mes com expediente p/ o procedimento (sem feriado/folga,
-    entre hoje e o max_advance do profissional).
+    """AJAX: dias do mes com expediente p/ o procedimento (de hoje ate o max_advance).
 
     GET: mes (YYYY-MM), procedimento_id, profissional_id (opcional).
     """
     mes_str = request.GET.get('mes', '')
     if not mes_str or not request.GET.get('procedimento_id'):
-        return JsonResponse({'erro': 'Parâmetros obrigatórios'}, status=400)
-
+        return json_erro('parametros_ausentes', 'Parâmetros obrigatórios: mes, procedimento_id')
     try:
-        ano, mes = map(int, mes_str.split('-'))
-        primeiro_dia = date(ano, mes, 1)
-        ultimo_dia = (date(ano + 1, 1, 1) if mes == 12 else date(ano, mes + 1, 1)) - timedelta(days=1)
-    except (ValueError, TypeError, OverflowError):
-        return JsonResponse({'erro': 'Mês inválido'}, status=400)
+        primeiro = ler_mes(mes_str)
+        ultimo = (date(primeiro.year + 1, 1, 1) if primeiro.month == 12
+                  else date(primeiro.year, primeiro.month + 1, 1)) - timedelta(days=1)
+    except (ValueError, OverflowError):
+        return json_erro('mes_invalido', 'Mês inválido')
 
     procedimento, erro = _procedimento_ativo(request.GET.get('procedimento_id'))
     if erro:
         return erro
-
-    profissionais = _profissionais(request, procedimento)
-    hoje = timezone.localdate()
-    inicio = max(primeiro_dia, hoje)
-    dias = []
-    if profissionais and inicio <= ultimo_dia:
-        prof_ids = [p.pk for p in profissionais]
-        semanal = {}
-        for prof_id, dia_semana in AgendaHorario.objects.filter(
-            profissional_id__in=prof_ids,
-        ).values_list('profissional_id', 'dia_semana'):
-            semanal.setdefault(prof_id, set()).add(dia_semana)
-        # FOLGA/HORARIO_DIFERENTE do mes (intervalo de datas); profissional NULL
-        # = feriado/recesso/fechamento da clinica (vale p/ todos)
-        feriados, folgas, horario_diferente = set(), set(), set()
-        for prof_id, tipo, data_ini, data_fim in AgendaExcecao.objects.ativas().filter(
-            Q(profissional_id__in=prof_ids) | Q(profissional__isnull=True),
-            tipo__in=AgendaExcecao.TIPOS_POR_DATA,
-            data_inicio__lte=ultimo_dia, data_fim__gte=inicio,
-        ).values_list('profissional_id', 'tipo', 'data_inicio', 'data_fim'):
-            dia = max(data_ini, inicio)
-            while dia <= min(data_fim, ultimo_dia):
-                if prof_id is None:
-                    feriados.add(dia)
-                elif tipo == AgendaExcecao.TIPO_FOLGA:
-                    folgas.add((prof_id, dia))
-                else:
-                    horario_diferente.add((prof_id, dia))
-                dia += timedelta(days=1)
-
-        dia = inicio
-        while dia <= ultimo_dia:
-            if dia not in feriados:
-                dia_semana = dia.isoweekday()
-                for prof in profissionais:
-                    if dia > hoje + timedelta(days=prof.max_advance_dias):
-                        continue
-                    if (prof.pk, dia) in folgas:
-                        continue
-                    if (prof.pk, dia) in horario_diferente or dia_semana in semanal.get(prof.pk, ()):
-                        dias.append(dia.isoformat())
-                        break
-            dia += timedelta(days=1)
-
-    return JsonResponse({
-        'mes': mes_str,
-        'dias_disponiveis': dias,
-    })
+    dias = dias_com_expediente(_profissionais(request, procedimento), primeiro, ultimo)
+    return json_ok(mes=mes_str, dias_disponiveis=[dia.isoformat() for dia in dias])

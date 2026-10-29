@@ -186,11 +186,9 @@ def registrar_avaliacao(atendimento, nota: int, *, comentario: str = '', autoriz
 # ─── Alerta de detrator ───────────────────────────────────────────────────
 
 def destino_alerta() -> str:
-    """Quem recebe o alerta: Configuracao email_admin (qualquer caixa) > settings.ADMIN_EMAIL >
-    e-mail de contato da clinica (marca)."""
-    cfg = Configuracao.objects.filter(chave__iexact='email_admin').first()
-    valor = (cfg.valor or '').strip() if cfg else ''
-    return valor or settings.ADMIN_EMAIL or get_branding().get('CLINIC_EMAIL', '')
+    """Quem recebe o alerta: regra email_admin (tela Regras operacionais; e-mail invalido gravado
+    antes da validacao conta como vazio) > settings.ADMIN_EMAIL > e-mail de contato da clinica (marca)."""
+    return str(Configuracao.ler('email_admin')) or settings.ADMIN_EMAIL or get_branding().get('CLINIC_EMAIL', '')
 
 
 def _texto_alerta(avaliacao) -> tuple[str, str]:

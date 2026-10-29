@@ -355,10 +355,11 @@ class ConfiguracoesTests(_AdminBase):
         self.assertFalse(Configuracao.objects.filter(chave__iexact='prontuario_perguntas').exists())
         self.assertContains(resp, 'Anamneses')
 
-    def test_sugestoes_so_chaves_lidas_pelo_codigo(self):
+    def test_regras_so_chaves_lidas_pelo_codigo(self):
+        """A tela lista o registro tipado (models/configuracao.CHAVES): o que o codigo de fato le."""
         resp = self.client.get(reverse('aranha:admin_configuracoes'))
-        chaves = {s['chave'] for s in resp.context['sugestoes']}
-        self.assertEqual(chaves, {'email_admin'})
+        chaves = {r['chave'] for r in resp.context['regras']}
+        self.assertEqual(chaves, {'email_admin', 'MAX_FALTAS_BLOQUEIO'})
 
 
 class BrandingTests(_AdminBase):
