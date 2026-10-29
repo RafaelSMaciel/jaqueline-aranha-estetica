@@ -1,111 +1,65 @@
 {% extends 'profissional/base.html' %}
-{% load static %}
 
-{% block titulo %}Anotação de Sessão | {{ CLINIC_NAME }}{% endblock %}
+{% block titulo %}Anotação de sessão | {{ CLINIC_NAME }}{% endblock %}
+
+{% block page_voltar %}<a href="{% url 'aranha:profissional_agenda' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Minha agenda</a>{% endblock %}
+{% block page_title %}Anotação de sessão{% endblock %}
+{% block page_subtitle %}Registre observações clínicas sobre este atendimento.{% endblock %}
 
 {% block conteudo %}
-<div class="min-h-screen bg-fundo py-8 pb-20">
-    <div class="max-w-2xl mx-auto px-4">
+{# Mensagens: renderizadas pela casca (profissional/base.html, block mensagens) #}
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
 
-        {# Mensagens: renderizadas pela base (estrutura/base_v2, block mensagens) #}
+  {# ── Resumo do atendimento (primeiro no celular: alerta de saude a vista na hora da sessao) ── #}
+  <c-card titulo="Atendimento" icone="agenda" class="lg:order-2 lg:sticky lg:top-32">
+    <dl class="dados">
+      <div><dt>Cliente</dt><dd class="font-bold">{{ atendimento.cliente.nome }}</dd></div>
+      <div><dt>Procedimento</dt><dd>{{ atendimento.procedimento.nome }}</dd></div>
+      <div><dt>Data e hora</dt><dd class="tabular-nums">{{ atendimento.data_hora_inicio|date:"d/m/Y" }} às {{ atendimento.data_hora_inicio|time:"H:i" }}</dd></div>
+    </dl>
+    {% if pode_ver_clinico %}
+    {% include 'partials/_alerta_saude.html' with alertas=alertas %}
+    <c-botao href="{% url 'aranha:prontuario_detalhe' atendimento.cliente_id %}" variante="secundario" icone="documento" class="mt-4 w-full">Ver ficha da cliente</c-botao>
+    {% else %}
+    <c-nota tom="info" icone="cadeado" class="mt-4">
+      <p class="text-sm">Ficha, alertas de saúde e histórico ficam visíveis só com atendimento recente
+      ou marcado com a cliente. A nova anotação pode ser registrada normalmente.</p>
+    </c-nota>
+    {% endif %}
+  </c-card>
 
-        <!-- Card principal -->
-        <div class="bg-superficie rounded-xl border border-borda shadow-sm p-7 mb-6">
-            <h1 class="font-serif text-2xl font-bold text-texto mb-1 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-[var(--cor-marca)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
-                </svg>
-                Anotação de sessão
-            </h1>
-            <p class="text-texto-suave text-sm mb-6">Registre observações clínicas sobre este atendimento.</p>
+  <div class="flex min-w-0 flex-col gap-6 lg:order-1">
+    {# ── Nova anotacao ── #}
+    <c-card>
+      <form method="post" class="flex flex-col gap-4">
+        {% csrf_token %}
+        <c-campo nome="texto" label="Nova anotação" tipo="textarea" rows="6" required
+                 placeholder="Descreva as observações da sessão, produtos utilizados, reações observadas..."></c-campo>
+        <c-botao tipo="submit" tamanho="lg" icone="check" class="w-full sm:w-auto sm:self-start">Salvar anotação</c-botao>
+      </form>
+    </c-card>
 
-            <!-- Resumo do atendimento -->
-            <div class="bg-fundo border-l-4 border-[var(--cor-marca)] rounded-md px-5 py-4 mb-6">
-                <p class="text-xs font-bold uppercase tracking-widest text-texto-suave mb-2">Atendimento</p>
-                <div class="text-sm font-semibold text-texto space-y-1">
-                    <div class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-texto-suave" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                        </svg>
-                        {{ atendimento.cliente.nome }}
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-texto-suave" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 001.357 2.059l.537.268a2.25 2.25 0 01.537 3.374l-1.023.97a2.25 2.25 0 01-3.169-.136L9.642 18.5" />
-                        </svg>
-                        {{ atendimento.procedimento.nome }}
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-texto-suave" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                        </svg>
-                        {{ atendimento.data_hora_inicio|date:"d/m/Y" }} às {{ atendimento.data_hora_inicio|time:"H:i" }}
-                    </div>
-                </div>
-                {% if pode_ver_clinico %}
-                <a href="{% url 'aranha:prontuario_detalhe' atendimento.cliente_id %}"
-                   class="inline-block mt-2 text-xs font-bold text-info hover:underline">Ver ficha da cliente</a>
-                {% include 'partials/_alerta_saude.html' with alertas=alertas %}
-                {% else %}
-                <p class="mt-2 mb-0 text-xs text-texto-suave">
-                    Ficha, alertas de saúde e histórico ficam visíveis só com atendimento recente
-                    ou marcado com a cliente. A nova anotação pode ser registrada normalmente.
-                </p>
-                {% endif %}
-            </div>
-
-            <!-- Formulário de nova anotação -->
-            <form method="post">
-                {% csrf_token %}
-                <label class="block text-sm font-bold text-texto mb-2">Nova anotação</label>
-                <textarea name="texto" rows="5" required
-                          placeholder="Descreva as observações da sessão, produtos utilizados, reações observadas..."
-                          class="w-full px-4 py-3 rounded-xl border-2 border-borda bg-fundo text-texto text-sm
-                                 resize-y focus:border-marca transition-colors
-                                 placeholder:text-texto-suave"></textarea>
-                <button type="submit"
-                        class="mt-4 w-full bg-marca-forte text-sobre-marca font-bold py-3 rounded-full
-                               hover:opacity-90 transition-opacity cursor-pointer text-base flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
-                    Salvar Anotação
-                </button>
-            </form>
-        </div>
-
-        <!-- Histórico de anotações -->
-        <div class="bg-superficie rounded-xl border border-borda shadow-sm p-7">
-            <h2 class="text-sm font-bold text-texto mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-[var(--cor-marca)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Histórico de Anotações ({{ anotacoes|length }})
-            </h2>
-
-            {% for nota in anotacoes %}
-            <div class="bg-fundo rounded-lg px-4 py-3 mb-2 border-l-4 border-borda">
-                <p class="text-xs text-texto-suave mb-1">
-                    {# firstof: snapshot do nome > usuario > aviso; autor NULL (legado) nao quebra a tela #}
-                    {% firstof nota.autor_nome nota.autor.nome "Autor não identificado" %} &bull; {{ nota.criado_em|date:"d/m/Y H:i" }}
-                </p>
-                <p class="text-sm text-texto leading-relaxed">{{ nota.texto|linebreaksbr }}</p>
-            </div>
-            {% empty %}
-            <p class="text-sm text-texto-suave italic">{% if pode_ver_clinico %}Nenhuma anotação registrada para este atendimento.{% else %}Histórico restrito: sem atendimento recente ou marcado com a cliente.{% endif %}</p>
-            {% endfor %}
-        </div>
-
-        <div class="text-center mt-6">
-            <a href="{% url 'aranha:profissional_agenda' %}"
-               class="text-texto-suave text-sm hover:text-texto transition-colors inline-flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                </svg>
-                Voltar para a agenda
-            </a>
-        </div>
-
-    </div>
+    {# ── Historico ── #}
+    <c-card titulo="Histórico de anotações ({{ anotacoes|length }})" icone="relogio" espaco="nenhum">
+      {% if anotacoes %}
+      <ul class="lista-itens">
+        {% for nota in anotacoes %}
+        <li class="px-5 py-4">
+          <p class="text-legenda text-texto-suave">
+            {# firstof: snapshot do nome > usuario > aviso; autor NULL (legado) nao quebra a tela #}
+            <span class="font-bold">{% firstof nota.autor_nome nota.autor.nome "Autor não identificado" %}</span> · <span class="tabular-nums">{{ nota.criado_em|date:"d/m/Y H:i" }}</span>
+          </p>
+          <p class="mt-1 text-texto">{{ nota.texto|linebreaksbr }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% elif pode_ver_clinico %}
+      <c-vazio titulo="Nenhuma anotação registrada para este atendimento" icone="documento" />
+      {% else %}
+      <c-vazio titulo="Histórico restrito" icone="cadeado"
+               texto="Sem atendimento recente ou marcado com a cliente." />
+      {% endif %}
+    </c-card>
+  </div>
 </div>
 {% endblock %}
