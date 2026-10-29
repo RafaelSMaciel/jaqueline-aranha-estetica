@@ -11,6 +11,7 @@ from ..models import Procedimento, Profissional, Usuario
 from ..models.configuracao import CHAVES, chave_do_registro
 from ..utils.email import email_configurado
 from ..utils.parse import id_int
+from .painel import MSG_DURACAO_OU_PRECO, CampoPreco
 
 
 # ─── Equipe: usuarios ─────────────────────────────────────────────────
@@ -218,6 +219,57 @@ class GradeSemanalForm(forms.Form):
             }
             for key, nome in DIAS_SEMANA
         ]
+
+
+# ─── Catalogo: procedimentos ──────────────────────────────────────────
+
+class ProcedimentoForm(forms.ModelForm):
+    """Procedimento do catalogo + o preco base (campo extra, versionado por services/catalogo) e quem
+    realiza (Habilitacao: so profissional habilitado aparece no agendamento).
+
+    Vazio/fora da lista nao recusa: a duracao fica a do procedimento (edicao) ou 30, a categoria a
+    atual ou OUTRO. Mensagens iguais as de antes (os testes e a equipe ja conhecem)."""
+    nome = forms.CharField(label='Nome', max_length=100, error_messages={
+        'required': 'Informe o nome do procedimento.',
+        'max_length': 'Nome do procedimento com no máximo 100 caracteres.',
+    })
+    descricao = forms.CharField(label='Descrição', required=False)
+    duracao_minutos = forms.IntegerField(label='Duração (min)', required=False, min_value=5, max_value=600,
+                                         error_messages={'invalid': MSG_DURACAO_OU_PRECO,
+                                                         'min_value': MSG_DURACAO_OU_PRECO,
+                                                         'max_value': MSG_DURACAO_OU_PRECO})
+    categoria = forms.CharField(label='Categoria', required=False)
+    ativo = forms.BooleanField(label='Ativo', required=False)
+    preco = CampoPreco(label='Preço (R$)', required=False, error_messages={'invalid': MSG_DURACAO_OU_PRECO})
+    profissionais = forms.ModelMultipleChoiceField(label='Quem realiza', queryset=Profissional.objects.none(),
+                                                   required=False)
+
+    class Meta:
+        model = Procedimento
+        fields = ['nome', 'descricao', 'duracao_minutos', 'categoria', 'ativo']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['profissionais'].queryset = Profissional.objects.filter(ativo=True)
+
+    def clean_nome(self):
+        nome = self.cleaned_data['nome'].strip()
+        if not nome:
+            raise forms.ValidationError('Informe o nome do procedimento.')
+        return nome
+
+    def clean_duracao_minutos(self):
+        duracao = self.cleaned_data.get('duracao_minutos')
+        if duracao is None:   # vazio: mantem a do procedimento (edicao) ou 30 (novo)
+            return self.instance.duracao_minutos if self.instance.pk else 30
+        return duracao
+
+    def clean_categoria(self):
+        """Categoria fora da lista nao recusa: fica a atual (edicao) ou OUTRO."""
+        valor = self.cleaned_data.get('categoria')
+        if valor in dict(Procedimento.CATEGORIA_CHOICES):
+            return valor
+        return self.instance.categoria if self.instance.pk else 'OUTRO'
 
 
 # ─── Regras operacionais (Configuracao) ───────────────────────────────
