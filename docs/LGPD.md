@@ -46,6 +46,12 @@ revogados na hora (linha nova em `consentimento`, origem WHATSAPP; art. 8º §5:
 quanto consentir). A confirmação é uma resposta em texto livre, que a Meta só aceita dentro da
 janela de 24 h aberta pela própria mensagem da cliente, e diz como voltar a receber.
 
+**Decisão automatizada (art. 20).** Ao chegar ao número de faltas seguidas da regra operacional
+`MAX_FALTAS_BLOQUEIO` (padrão 3), o agendamento online da cliente é pausado sem intervenção humana.
+O wizard diz o motivo e o caminho de revisão (WhatsApp da clínica) e a política de privacidade
+(§7, Seus direitos) informa o direito de pedir a revisão por uma pessoa; comparecer (REALIZADO)
+desfaz a pausa.
+
 **Cookies.** O site só usa cookies essenciais (sessão, segurança/CSRF, tema). O aviso é
 informativo: "Entendi" grava `cookie_consent=essenciais` no próprio navegador e nada é registrado
 no servidor — não há cookie de análise nem de terceiro a consentir.
