@@ -19,6 +19,7 @@ import logging
 from django.db import transaction
 from django.db.models import F, Q
 
+from ..excecoes import TermoPendente
 from ..models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,26 @@ def ao_mudar_status(at, anterior, novo, *, pela_cliente=False) -> None:
         if pela_cliente:
             titulo = 'Cliente cancelou' if novo == StatusAtendimento.CANCELADO else 'Cliente remarcou'
             transaction.on_commit(lambda: _push_profissional(at, titulo))
+
+
+def marcar_realizado(at, *, por=None, aceitar_sem_termo=False, request=None) -> None:
+    """REALIZADO marcado pela equipe (painel) ou pela profissional (portal): a mesma regra nas duas
+    portas. Termo de procedimento nao aceito nao bloqueia duro (a cliente pode ter assinado em
+    papel): sem ``aceitar_sem_termo`` levanta TermoPendente; com ele marca e deixa 'Realizado sem
+    termo aceito' na trilha. Transicao invalida ou antes do inicio: TransicaoInvalida (FSM)."""
+    from ..utils.auditoria import registrar_log
+    from .termos import termos_pendentes
+
+    sem_termo = []
+    if at.status in (StatusAtendimento.AGENDADO, StatusAtendimento.CONFIRMADO):
+        sem_termo = list(termos_pendentes(at.cliente, at.procedimento, so_procedimento=True))
+    if sem_termo and not aceitar_sem_termo:
+        raise TermoPendente(sem_termo)
+    with transaction.atomic():
+        at.marcar_realizado(by_user=por)
+        if sem_termo:
+            registrar_log(por, 'Realizado sem termo aceito', 'atendimento', at.pk,
+                          {'termos': [t.pk for t in sem_termo]}, request=request)
 
 
 def _desfazer_realizacao(at) -> None:

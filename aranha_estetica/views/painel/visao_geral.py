@@ -14,25 +14,31 @@ from ...models import (
     AvaliacaoNPS, Cliente, Atendimento, LinkAcesso, Profissional,
 )
 from ...models.agendamentos import STATUS_ATIVOS, StatusAtendimento
+from ...constants import TOLERANCIA_DESFECHO
 from ...decorators import staff_required
 from ...services import financeiro
+from ...services.alertas import marcar_atendimentos, registrar_leitura_saude
+from ...services.retorno import devidos as retornos_devidos
+from ...services.retorno import devidos_na_lista as retorno_devidos_na_lista
 from ...utils.busca import filtrar_clientes
 from ...services.nps import resumo_nps
 from ...services.indicadores import ocupacao_semana
 from ...utils.auditoria import registrar_log
 from ...utils.datas import dias_locais, hoje as hoje_local, inicio_do_dia, ler_data
 from ...utils.parse import id_int
-from ...utils.saude import alertas_em_lote
 
 
-def _anexar_alertas_saude(atendimentos):
-    """Seta `atend.alertas_saude` em cada item: alerta visivel de alergia/contraindicacao — do
-    prontuario E das fichas que a cliente respondeu no booking. Lote (utils.saude.alertas_em_lote):
-    as mesmas 3 consultas p/ a lista inteira."""
-    mapa = alertas_em_lote(at.cliente_id for at in atendimentos)
-    for atend in atendimentos:
-        atend.alertas_saude = mapa.get(atend.cliente_id, [])
-    return atendimentos
+def _marcar(request, atendimentos, tela, *, valores=False):
+    """Marcadores da linha (services.alertas.marcar_atendimentos: alerta de saude, termo, ficha e,
+    na agenda, pacote e credito) em lote, e a leitura de dado de saude na trilha (LGPD)."""
+    lista = marcar_atendimentos(atendimentos, valores=valores)
+    registrar_leitura_saude(request, (at.cliente_id for at in lista if at.alertas_saude), tela)
+    return lista
+
+
+def _limite_desfecho():
+    """Realizado/Faltou so a partir do inicio (menos a folga): o select esconde as opcoes antes."""
+    return timezone.now() + TOLERANCIA_DESFECHO
 
 
 @login_required
@@ -90,19 +96,21 @@ def painel_overview(request):
     limite_30d = timezone.now() - timedelta(days=30)
     nps_30d = resumo_nps(AvaliacaoNPS.objects.filter(criado_em__gte=limite_30d))['nps']
 
-    proximos_agendamentos = _anexar_alertas_saude(list(Atendimento.objects.filter(
+    proximos_agendamentos = Atendimento.objects.filter(
         data_hora_inicio__gte=timezone.now(),
         status__in=STATUS_ATIVOS
-    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]))
+    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
 
     # Pendentes de aprovação (todos) — com alerta de saude visivel p/ quem aprova
-    pendentes_aprovacao = _anexar_alertas_saude(list(Atendimento.objects.filter(
+    pendentes_aprovacao = Atendimento.objects.filter(
         status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
-    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]))
+    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]
+    # marcadores das duas listas num lote so (mesmas consultas p/ 1 ou 25 linhas)
+    marcados = _marcar(request, [*proximos_agendamentos, *pendentes_aprovacao], 'visao_geral')
+    proximos_agendamentos, pendentes_aprovacao = marcados[:len(proximos_agendamentos)], marcados[len(proximos_agendamentos):]
     total_sem_desfecho = Atendimento.objects.sem_desfecho().count()
-    from ...services.retorno import devidos
-    total_retornos = len(devidos())
+    total_retornos = len(retornos_devidos())
     total_pendentes = Atendimento.objects.filter(
         status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
@@ -152,12 +160,13 @@ def painel_overview(request):
         'total_pendentes': total_pendentes,
         'total_sem_desfecho': total_sem_desfecho,
         'total_retornos': total_retornos,
+        'limite_desfecho': _limite_desfecho(),
     }
 
     return render(request, 'painel/overview.html', context)
 
 
-@never_cache  # lista traz alertas de saude das clientes (template: marcadores_atendimentos)
+@never_cache  # lista traz alertas de saude das clientes (services.alertas.marcar_atendimentos)
 @staff_required
 def painel_agendamentos(request):
     """Gerenciamento de agendamentos"""
@@ -190,6 +199,11 @@ def painel_agendamentos(request):
     paginator = Paginator(agendamentos, 50)
     page = request.GET.get('page', 1)
     agendamentos_page = paginator.get_page(page)
+    # alerta, termo, ficha, pacote e credito da pagina em lote; o template so le atributo
+    agendamentos_page.object_list = _marcar(request, agendamentos_page.object_list, 'agendamentos', valores=True)
+    retornos = retorno_devidos_na_lista(agendamentos_page.object_list)
+    for at in agendamentos_page.object_list:
+        at.retorno_ate = retornos.get(at.pk)
 
     profissionais = Profissional.objects.filter(ativo=True)
 
@@ -197,6 +211,7 @@ def painel_agendamentos(request):
         'agendamentos': agendamentos_page,
         'profissionais': profissionais,
         'status_filter': status_filter,
+        'limite_desfecho': _limite_desfecho(),
     }
 
     return render(request, 'painel/agendamentos.html', context)

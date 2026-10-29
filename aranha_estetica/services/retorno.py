@@ -77,6 +77,25 @@ def devidos(cliente_id: int | None = None) -> list[RetornoDevido]:
     return sorted(lista, key=lambda r: (r.ate, r.origem.pk))
 
 
+def devidos_na_lista(atendimentos) -> dict[int, date]:
+    """{pk da origem: ultimo dia} dos REALIZADOS da lista com retorno devido (janela aberta e sem
+    retorno vivo ou realizado) — o botao 'Agendar retorno (ate dd/mm)' da agenda. 1 consulta."""
+    dia = hoje()
+    abertas = {}
+    for at in atendimentos:
+        periodo = janela(at) if at.status == StatusAtendimento.REALIZADO else None
+        if periodo is not None and periodo[1] >= dia:
+            abertas[at.pk] = periodo[1]
+    if not abertas:
+        return {}
+    marcados = set(
+        Atendimento.objects.filter(atendimento_origem_id__in=abertas, eh_retorno=True,
+                                   status__in=(*STATUS_ATIVOS, StatusAtendimento.REALIZADO))
+        .values_list('atendimento_origem_id', flat=True)
+    )
+    return {pk: ate for pk, ate in abertas.items() if pk not in marcados}
+
+
 def _no_horizonte(profissional, ate: date):
     """O retorno e marcado pela clinica: o horizonte do site (max_advance_dias) e o aviso minimo
     nao se aplicam — vale a janela do retorno."""

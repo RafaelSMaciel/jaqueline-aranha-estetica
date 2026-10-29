@@ -8,7 +8,9 @@ import json
 import re
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from pathlib import Path
 
+from django.conf import settings
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -756,7 +758,8 @@ class AtualizarStatusTermoTests(_AdminBase):
     def test_sem_override_recusa_e_nao_muda_status(self):
         resp = self._post()
         self.assertEqual(resp.status_code, 409)
-        self.assertTrue(resp.json()['termo_pendente'])
+        self.assertEqual(resp.json()['codigo'], 'termo_pendente')   # contrato de utils/respostas
+        self.assertEqual(resp.json()['termos'], [self.termo.pk])
         self.at.refresh_from_db()
         self.assertEqual(self.at.status, 'AGENDADO')
         self.assertFalse(LogAuditoria.objects.filter(acao='Realizado sem termo aceito').exists())
@@ -788,9 +791,13 @@ class AtualizarStatusTermoTests(_AdminBase):
         self.assertEqual(resp.status_code, 200)
 
     def test_overview_trata_termo_pendente(self):
+        # o JS do select saiu do template p/ o modulo do Vite (static/src/js/painel-status.js)
         html = self.client.get(reverse('aranha:painel_overview')).content.decode()
-        self.assertIn('data.termo_pendente', html)
-        self.assertIn('payload.sem_termo = true', html)
+        self.assertIn('js/painel-status.js', html)
+        js = (Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'src' / 'js' / 'painel-status.js').read_text(
+            encoding='utf-8')
+        self.assertIn("data.codigo === 'termo_pendente'", js)
+        self.assertIn('payload.sem_termo = true', js)
 
 
 class AtualizarStatusEntradaInvalidaTests(_AdminBase):
@@ -816,7 +823,8 @@ class AtualizarStatusEntradaInvalidaTests(_AdminBase):
                 with self.subTest(corpo=corpo):
                     resp = self.client.post(url, data=corpo, content_type='application/json')
                     self.assertEqual(resp.status_code, esperado, resp.content)
-                    self.assertIn('erro', resp.json())
+                    self.assertFalse(resp.json()['ok'])
+                    self.assertTrue(resp.json()['codigo'])
         at.refresh_from_db()
         self.assertEqual(at.status, 'AGENDADO')
 
