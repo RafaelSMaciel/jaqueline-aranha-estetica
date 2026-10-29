@@ -15,7 +15,7 @@
   <dl class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-[0.85rem]">
     <div><dt class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Profissional</dt><dd class="text-texto font-bold">{{ repasse.profissional.nome }}</dd></div>
     <div><dt class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Pago por</dt><dd class="text-texto">{{ repasse.usuario.nome|default:"—" }}{% if repasse.observacao %} ({{ repasse.observacao }}){% endif %}</dd></div>
-    <div><dt class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Total</dt><dd class="text-xl font-extrabold text-marca-forte tabular-nums">{{ repasse.total|brl }}</dd></div>
+    <div><dt class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Total</dt><dd class="text-xl font-extrabold text-marca tabular-nums">{{ repasse.total|brl }}</dd></div>
   </dl>
   <div class="overflow-x-auto">
     <table class="w-full text-[0.85rem]">

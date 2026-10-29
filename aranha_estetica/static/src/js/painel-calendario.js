@@ -15,6 +15,13 @@ function nomearSetas() {
     calendarEl.querySelectorAll('.' + cls).forEach(function (b) { b.setAttribute('aria-label', NOMES_SETAS[cls]); });
   });
   calendarEl.querySelectorAll('.fc-icon').forEach(function (i) { i.setAttribute('aria-hidden', 'true'); });
+  // area com rolagem precisa receber foco p/ rolar pelo teclado (WCAG 2.1.1)
+  calendarEl.querySelectorAll('.fc-scroller-liquid-absolute, .fc-scroller').forEach(function (r) {
+    if (r.scrollHeight > r.clientHeight && !r.hasAttribute('tabindex')) {
+      r.setAttribute('tabindex', '0');
+      r.setAttribute('aria-label', 'Grade da agenda (role com as setas)');
+    }
+  });
 }
 
 function iniciar() {

@@ -25,7 +25,7 @@
 {% if sem_regra_comissao %}
 <div class="bg-aviso-fundo border-l-4 border-aviso rounded-xl px-4 py-3 mb-4 text-[0.85rem] text-texto" role="status">
   <strong class="text-aviso">Nenhuma regra de comissão ativa:</strong> nenhum atendimento realizado gera comissão.
-  <a href="{% url 'aranha:painel_comissao_regras' %}" class="font-bold text-marca-forte">Cadastrar regra</a>
+  <a href="{% url 'aranha:painel_comissao_regras' %}" class="font-bold text-marca">Cadastrar regra</a>
 </div>
 {% endif %}
 
@@ -58,8 +58,8 @@
   </div>
   <div class="bg-superficie rounded-2xl shadow-sm p-4 border-l-4 border-marca-forte">
     <h2 class="font-sans text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Comissões a repassar (todas)</h2>
-    <div class="text-2xl font-extrabold text-marca-forte my-1">{{ comissoes_pendentes_total|brl }} <span class="text-[0.9rem] text-texto-suave font-normal">({{ comissoes_pendentes_count }})</span></div>
-    <a href="{% url 'aranha:painel_comissoes' %}?status=PENDENTE" class="text-[0.75rem] font-bold text-marca-forte">Repassar em Comissões &rarr;</a>
+    <div class="text-2xl font-extrabold text-marca my-1">{{ comissoes_pendentes_total|brl }} <span class="text-[0.9rem] text-texto-suave font-normal">({{ comissoes_pendentes_count }})</span></div>
+    <a href="{% url 'aranha:painel_comissoes' %}?status=PENDENTE" class="text-[0.75rem] font-bold text-marca">Repassar em Comissões &rarr;</a>
     {% if comissoes_a_descontar %}
     <p class="text-[0.75rem] text-erro font-bold mt-1">Saldo negativo de {{ comissoes_a_descontar|brl }} (comissão paga e depois estornada): a descontar do próximo repasse.</p>
     {% endif %}
@@ -161,7 +161,7 @@
       <tbody>
         {% for m in ultimos_12_meses %}
         <tr class="border-t border-borda text-texto{% if m.periodo == periodo %} bg-fundo font-bold{% endif %}">
-          <th scope="row" class="text-left font-normal px-4 py-2"><a href="?mes={{ m.periodo.param }}" class="text-marca-forte">{{ m.periodo.rotulo }}</a></th>
+          <th scope="row" class="text-left font-normal px-4 py-2"><a href="?mes={{ m.periodo.param }}" class="text-marca">{{ m.periodo.rotulo }}</a></th>
           <td class="px-4 py-2 text-right tabular-nums">{{ m.avulsos|brl }}</td>
           <td class="px-4 py-2 text-right tabular-nums {% if m.pacotes < 0 %}text-erro{% endif %}">{{ m.pacotes|brl }}</td>
           <td class="px-4 py-2 text-right tabular-nums">{{ m.total|brl }}</td>
