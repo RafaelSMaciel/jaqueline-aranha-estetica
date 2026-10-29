@@ -152,7 +152,8 @@
     ],
     "relacoes": [],
     "metodos": [
-     "save: gera slug único a partir do nome"
+     "save: gera slug único a partir do nome",
+     "desligamento (desativar ela ou o login, trocar o vínculo) revoga o feed ICS (services/links.revogar_feed_ics)"
     ],
     "constraints": [
      "uq_profissional_slug",
@@ -917,7 +918,8 @@
     ],
     "metodos": [
      "UsuarioManager: login insensível a maiúsculas, create_user / create_superuser",
-     "is_active / is_staff derivados de eh_ativo e papel"
+     "is_active / is_staff derivados de eh_ativo e papel",
+     "forms/cadastros.UsuarioForm / UsuarioEdicaoForm: e-mail único, vínculo do profissional (1 login), sem mudar o próprio papel nem desativar o último ADMIN ativo"
     ],
     "constraints": [
      "uq_usuario_email",
@@ -2370,7 +2372,7 @@
    {
     "nome": "Configuracao",
     "tabela": "configuracao",
-    "descricao": "Chave-valor editável no painel: campos do Branding, e-mail de alertas da clínica e MAX_FALTAS_BLOQUEIO (opcional).",
+    "descricao": "Chave-valor com dois donos: a marca e os contatos (tela Identidade visual, utils/branding) e as regras operacionais — registro tipado models/configuracao.CHAVES (email_admin: e-mail válido ou vazio; MAX_FALTAS_BLOQUEIO: inteiro de 1 a 10, padrão 3), editado na tela Regras operacionais, sem chave livre.",
     "campos": [
      {
       "nome": "chave",
@@ -2395,6 +2397,8 @@
     ],
     "relacoes": [],
     "metodos": [
+     "ler(chave): valor tipado da regra; sem linha, em branco ou inválido → o padrão do registro (com aviso no log)",
+     "das_regras(): as linhas das regras do registro (sem diferença de caixa)",
      "cache do Branding invalidado por signal"
     ],
     "constraints": [
@@ -2568,7 +2572,7 @@
    {
     "id": "RN04",
     "titulo": "Bloqueio online por faltas",
-    "descricao": "Cada falta soma em faltas_consecutivas; ao atingir o limite (Configuracao MAX_FALTAS_BLOQUEIO, padrão 3) a cliente fica bloqueada para agendar online. Comparecer (REALIZADO) zera o contador e desbloqueia. A clínica ainda pode agendar pelo painel."
+    "descricao": "Cada falta soma em faltas_consecutivas; ao atingir o limite (regra operacional MAX_FALTAS_BLOQUEIO, inteiro de 1 a 10, padrão 3; valor não numérico ou menor que 1 gravado por fora da tela vale como 3) a cliente fica bloqueada para agendar online — decisão automatizada: o wizard diz o motivo e o caminho de revisão (WhatsApp; LGPD art. 20). Comparecer (REALIZADO) zera o contador e desbloqueia. A clínica ainda pode agendar pelo painel."
    },
    {
     "id": "RN05",
@@ -2578,7 +2582,7 @@
    {
     "id": "RN06",
     "titulo": "Fluxo do agendamento público",
-    "descricao": "Procedimento → data/horário → dados + código SMS → confirmar. O servidor revalida tudo no confirmar: procedimento/profissional ativos, habilitação, data futura, feriado, slot livre para a duração inteira, ficha e aceites. Sem provedor de SMS o agendamento online fica indisponível e o botão Agendar leva ao WhatsApp."
+    "descricao": "Procedimento → data/horário → dados + código SMS → confirmar, num caso de uso só (services/agendamento_online.solicitar; o form confere o OTP e a view só liga os dois). O servidor revalida tudo no confirmar: termo LGPD vigente, procedimento/profissional ativos, habilitação, data futura, feriado, slot livre para a duração inteira, fichas e aceites; cada recusa tem um código. A ficha obrigatória respondida nos 12 meses anteriores ao horário não é exigida de novo (só a pendente ou vencida); \"Atualizar\" uma ficha em dia ou opcional grava uma resposta nova. Dia sem horário livre oferece \"Avise-me se vagar\" (lista de espera já preenchida). Sem provedor de SMS o agendamento online fica indisponível e o botão Agendar leva ao WhatsApp."
    },
    {
     "id": "RN07",
@@ -2603,7 +2607,7 @@
    {
     "id": "RN11",
     "titulo": "Pedido público: aprovação ou confiança",
-    "descricao": "Cliente de confiança — já atendida (1+ REALIZADO), sem falta em aberto, sem bloqueio e com menos de 2 horários futuros — tem o pedido online criado como AGENDADO, com e-mail de confirmação na hora; as demais (primeira vez incluída) ficam PENDENTE e a profissional recebe o e-mail de aprovação. Aprovar (botão, lote, seletor de status do painel ou portal) = AGENDADO + e-mail de confirmação; recusar = CANCELADO + e-mail. Pedido sem decisão a menos de 1 h do início é cancelado pelo job de hora em hora, com o e-mail \"não conseguimos confirmar a tempo\", e a vaga volta para a lista de espera."
+    "descricao": "O pedido é sempre da titular do celular verificado: com cadastro existente o nome do cadastro fica (nome diferente é ignorado; renomear só pelo painel). Pelo site, no máximo 3 horários futuros ativos por cliente (MAX_ATIVOS_ONLINE; o 4º é recusado e a recepção marca pelo painel). Cliente de confiança — já atendida (1+ REALIZADO), sem falta em aberto, sem bloqueio e com menos de 2 horários futuros — tem o pedido online criado como AGENDADO, com e-mail de confirmação na hora; as demais (primeira vez incluída) ficam PENDENTE e a profissional recebe o e-mail de aprovação. Aprovar (botão, lote, seletor de status do painel ou portal) = AGENDADO + e-mail de confirmação; recusar = CANCELADO + e-mail. Pedido sem decisão a menos de 1 h do início é cancelado pelo job de hora em hora, com o e-mail \"não conseguimos confirmar a tempo\", e a vaga volta para a lista de espera."
    },
    {
     "id": "RN12",
@@ -2613,7 +2617,7 @@
    {
     "id": "RN13",
     "titulo": "Preço gravado com promoção da data",
-    "descricao": "O atendimento grava o preço vigente na data do atendimento (profissional > base) com a promoção que vale nesse dia: valor_cobrado, valor_original, promoção e descrição. Vitrine e resumo mostram exatamente esse valor."
+    "descricao": "O atendimento grava o preço vigente na data do atendimento (profissional > base) com a promoção que vale nesse dia: valor_cobrado, valor_original, promoção e descrição. O resumo do wizard mostra exatamente esse valor; a vitrine (\"A partir de\", services/precos) mostra o preço base do dia com a promoção que o agendamento aplicaria, só quando ela reduz o valor."
    },
    {
     "id": "RN14",
@@ -2783,7 +2787,7 @@
    {
     "id": "RN47",
     "titulo": "Links públicos",
-    "descricao": "Todo link das mensagens (confirmar presença, NPS, termo, ficha, descadastro, feed iCal) é um link_acesso com finalidade e 1 alvo; o banco guarda só o SHA-256 do token. Validade por finalidade: confirmação até o início, termo até o fim do atendimento, NPS 7 dias, ficha 60 dias, descadastro e feed sem validade. Gerar novo feed revoga o anterior; a URL aparece só na geração."
+    "descricao": "Todo link das mensagens (confirmar presença, NPS, termo, ficha, descadastro, feed iCal) é um link_acesso com finalidade e 1 alvo; o banco guarda só o SHA-256 do token. Validade por finalidade: confirmação até o início, termo até o fim do atendimento, NPS 7 dias, ficha 60 dias, descadastro e feed sem validade. Gerar novo feed revoga o anterior e o desligamento da profissional (ela, o login dela ou o vínculo do login) revoga o vigente; a URL aparece só na geração."
    },
    {
     "id": "RN48",
@@ -2799,6 +2803,11 @@
     "id": "RN50",
     "titulo": "Execução dos jobs periódicos",
     "descricao": "Os horários ficam em jobs.JOB_AGENDA (fonte única, horário de Brasília). O serviço Cron do Railway roda rodar_jobs_devidos a cada 15 min (os jobs cujo horário caiu na janela; a falha de um não impede os outros); o cron HTTP (X-Cron-Token, 30 chamadas/h por IP, erro só com o tipo e uma referência) e rodar_job são alternativas. Jobs de mensagem sem marca por destinatário (aniversário, pacote expirando, NPS) rodam no máximo 1 vez por dia: a 2ª chamada recebe 409 (execucao_job)."
+   },
+   {
+    "id": "RN51",
+    "titulo": "Regras operacionais e cadastros da equipe",
+    "descricao": "As regras que a dona ajusta formam um registro tipado (models/configuracao.CHAVES): email_admin (e-mail válido ou vazio) e MAX_FALTAS_BLOQUEIO (1 a 10), lidas por Configuracao.ler; a tela Regras operacionais grava só essas chaves (sem chave livre) e \"Restaurar padrão\" apaga a linha. A marca e os contatos têm a tela Identidade visual. Usuários: e-mail único, PROFISSIONAL exige o vínculo (1 login por profissional), ninguém muda o próprio papel nem se desativa e o último ADMIN ativo não sai. Preço base muda por vigência nova a partir de hoje, só quando o valor muda; tirar a habilitação de quem tem atendimento futuro do procedimento é recusado."
    }
   ],
   "requisitos_funcionais": [
@@ -2810,7 +2819,7 @@
    {
     "id": "RF02",
     "ator": "Cliente (público)",
-    "descricao": "Agendar online escolhendo procedimento, data/horário e profissional, confirmando o celular com código SMS."
+    "descricao": "Agendar online escolhendo procedimento, data/horário e profissional, confirmando o celular com código SMS (até 3 horários futuros ativos pelo site); em dia sem horário, pedir aviso de vaga já preenchido."
    },
    {
     "id": "RF03",
@@ -2905,7 +2914,7 @@
    {
     "id": "RF21",
     "ator": "ADMIN",
-    "descricao": "Gerir profissionais (grade semanal, exceções — folga, horário diferente, bloqueio —, antecedências, novo link do feed iCal), procedimentos, preços, habilitações e bloqueios de agenda (inclusive para todos os profissionais)."
+    "descricao": "Gerir profissionais (grade semanal, exceções — folga, horário diferente, bloqueio —, antecedências, novo link do feed iCal), procedimentos, preços (vigência nova a partir de hoje), habilitações e bloqueios de agenda (inclusive para todos os profissionais). Desativar a profissional revoga o feed iCal dela; edição que deixaria atendimento futuro sem quem atenda é recusada."
    },
    {
     "id": "RF22",
@@ -2940,7 +2949,7 @@
    {
     "id": "RF28",
     "ator": "ADMIN",
-    "descricao": "Gerir usuários da equipe, configurações, Branding (contatos e marca), notificações, pré-visualizar e-mails e consultar a auditoria."
+    "descricao": "Gerir usuários da equipe (sem trancar a equipe fora; desligamento revoga o feed iCal), as regras operacionais (registro tipado: e-mail do alerta e faltas para pausar o online), a identidade visual (contatos e marca), notificações, pré-visualizar e-mails e consultar a auditoria."
    },
    {
     "id": "RF29",
@@ -3147,7 +3156,7 @@
      "Cliente cadastrada",
      "Serviços externos"
     ],
-    "fluxo": "Cliente escolhe procedimento, data/horário e profissional (botão Continuar a cada etapa), informa dados, aceita a política e os termos, consente o dado de saúde, escolhe as autorizações de comunicação e responde a ficha; confirma o celular com código SMS (UC02). O servidor revalida idade ≥ 18, aceites e o horário (services/agenda.validar_horario); trava o slot (cache + SELECT FOR UPDATE + EXCLUDE), cria/atualiza a cliente pelo telefone, registra os consentimentos (histórico), grava o atendimento PENDENTE com o preço da data (services/agenda.reservar), os aceites com prova (LGPD, SAÚDE, procedimento) e a ficha cifrada; o pedido de aprovação à profissional entra na fila de e-mail e o push sai no on_commit.",
+    "fluxo": "Cliente escolhe procedimento, data/horário e profissional (botão Continuar a cada etapa), informa dados, aceita a política e os termos, consente o dado de saúde, escolhe as autorizações de comunicação e responde a ficha; confirma o celular com código SMS (UC02). O form confere idade ≥ 18 e o celular verificado; o caso de uso services/agendamento_online.solicitar revalida termo LGPD, horário (services/agenda.validar_horario), fichas (12 meses) e termos; trava o slot (cache + SELECT FOR UPDATE + EXCLUDE), cria a cliente ou usa o cadastro da titular do telefone (o nome do cadastro fica; bloqueio online e teto de 3 horários ativos), registra os consentimentos (histórico), grava o atendimento PENDENTE com o preço da data (services/agenda.reservar), os aceites com prova (LGPD, SAÚDE, procedimento) e a ficha cifrada; o pedido de aprovação à profissional entra na fila de e-mail e o push sai no on_commit.",
     "inclui": [
      "UC02",
      "UC03"
@@ -3220,7 +3229,7 @@
     "atores": [
      "Visitante / Cliente (público, sem login)"
     ],
-    "fluxo": "Informa nome, celular, procedimento, data, turno/profissional e e-mail opcional; sistema normaliza o telefone e registra o pedido (e-mail só na inscrição). Quando uma vaga compatível abre, recebe aviso por e-mail/WhatsApp.",
+    "fluxo": "Pelo menu ou pelo \"Avise-me se vagar\" do wizard (procedimento, data e profissional já preenchidos), informa nome, celular, procedimento, data, turno/profissional e e-mail opcional; sistema normaliza o telefone e registra o pedido (e-mail só na inscrição). Quando uma vaga compatível abre, recebe aviso por e-mail/WhatsApp.",
     "inclui": []
    },
    {
@@ -3321,7 +3330,7 @@
     "atores": [
      "Administrador (ADMIN)"
     ],
-    "fluxo": "Profissionais (grade semanal, antecedências, habilitações, preços), exceções de agenda (folga, horário diferente, bloqueio pontual ou recorrente, inclusive para todos), feriados e recessos, procedimentos e novo link do feed iCal.",
+    "fluxo": "Profissionais (grade semanal, antecedências, habilitações, preços; desativar revoga o feed iCal e é recusado se deixaria atendimento futuro sem quem atenda), exceções de agenda (folga, horário diferente, bloqueio pontual ou recorrente, inclusive para todos), feriados e recessos, procedimentos e novo link do feed iCal.",
     "inclui": []
    },
    {
@@ -3377,7 +3386,7 @@
     "atores": [
      "Administrador (ADMIN)"
     ],
-    "fluxo": "Usuários da equipe (link para definir senha, ativar/desativar), configurações, Branding, notificações, pré-visualização de e-mails e auditoria.",
+    "fluxo": "Usuários da equipe (link para definir senha, ativar/desativar; o último ADMIN ativo não sai), regras operacionais (registro tipado), identidade visual, notificações, pré-visualização de e-mails e auditoria.",
     "inclui": []
    },
    {
@@ -3469,6 +3478,10 @@
     "papel": "Fonte única das regras de horário (validar_horario, reservar, reagendar, mover) e dos efeitos de criar/mudar status do atendimento, chamados explicitamente na transação da FSM."
    },
    {
+    "nome": "services/agendamento_online (caso de uso)",
+    "papel": "O pedido de agendamento pelo site, testável sem HTTP: forms/agendamento.AgendamentoPublicoForm lê o POST e confere o OTP, solicitar(PedidoAgendamento) tem a regra inteira e recusa com RegraDeNegocio + código; a view só liga os dois. A vitrine sai de services/precos e o catálogo (preço base, habilitações) de services/catalogo."
+   },
+   {
     "nome": "Jobs (jobs.py, jobs_manutencao.py)",
     "papel": "Registro (JOB_MAP), agenda única (JOB_AGENDA) e execução (executar, com a trava diária execucao_job): o serviço Cron do Railway roda rodar_jobs_devidos a cada 15 min; o cron HTTP /cron/run/<job>/ (X-Cron-Token) e manage.py rodar_job são alternativas; sem Celery nem worker de fila."
    },
@@ -3531,8 +3544,8 @@
    "Pede o código: o servidor valida o Turnstile, recusa fixo, confere intervalo de 60 s e cotas de SMS e grava o CodigoOtp (HMAC-SHA256); a Zenvia entrega o SMS.",
    "Digita o código: até 5 tentativas; o telefone fica verificado na sessão por 30 min e o cadastro daquele telefone pré-preenche o formulário.",
    "Confirma: o servidor exige o telefone do formulário = o verificado, o aceite da política e idade ≥ 18.",
-   "services/agenda.validar_horario revalida habilitação, horário futuro, feriado/recesso e o slot.",
-   "Trava do horário no cache (30 s) e transaction.atomic: cliente pelo telefone (SELECT FOR UPDATE), recusa se bloqueada online.",
+   "services/agendamento_online.solicitar: termo LGPD vigente, services/agenda.validar_horario (habilitação, horário futuro, feriado/recesso e o slot), fichas obrigatórias pendentes ou vencidas (a respondida há menos de 12 meses não é exigida), termos do procedimento e e-mail de outro cadastro.",
+   "Trava do horário no cache (30 s) e transaction.atomic: cadastro da titular do telefone (SELECT FOR UPDATE; o nome do cadastro fica), recusa se bloqueada online ou com 3 horários futuros ativos.",
    "services/consentimentos.registrar_do_wizard grava as concessões/revogações (histórico append-only).",
    "services/agenda.reservar: conflito com SELECT FOR UPDATE, preço da data e INSERT do atendimento PENDENTE num savepoint (corrida perdida para o EXCLUDE vira HorarioIndisponivel).",
    "Na mesma transação: Notificacao EMAIL de aprovação à profissional (fila), AceiteTermo LGPD, de procedimento e SAÚDE (IP, navegador, SHA-256), fichas cifradas e LogAuditoria do consentimento art. 11; a trilha historico_alteracao registra o atendimento.",
@@ -3678,7 +3691,7 @@
    {
     "grupo": "Painel",
     "rota": "/painel/notificacoes/, /painel/auditoria/, /painel/usuarios/…, /painel/configuracoes/…, /painel/branding/, /painel/email-preview/",
-    "funcao": "Sistema"
+    "funcao": "Sistema: notificações, auditoria, usuários, Regras operacionais (registro tipado), Identidade visual (marca e contatos), prévia dos e-mails"
    },
    {
     "grupo": "Painel",
