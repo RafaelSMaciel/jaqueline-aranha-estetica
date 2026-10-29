@@ -54,7 +54,7 @@ document.addEventListener('change', function (e) {
 
   function atualizar() {
     const marcados = document.querySelectorAll('.bulk-checkbox:checked').length;
-    toolbar.style.display = marcados > 0 ? 'flex' : 'none';
+    toolbar.hidden = marcados === 0;   // atributo hidden (sem style inline no template)
     if (marcados > 0) counter.textContent = marcados + ' selecionado(s)';
   }
 

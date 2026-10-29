@@ -1,2 +1,24 @@
-<c-vars class="" />
-<div {{ attrs }} class="rounded-lg border border-borda bg-superficie p-5 {{ class }}">{{ slot }}</div>
+<c-vars class="" titulo="" descricao="" icone="" nivel="2" espaco="" id="" />
+{% comment %}
+Cartao do design system (.cartao). Sem `titulo`: um bloco so, com o respiro padrao.
+Com `titulo`: cabecalho (titulo h2 — `nivel` troca —, `descricao`, slot nomeado "acoes") + corpo.
+  espaco="nenhum": corpo sem respiro (tabela/lista encostada na borda do cartao)
+  slot nomeado "rodape": barra de acoes no fim do cartao
+  id: ancora do cartao (o titulo ganha id-titulo e nomeia a secao)
+Ex.: <c-card titulo="Pacotes" icone="pacotes"><c-slot name="acoes">(botoes)</c-slot>(conteudo)</c-card>
+{% endcomment %}
+{% if titulo %}
+<section{% if id %} id="{{ id }}" aria-labelledby="{{ id }}-titulo"{% endif %} class="cartao{% if class %} {{ class }}{% endif %}" {{ attrs }}>
+  <div class="cartao-cabecalho">
+    <div class="min-w-0">
+      <h{{ nivel }}{% if id %} id="{{ id }}-titulo"{% endif %} class="cartao-titulo">{% if icone %}<c-icone nome="{{ icone }}" class="" />{% endif %}{{ titulo }}</h{{ nivel }}>
+      {% if descricao %}<p class="cartao-descricao">{{ descricao }}</p>{% endif %}
+    </div>
+    {% if acoes %}<div class="cartao-acoes">{{ acoes }}</div>{% endif %}
+  </div>
+  <div{% if espaco != 'nenhum' %} class="cartao-corpo"{% endif %}>{{ slot }}</div>
+  {% if rodape %}<div class="cartao-rodape">{{ rodape }}</div>{% endif %}
+</section>
+{% else %}
+<div{% if id %} id="{{ id }}"{% endif %} class="cartao{% if espaco != 'nenhum' %} cartao-corpo{% endif %}{% if class %} {{ class }}{% endif %}" {{ attrs }}>{{ slot }}</div>
+{% endif %}

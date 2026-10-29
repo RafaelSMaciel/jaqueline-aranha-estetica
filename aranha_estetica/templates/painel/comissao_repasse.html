@@ -1,56 +1,52 @@
 {% extends 'painel/base_v2.html' %}
 
 {% block titulo %}Repasse de comissões — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{% url 'aranha:painel_comissoes' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Comissões</a>{% endblock %}
 {% block page_title %}Repasse de comissões{% endblock %}
 {% block page_subtitle %}{{ repasse.profissional.nome }} · pago em {{ repasse.pago_em|date:"d/m/Y H:i" }}{% endblock %}
 {% block page_actions %}
-<button type="button" data-imprimir
-        class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold bg-marca-forte text-sobre-marca border-none cursor-pointer hover:opacity-90 transition-opacity">Imprimir</button>
-<a href="{% url 'aranha:painel_comissoes' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave no-underline hover:text-texto transition-colors">Voltar às comissões</a>
+<c-botao icone="recibo" data-imprimir>Imprimir</c-botao>
 {% endblock %}
 
 {% block admin_content %}
-<div class="bg-superficie rounded-2xl shadow-sm p-5">
-  <dl class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-[0.85rem]">
-    <div><dt class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Profissional</dt><dd class="text-texto font-bold">{{ repasse.profissional.nome }}</dd></div>
-    <div><dt class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Pago por</dt><dd class="text-texto">{{ repasse.usuario.nome|default:"—" }}{% if repasse.observacao %} ({{ repasse.observacao }}){% endif %}</dd></div>
-    <div><dt class="text-[0.72rem] font-bold uppercase tracking-wide text-texto-suave">Total</dt><dd class="text-xl font-extrabold text-marca tabular-nums">{{ repasse.total|brl }}</dd></div>
+<c-card titulo="Comprovante" icone="recibo" espaco="nenhum">
+  <dl class="dados cartao-corpo border-b border-borda">
+    <div><dt>Profissional</dt><dd class="font-bold">{{ repasse.profissional.nome }}</dd></div>
+    <div><dt>Pago por</dt><dd>{{ repasse.usuario.nome|default:"—" }}{% if repasse.observacao %} ({{ repasse.observacao }}){% endif %}</dd></div>
+    <div><dt>Total</dt><dd class="text-xl font-bold text-marca tabular-nums">{{ repasse.total|brl }}</dd></div>
   </dl>
-  <div class="overflow-x-auto">
-    <table class="w-full text-[0.85rem]">
-      <thead>
-        <tr class="text-texto-suave text-[0.75rem] uppercase tracking-wide border-b border-borda">
-          <th scope="col" class="text-left font-bold py-2">Atendimento</th>
-          <th scope="col" class="text-left font-bold py-2">Procedimento</th>
-          <th scope="col" class="text-right font-bold py-2">Base</th>
-          <th scope="col" class="text-right font-bold py-2">Regra</th>
-          <th scope="col" class="text-right font-bold py-2">Comissão</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in repasse.itens %}
-        {% with credito=p.movimento_origem %}
-        <tr class="border-b border-borda/60 last:border-0 text-texto">
-          <td class="py-2">{{ p.atendimento.data_hora_inicio|date:"d/m/Y H:i" }}</td>
-          <td class="py-2">{{ p.atendimento.procedimento.nome }}</td>
-          <td class="py-2 text-right tabular-nums">{{ credito.base_calculo|brl|default:"—" }}</td>
-          <td class="py-2 text-right tabular-nums">{% if credito.percentual_aplicado is not None %}{{ credito.percentual_aplicado }}%{% elif credito.base_calculo is not None %}valor fixo{% else %}—{% endif %}</td>
-          <td class="py-2 text-right font-semibold tabular-nums">{{ p.valor|brl }}</td>
-        </tr>
-        {% endwith %}
-        {% endfor %}
-      </tbody>
-      <tfoot>
-        <tr class="text-texto font-extrabold">
-          <th scope="row" colspan="4" class="text-left py-2">Total ({{ repasse.itens|length }} comiss{{ repasse.itens|length|pluralize:"ão,ões" }})</th>
-          <td class="py-2 text-right tabular-nums">{{ repasse.total|brl }}</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-  <p class="text-[0.72rem] text-texto-suave mt-3">Comissão = regra vigente no atendimento aplicada sobre a base (valor cobrado do atendimento avulso ou valor da sessão do pacote), congelada no lançamento. Sem nome de cliente neste comprovante.</p>
-</div>
+  <c-tabela legenda="Comissões pagas neste repasse">
+    <thead>
+      <tr>
+        <th scope="col">Atendimento</th>
+        <th scope="col">Procedimento</th>
+        <th scope="col" class="num">Base</th>
+        <th scope="col" class="num">Regra</th>
+        <th scope="col" class="num">Comissão</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in repasse.itens %}
+      {% with credito=p.movimento_origem %}
+      <tr>
+        <td class="whitespace-nowrap tabular-nums">{{ p.atendimento.data_hora_inicio|date:"d/m/Y H:i" }}</td>
+        <td>{{ p.atendimento.procedimento.nome }}</td>
+        <td class="num">{{ credito.base_calculo|brl|default:"—" }}</td>
+        <td class="num">{% if credito.percentual_aplicado is not None %}{{ credito.percentual_aplicado }}%{% elif credito.base_calculo is not None %}valor fixo{% else %}—{% endif %}</td>
+        <td class="num font-bold">{{ p.valor|brl }}</td>
+      </tr>
+      {% endwith %}
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th scope="row" colspan="4" class="border-t border-b-0 border-borda-forte text-corpo text-texto">Total ({{ repasse.itens|length }} comiss{{ repasse.itens|length|pluralize:"ão,ões" }})</th>
+        <td class="num border-t border-b-0 border-borda-forte font-bold">{{ repasse.total|brl }}</td>
+      </tr>
+    </tfoot>
+  </c-tabela>
+  <p class="ajuda border-t border-borda px-5 py-3">Comissão = regra vigente no atendimento aplicada sobre a base (valor cobrado do atendimento avulso ou valor da sessão do pacote), congelada no lançamento. Sem nome de cliente neste comprovante.</p>
+</c-card>
 <script nonce="{{ csp_nonce }}">
   document.querySelector('[data-imprimir]').addEventListener('click', function () { window.print(); });
 </script>

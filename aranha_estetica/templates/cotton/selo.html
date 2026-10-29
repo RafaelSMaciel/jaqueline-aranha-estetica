@@ -1,0 +1,3 @@
+<c-vars tom="neutro" icone="" tamanho="" class="" />
+{# Selo (.selo): tom neutro|info|sucesso|aviso|erro|marca|destaque; tamanho md. Status do atendimento: partials/_status_badge.html #}
+<span class="selo{% if tom != 'neutro' %} selo-{{ tom }}{% endif %}{% if tamanho %} selo-{{ tamanho }}{% endif %}{% if class %} {{ class }}{% endif %}" {{ attrs }}>{% if icone %}<c-icone nome="{{ icone }}" class="" />{% endif %}{{ slot }}</span>

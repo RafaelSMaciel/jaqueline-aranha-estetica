@@ -1,0 +1,13 @@
+<c-vars legenda="" responsiva="" compacta="" class="" />
+{% comment %}
+Tabela de dados (.tabela). `responsiva`: no celular (< 768px) cada linha vira um cartao empilhado —
+cada td leva data-rotulo="Coluna" (o rotulo aparece antes do valor); td.acoes = botoes no pe do cartao.
+Sem `responsiva`, a tabela rola na horizontal dentro do proprio bloco (nunca a pagina).
+`legenda`: caption (so leitor de tela) com o nome da tabela. thead/tbody vao no slot.
+{% endcomment %}
+<div class="{% if responsiva %}tabela-envoltorio{% else %}tabela-rolagem{% endif %}">
+<table class="tabela{% if responsiva %} tabela-responsiva{% endif %}{% if compacta %} tabela-compacta{% endif %}{% if class %} {{ class }}{% endif %}" {{ attrs }}>
+  {% if legenda %}<caption class="sr-only">{{ legenda }}</caption>{% endif %}
+  {{ slot }}
+</table>
+</div>

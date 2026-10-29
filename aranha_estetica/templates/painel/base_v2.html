@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>{% block titulo %}Painel admin — {{ CLINIC_NAME }}{% endblock %}</title>
+  <title>{% block titulo %}Painel — {{ CLINIC_NAME }}{% endblock %}</title>
 
   <!-- PWA / Mobile Web App -->
   <link rel="manifest" href="{% url 'aranha:manifest_admin' %}">
@@ -15,150 +15,141 @@
   <meta name="apple-mobile-web-app-title" content="{{ CLINIC_NAME }} Admin">
   <meta name="csrf-token" content="{{ csrf_token }}">
 
-
   {% vite_hmr_client %}
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
 </head>
-{# Sem x-cloak no <body>: se o bundle JS falhar o painel (forms) continua visivel #}
-<body class="painel-admin bg-superficie text-texto antialiased" x-data="adminShell" x-on:keydown.escape.window="fecharMenuTeclado">
+{% comment %}
+Casca do painel (design system: static/src/css/componentes.css + templates/cotton/). Menu lateral no
+cromo escuro quente da marca; barra do topo clara com a busca global; cabecalho de pagina igual em
+toda tela (blocos page_voltar, page_title, page_subtitle, page_actions). Sem x-cloak no body: se o
+bundle JS falhar o painel (forms) continua visivel.
+{% endcomment %}
+<body class="painel-admin bg-fundo text-texto antialiased" x-data="adminShell" x-on:keydown.escape.window="fecharMenuTeclado">
 {# Pular o menu (20 links) direto p/ o conteudo — 1o item do Tab (WCAG 2.4.1) #}
 <a href="#conteudo"
    class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[10100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-superficie focus:text-texto focus:font-bold focus:shadow-lg">Pular para o conteúdo</a>
-{% if AMBIENTE_TESTE %}<div role="note" class="bg-aviso text-superficie text-center text-[0.8rem] font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
+{% if AMBIENTE_TESTE %}<div role="note" class="bg-aviso text-superficie text-center text-sm font-bold py-1.5 px-4">Ambiente de testes — os agendamentos daqui não são reais.</div>{% endif %}
 
-  {# ── Backdrop do sidenav mobile ── #}
+  {# ── Fundo escurecido do menu no celular ── #}
   <div
-    class="fixed inset-0 z-[9998] bg-black/45 transition-opacity duration-200 lg:hidden"
+    class="fixed inset-0 z-[9998] bg-black/50 transition-opacity duration-200 lg:hidden"
     x-show="menuAberto"
     x-cloak
     x-on:click="fecharMenu"
     aria-hidden="true"
   ></div>
 
-  {# ── Sidenav ── #}
+  {# ── Menu lateral ── #}
   <nav
     id="sidenavMain"
-    class="cromo-escuro fixed top-0 left-0 bottom-0 z-[9999] w-[250px] flex flex-col overflow-y-auto overflow-x-hidden
-           bg-[#1a1a2e] text-[#e6e6e6] border-r border-white/[0.08]
+    class="cromo-escuro fixed top-0 left-0 bottom-0 z-[9999] w-[17rem] flex flex-col overflow-y-auto overflow-x-hidden
+           bg-cromo-fundo text-cromo-texto border-r border-cromo-borda
            transition-transform duration-[250ms] ease-in-out
            -translate-x-full lg:translate-x-0"
     x-bind:class="classeDrawer()"
     x-bind:inert="navInerte()"
     aria-label="Menu de navegação do painel"
   >
-    {# Cabeçalho do sidenav #}
-    <div class="flex items-center gap-2 px-5 py-4 border-b border-white/[0.08] font-bold text-white text-base">
-      <svg class="w-5 h-5 text-marca-forte flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 0c2.21 0 4 2.24 4 5s-1.79 5-4 5-4-2.24-4-5 1.79-5 4-5z"/>
-      </svg>
-      <span>{{ CLINIC_NAME }}</span>
-    </div>
+    <a href="{% url 'aranha:painel_overview' %}" class="flex items-center gap-3 px-6 pt-6 pb-4 no-underline">
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-marca-forte/60 font-serif text-lg font-semibold text-cromo-ativo-texto" aria-hidden="true">{{ CLINIC_NAME|make_list|first }}</span>
+      <span class="min-w-0">
+        <span class="block font-serif text-lg font-semibold leading-tight text-cromo-texto line-clamp-2">{{ CLINIC_NAME }}</span>
+        <span class="block text-xs font-bold uppercase tracking-widest text-cromo-suave">Painel da equipe</span>
+      </span>
+    </a>
 
     {# Itens: painel_tags.menu_painel (uma lista so). Item da tela aberta: aria-current="page" #}
     {% menu_painel as secoes %}
     {% for secao in secoes %}
     {# rotulo da secao nomeia a lista (sem virar titulo: o h1 da tela vem depois do menu) #}
-    <p id="menu-secao-{{ forloop.counter }}" class="m-0 px-5 pt-3 pb-1 text-[0.65rem] uppercase tracking-widest text-white/60 font-bold">{{ secao.titulo }}</p>
+    <p id="menu-secao-{{ forloop.counter }}" class="menu-lateral-secao">{{ secao.titulo }}</p>
     <ul class="m-0 p-0 list-none" aria-labelledby="menu-secao-{{ forloop.counter }}">
       {% for item in secao.itens %}
-      <li><a href="{{ item.href }}"
-             class="flex items-center gap-3 px-5 py-[0.65rem] text-[0.85rem] font-medium no-underline text-white/80 border-l-[3px] border-transparent hover:text-white hover:bg-white/[0.04] transition-all duration-[180ms]{% if item.atual %} !text-marca-forte !bg-marca-forte/[0.12] !border-l-marca-forte font-bold{% endif %}"
+      <li><a href="{{ item.href }}" class="menu-lateral-link"
              {% if item.atual %}aria-current="page"{% endif %}
              x-on:click="fecharMenu">
-        {% include 'painel/_icone_menu.html' with nome=item.icone %}
+        <c-icone nome="{{ item.icone }}" class="" />
         <span>{{ item.rotulo }}</span>
       </a></li>
       {% endfor %}
     </ul>
     {% endfor %}
 
-    <div class="mt-auto px-5 py-4 border-t border-white/[0.08]">
+    <div class="mt-auto m-3 mt-6 flex items-center gap-3 rounded-xl bg-cromo-elevado px-3 py-3">
+      <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cromo-ativo-fundo text-sm font-bold uppercase text-cromo-ativo-texto" aria-hidden="true">{{ request.user.nome|default:request.user.email|make_list|first }}</span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-sm font-bold text-cromo-texto">{{ request.user.nome|default:request.user.email }}</span>
+        <span class="block truncate text-xs text-cromo-suave">{{ request.user.get_papel_display }}</span>
+      </span>
       {# Logout por POST (CSRF) — GET so mostra a confirmacao #}
       <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0">
         {% csrf_token %}
-        <button type="submit" class="flex items-center gap-2 text-[0.8rem] text-white/55 hover:text-white bg-transparent border-none p-0 cursor-pointer transition-colors duration-150">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-          Sair
+        <button type="submit" class="flex h-9 w-9 items-center justify-center rounded-lg text-cromo-suave hover:bg-cromo-borda hover:text-cromo-texto transition-colors cursor-pointer" title="Sair" aria-label="Sair">
+          <c-icone nome="sair" class="w-[1.125rem] h-[1.125rem]" />
         </button>
       </form>
     </div>
   </nav>
 
-  {# ── Wrapper do conteúdo (offset pelo sidenav no desktop) ── #}
-  <div class="lg:pl-[250px] min-h-screen flex flex-col">
+  {# ── Conteudo (deslocado pelo menu no desktop) ── #}
+  <div class="lg:pl-[17rem] min-h-screen flex flex-col">
 
-    {# ── Top bar ── #}
-    <header class="cromo-escuro sticky top-0 z-[100] flex items-center justify-between gap-3 px-4 min-h-[56px]
-                   bg-gradient-to-r from-[#1a1a2e] via-[#16213e] to-[#0f3460] text-white">
+    {# ── Barra do topo ── #}
+    <header class="sticky top-0 z-[100] flex items-center gap-3 h-16 px-4 sm:px-6 lg:px-8 bg-superficie/95 backdrop-blur border-b border-borda">
 
-      {# Hambúrguer (mobile) #}
+      {# Hamburguer (celular/tablet) #}
       <button
         type="button"
-        class="lg:hidden flex items-center justify-center p-1.5 rounded text-white/80 hover:text-marca-forte transition-colors"
+        class="btn btn-fantasma btn-icone lg:hidden -ml-2"
         aria-label="Abrir menu de navegação"
         aria-controls="sidenavMain"
         x-on:click="alternarMenu"
         x-bind:aria-expanded="menuAberto.toString()"
       >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
+        <c-icone nome="menu" class="w-5 h-5" />
       </button>
 
-      {# Marca #}
-      <div class="flex items-center gap-2 font-bold text-[0.9rem]">
-        <svg class="w-4 h-4 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 0c2.21 0 4 2.24 4 5s-1.79 5-4 5-4-2.24-4-5 1.79-5 4-5z"/>
-        </svg>
-        {{ CLINIC_NAME }} Admin
-      </div>
+      <a href="{% url 'aranha:painel_overview' %}" class="lg:hidden min-w-0 truncate font-serif text-lg font-semibold text-texto no-underline">{{ CLINIC_NAME }}</a>
 
-      {# Busca rápida de clientes (md+) — Ctrl+K foca; Enter abre a lista filtrada #}
-      <form method="get" action="{% url 'aranha:painel_clientes' %}" role="search" class="hidden md:flex flex-1 max-w-[380px] mx-4">
+      {# Busca rapida de clientes (sm+) — Ctrl+K foca (painel.js); Enter abre a lista filtrada #}
+      <form method="get" action="{% url 'aranha:painel_clientes' %}" role="search" class="hidden sm:block relative flex-1 max-w-md">
+        <label for="adminGlobalSearch" class="sr-only">Buscar cliente por nome, telefone ou CPF</label>
+        <c-icone nome="busca" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-texto-suave" />
         <input
           type="search"
           id="adminGlobalSearch"
           name="search"
-          placeholder="Buscar cliente por nome, telefone ou CPF (Ctrl+K)"
-          class="w-full px-3 py-1.5 rounded-lg bg-white/10 text-white text-[0.85rem] placeholder-white/50 border-none focus:bg-white/15 transition-colors"
-          aria-label="Buscar cliente (Ctrl+K)"
+          placeholder="Buscar cliente por nome, telefone ou CPF"
+          aria-keyshortcuts="Control+K"
+          class="campo campo-sm h-10 pl-9 pr-14 bg-fundo"
         >
+        <kbd class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden md:inline-flex items-center rounded border border-borda bg-superficie px-1.5 text-xs font-bold text-texto-suave" aria-hidden="true">Ctrl K</kbd>
       </form>
 
-      {# Ações do header #}
-      <div class="flex items-center gap-3">
-        {# Toggle tema — Alpine CSP-safe #}
-        <button
-          type="button"
-          class="text-white/60 hover:text-white transition-colors"
-          title="Alternar tema"
-          x-data="temaToggle"
-          x-on:click="alternar"
-          aria-label="Alternar tema claro/escuro"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-          </svg>
-        </button>
-
-        {# Ver site #}
-        <a href="{% url 'aranha:inicio' %}" target="_blank" rel="noopener"
-           class="text-white/60 hover:text-white transition-colors" title="Ver site público">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-          </svg>
+      <div class="ml-auto flex items-center gap-1">
+        {# Busca no celular: leva a lista de clientes (o campo nao cabe na barra) #}
+        <a href="{% url 'aranha:painel_clientes' %}" class="btn btn-fantasma btn-icone sm:hidden" aria-label="Buscar cliente" title="Buscar cliente">
+          <c-icone nome="busca" class="w-5 h-5" />
         </a>
 
-        {# Notificações push — só com chave VAPID; o script abaixo esconde se o navegador não suporta ou já decidiu #}
+        {# Tema claro/escuro — Alpine CSP-safe #}
+        <button type="button" class="btn btn-fantasma btn-icone" title="Alternar tema"
+                x-data="temaToggle" x-on:click="alternar" aria-label="Alternar tema claro/escuro">
+          <c-icone nome="tema" class="w-5 h-5" />
+        </button>
+
+        <a href="{% url 'aranha:inicio' %}" target="_blank" rel="noopener"
+           class="btn btn-fantasma btn-icone" title="Ver site público" aria-label="Ver site público (abre em nova aba)">
+          <c-icone nome="externo" class="w-5 h-5" />
+        </a>
+
+        {# Notificacoes push — so com chave VAPID; o script abaixo esconde se o navegador nao suporta ou ja decidiu #}
         {% webpush_configurado as push_ok %}
         {% if push_ok %}
-        <button type="button" id="webpushEnable"
-                class="text-white/60 hover:text-white transition-colors"
+        <button type="button" id="webpushEnable" class="btn btn-fantasma btn-icone"
                 title="Ativar notificações neste navegador" aria-label="Ativar notificações neste navegador">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-          </svg>
+          <c-icone nome="sino" class="w-5 h-5" />
         </button>
         <script nonce="{{ csp_nonce }}">
           (function () {
@@ -174,72 +165,59 @@
         {# Sair — POST com CSRF #}
         <form method="post" action="{% url 'aranha:usuario_logout' %}" class="m-0 flex">
           {% csrf_token %}
-          <button type="submit" class="text-white/60 hover:text-white bg-transparent border-none p-0 cursor-pointer transition-colors" title="Sair" aria-label="Sair">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
+          <button type="submit" class="btn btn-fantasma btn-icone" title="Sair" aria-label="Sair">
+            <c-icone nome="sair" class="w-5 h-5" />
           </button>
         </form>
       </div>
     </header>
 
-    {# ── Django messages como toasts ── #}
+    {# ── Mensagens (messages framework) ── #}
     {% if messages %}
     {% comment %}Erro = alert (anuncia na hora); o resto = status (educado). Sem sumir sozinho: quem le devagar
        ou usa leitor de tela fecha quando quiser.{% endcomment %}
-    <div id="adminToasts" class="fixed top-[70px] right-5 left-5 sm:left-auto z-[10060] flex flex-col gap-2 sm:max-w-[360px]">
+    <div id="adminToasts" class="fixed top-20 right-4 left-4 sm:left-auto z-[10060] flex flex-col gap-2 sm:w-[24rem]">
       {% for message in messages %}
-      <div data-toast class="flex items-start gap-3 bg-superficie rounded-xl shadow-lg px-4 py-3 text-[0.85rem] border-l-4
+      <div data-toast class="flex items-start gap-3 rounded-xl border border-borda bg-superficie px-4 py-3 text-corpo shadow-flutuante border-l-4
                   {% if message.tags == 'success' %}border-l-sucesso{% elif message.tags == 'error' %}border-l-erro{% elif message.tags == 'warning' %}border-l-aviso{% else %}border-l-marca-forte{% endif %}"
            role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+        <c-icone nome="{% if message.tags == 'success' %}check-circulo{% elif message.tags == 'error' or message.tags == 'warning' %}alerta{% else %}info{% endif %}"
+                 class="mt-0.5 w-5 h-5 shrink-0 {% if message.tags == 'success' %}text-sucesso{% elif message.tags == 'error' %}text-erro{% elif message.tags == 'warning' %}text-aviso{% else %}text-marca{% endif %}" />
         <div class="flex-1 text-texto">{{ message }}</div>
-        <button type="button" class="text-texto-suave hover:text-texto text-lg leading-none" aria-label="Fechar"
-                x-data="alertaDismiss" x-on:click="fechar"><span aria-hidden="true">&times;</span></button>
+        <button type="button" class="btn btn-fantasma btn-icone btn-sm -mr-1 -mt-1" aria-label="Fechar"
+                x-data="alertaDismiss" x-on:click="fechar"><c-icone nome="fechar" class="" /></button>
       </div>
       {% endfor %}
     </div>
     {% endif %}
 
-    {# ── Page header ── #}
-    <div class="relative flex items-start justify-between gap-4 flex-wrap px-4 py-5 bg-superficie border-b border-borda">
-      <div class="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-marca-forte to-marca" aria-hidden="true"></div>
-      {# Mobile: titulo ocupa a linha e as acoes quebram abaixo (a 375px o flex-1 esmagava o titulo) #}
-      <div class="w-full sm:w-auto sm:flex-1 min-w-0 pl-2">
-        <h1 class="text-[1.4rem] font-bold text-texto leading-tight tracking-tight m-0 break-words">
-          {% block titulo_pagina %}{% block page_title %}Painel{% endblock %}{% endblock %}
-        </h1>
-        <p class="text-[0.78rem] text-texto-suave mt-1 mb-0">{% block page_subtitle %}{% endblock %}</p>
+    {# ── Conteudo principal: cabecalho de pagina + tela ── #}
+    <main id="conteudo" tabindex="-1" class="flex-1 w-full max-w-[90rem] mx-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div class="cabecalho-pagina">
+        <div class="cabecalho-pagina-texto">
+          {% block page_voltar %}{% endblock %}
+          <h1 class="titulo-pagina">{% block titulo_pagina %}{% block page_title %}Painel{% endblock %}{% endblock %}</h1>
+          <p class="subtitulo-pagina">{% block page_subtitle %}{% endblock %}</p>
+        </div>
+        <div class="acoes-pagina">{% block page_actions %}{% endblock %}</div>
       </div>
-      <div class="flex gap-2 flex-wrap items-center">{% block page_actions %}{% endblock %}</div>
-    </div>
-
-    {# ── Conteúdo principal ── #}
-    <main id="conteudo" tabindex="-1" class="flex-1 p-3">
       {% block conteudo %}{% block admin_content %}{% endblock %}{% endblock %}
     </main>
 
-  </div>{# /wrapper #}
+  </div>{# /conteudo #}
 
-  {# webpush vanilla — sem jQuery — pode permanecer via static #}
+  {# webpush vanilla — sem jQuery #}
   <script nonce="{{ csp_nonce }}">window.WEBPUSH_AUTO = true;</script>
   {% vite_asset 'aranha_estetica/static/src/js/webpush.js' %}
   {% vite_asset 'aranha_estetica/static/src/js/painel-busca.js' %}
+  {% vite_asset 'aranha_estetica/static/src/js/painel.js' %}
 
   <script nonce="{{ csp_nonce }}">
-    // SW
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register("{% url 'aranha:sw' %}").catch(function (e) { console.warn('SW:', e); });
       });
     }
-    // Ctrl+K global search
-    document.addEventListener('keydown', function (e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        var s = document.getElementById('adminGlobalSearch');
-        if (s) s.focus();
-      }
-    });
   </script>
 
   {% block js %}{% endblock %}

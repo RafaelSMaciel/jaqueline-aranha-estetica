@@ -1,140 +1,111 @@
 {% extends 'painel/base_v2.html' %}
 
 {% block titulo %}{% if form_obj.pk %}Editar{% else %}Novo{% endif %} formulário de anamnese — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{% url 'aranha:admin_anamneses' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Anamneses</a>{% endblock %}
 {% block page_title %}{% if form_obj.pk %}Editar{% else %}Novo{% endif %} formulário{% endblock %}
 {% block page_subtitle %}{% if form_obj.pk %}{{ form_obj.nome }}{% else %}Anamnese ou pesquisa{% endif %}{% endblock %}
 
-{% block page_actions %}
-<a href="{% url 'aranha:admin_anamneses' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <polyline points="15 18 9 12 15 6"/>
-  </svg>
-  Voltar
-</a>
-{% endblock %}
+{% block admin_content %}
+<form method="post" class="grid gap-6 xl:grid-cols-2 xl:items-start">
+  {% csrf_token %}
 
-{% block conteudo %}
-<div class="max-w-2xl mx-auto">
+  {# ── Dados do formulario ── #}
+  <c-card titulo="Dados do formulário" icone="anamneses">
+    <div class="flex flex-col gap-4">
+      <c-campo nome="nome" label="Nome" value="{{ form_obj.nome|default:'' }}" required maxlength="120"></c-campo>
 
-  <form method="post" class="bg-superficie rounded-lg border border-borda p-6">
-    {% csrf_token %}
+      <div class="grupo-campo">
+        <label for="anTipo" class="rotulo">Tipo</label>
+        <select id="anTipo" name="tipo" class="campo" aria-describedby="anTipo-ajuda">
+          {% for v, l in TIPO_CHOICES %}
+          <option value="{{ v }}" {% if form_obj.tipo == v %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+        <p id="anTipo-ajuda" class="ajuda">
+          Questionário do prontuário: perguntas extras que a equipe preenche na ficha da cliente
+          (vale para todas, nunca obrigatório, só um ativo). Mudar o texto de uma pergunta não
+          altera as respostas já gravadas — elas ficam ligadas à <code class="rounded bg-fundo-realce px-1">key</code>.
+        </p>
+      </div>
 
-    {# ── Nome ── #}
-    <div class="mb-4">
-      <c-campo nome="nome" label="Nome" tipo="text"
-               value="{{ form_obj.nome|default:'' }}"
-               required maxlength="120"></c-campo>
+      <div class="grade-campos">
+        <c-campo nome="escopo" id="anEscopo" label="Escopo" tipo="select">
+          {% for v, l in ESCOPO_CHOICES %}
+          <option value="{{ v }}" {% if form_obj.escopo == v %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </c-campo>
+
+        {# Categoria/procedimento: so no escopo correspondente (o script abaixo alterna) #}
+        <div id="anCategoriaWrap"{% if form_obj.escopo != 'CATEGORIA' %} hidden{% endif %}>
+          <c-campo nome="categoria" id="anCategoria" label="Categoria" tipo="select">
+            <option value="">—</option>
+            {% for v, l in CATEGORIA_CHOICES %}
+            <option value="{{ v }}" {% if form_obj.categoria == v %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+          </c-campo>
+        </div>
+
+        <div id="anProcedimentoWrap"{% if form_obj.escopo != 'PROCEDIMENTO' %} hidden{% endif %}>
+          <c-campo nome="procedimento" id="anProcedimento" label="Procedimento" tipo="select">
+            <option value="">—</option>
+            {% for p in procedimentos %}
+            <option value="{{ p.pk }}" {% if form_obj.procedimento_id == p.pk %}selected{% endif %}>{{ p.nome }}</option>
+            {% endfor %}
+          </c-campo>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="opcao">
+          <input type="checkbox" name="ativo" value="1" {% if form_obj %}{% if form_obj.ativo %}checked{% endif %}{% else %}checked{% endif %}> Ativo
+        </label>
+        <label class="opcao">
+          <input type="checkbox" name="obrigatorio" value="1" {% if form_obj.obrigatorio %}checked{% endif %}> Obrigatório (bloqueia agendamento se não preenchido)
+        </label>
+      </div>
     </div>
+  </c-card>
 
-    {# ── Tipo ── #}
-    <div class="mb-4">
-      <label for="anTipo" class="block text-sm font-medium text-texto mb-1">Tipo</label>
-      <select id="anTipo" name="tipo"
-              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
-        {% for v, l in TIPO_CHOICES %}
-        <option value="{{ v }}" {% if form_obj.tipo == v %}selected{% endif %}>{{ l }}</option>
-        {% endfor %}
-      </select>
-      <p class="text-xs text-texto-suave mt-1">
-        Questionário do prontuário: perguntas extras que a equipe preenche na ficha da cliente
-        (vale para todas, nunca obrigatório, só um ativo). Mudar o texto de uma pergunta não
-        altera as respostas já gravadas — elas ficam ligadas à <code class="bg-fundo px-1 rounded text-[0.78rem]">key</code>.
-      </p>
+  {# ── Perguntas (JSON) — texto vindo da view via json.dumps; autoescape normal ── #}
+  <c-card titulo="Perguntas" icone="lista">
+    <div class="grupo-campo">
+      <label for="schemaJson" class="rotulo">Campos do formulário (JSON)</label>
+      <textarea id="schemaJson" name="schema_json" rows="16" spellcheck="false" class="campo font-mono sm:text-sm"
+                aria-describedby="schemaJson-ajuda">{{ schema_texto }}</textarea>
+      <div id="schemaJson-ajuda" class="ajuda flex flex-col gap-1.5">
+        <p>
+          Lista de campos. Cada campo precisa de <code class="rounded bg-fundo-realce px-1">key</code>,
+          <code class="rounded bg-fundo-realce px-1">tipo</code> e
+          <code class="rounded bg-fundo-realce px-1">label</code>; use
+          <code class="rounded bg-fundo-realce px-1">"obrigatorio": true</code> (sem acento) para exigir resposta.
+        </p>
+        <p>
+          Tipos:
+          <code class="rounded bg-fundo-realce px-1">bool</code>,
+          <code class="rounded bg-fundo-realce px-1">text</code>,
+          <code class="rounded bg-fundo-realce px-1">longtext</code>,
+          <code class="rounded bg-fundo-realce px-1">select</code> (c/ <code class="rounded bg-fundo-realce px-1">opcoes</code>),
+          <code class="rounded bg-fundo-realce px-1">scale</code> e
+          <code class="rounded bg-fundo-realce px-1">checkboxes</code> (c/ <code class="rounded bg-fundo-realce px-1">opcoes</code>),
+          <code class="rounded bg-fundo-realce px-1">number</code>,
+          <code class="rounded bg-fundo-realce px-1">date</code>,
+          <code class="rounded bg-fundo-realce px-1">email</code>.
+        </p>
+        <p>
+          Opcional: <code class="rounded bg-fundo-realce px-1">"alerta_saude": true</code> mostra a resposta
+          positiva como alerta de saúde (agenda, prontuário);
+          <code class="rounded bg-fundo-realce px-1">false</code> nunca alerta; sem o campo, o sistema decide pelo texto.
+        </p>
+      </div>
     </div>
+  </c-card>
 
-    {# ── Escopo ── #}
-    <div class="mb-4">
-      <label for="anEscopo" class="block text-sm font-medium text-texto mb-1">Escopo</label>
-      <select id="anEscopo" name="escopo"
-              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
-        {% for v, l in ESCOPO_CHOICES %}
-        <option value="{{ v }}" {% if form_obj.escopo == v %}selected{% endif %}>{{ l }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    {# ── Categoria (condicional) ── #}
-    <div id="anCategoriaWrap" class="mb-4" style="display:none;">
-      <label for="anCategoria" class="block text-sm font-medium text-texto mb-1">Categoria</label>
-      <select id="anCategoria" name="categoria"
-              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
-        <option value="">—</option>
-        {% for v, l in CATEGORIA_CHOICES %}
-        <option value="{{ v }}" {% if form_obj.categoria == v %}selected{% endif %}>{{ l }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    {# ── Procedimento (condicional) ── #}
-    <div id="anProcedimentoWrap" class="mb-4" style="display:none;">
-      <label for="anProcedimento" class="block text-sm font-medium text-texto mb-1">Procedimento</label>
-      <select id="anProcedimento" name="procedimento"
-              class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
-        <option value="">—</option>
-        {% for p in procedimentos %}
-        <option value="{{ p.pk }}" {% if form_obj.procedimento_id == p.pk %}selected{% endif %}>{{ p.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    {# ── Campos (JSON) ── texto vindo da view via json.dumps; autoescape normal ── #}
-    <div class="mb-4">
-      <label for="schemaJson" class="block text-sm font-medium text-texto mb-1">Campos do formulário (JSON)</label>
-      <textarea id="schemaJson" name="schema_json" spellcheck="false"
-                class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm font-mono min-h-[200px]"
-                style="font-size:0.82rem;">{{ schema_texto }}</textarea>
-      <p class="text-xs text-texto-suave mt-1">
-        Lista de campos. Tipos:
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">bool</code>,
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">text</code>,
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">longtext</code>,
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">select</code> (c/ <code class="bg-fundo px-1 rounded text-[0.78rem]">opcoes</code>),
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">scale</code> e
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">checkboxes</code> (c/ <code class="bg-fundo px-1 rounded text-[0.78rem]">opcoes</code>),
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">number</code>,
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">date</code>,
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">email</code>.
-        Cada campo precisa de <code class="bg-fundo px-1 rounded text-[0.78rem]">key</code>,
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">tipo</code> e
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">label</code>; use
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">"obrigatorio": true</code> (sem acento) para exigir resposta.
-        Opcional: <code class="bg-fundo px-1 rounded text-[0.78rem]">"alerta_saude": true</code> mostra a resposta
-        positiva como alerta de saúde (agenda, prontuário);
-        <code class="bg-fundo px-1 rounded text-[0.78rem]">false</code> nunca alerta; sem o campo, o sistema decide pelo texto.
-      </p>
-    </div>
-
-    {# ── Checkboxes ── #}
-    <div class="flex flex-col gap-2 mb-6">
-      <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
-        <input type="checkbox" name="ativo" value="1"
-               {% if form_obj %}{% if form_obj.ativo %}checked{% endif %}{% else %}checked{% endif %}
-               class="rounded border-borda">
-        Ativo
-      </label>
-      <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
-        <input type="checkbox" name="obrigatorio" value="1"
-               {% if form_obj.obrigatorio %}checked{% endif %}
-               class="rounded border-borda">
-        Obrigatório (bloqueia agendamento se não preenchido)
-      </label>
-    </div>
-
-    {# ── Ações ── #}
-    <div class="flex gap-3">
-      <c-botao variante="solido" tipo="submit">
-        {% if form_obj.pk %}Salvar{% else %}Criar{% endif %}
-      </c-botao>
-      <a href="{% url 'aranha:admin_anamneses' %}"
-         class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium border border-borda text-texto hover:bg-fundo transition no-underline">
-        Cancelar
-      </a>
-    </div>
-
-  </form>
-
-</div>
+  {# ── Acoes ── #}
+  <div class="flex flex-wrap gap-3 xl:col-span-2">
+    <c-botao tipo="submit" icone="check">{% if form_obj.pk %}Salvar alterações{% else %}Criar formulário{% endif %}</c-botao>
+    <c-botao href="{% url 'aranha:admin_anamneses' %}" variante="secundario">Cancelar</c-botao>
+  </div>
+</form>
 {% endblock %}
 
 {% block js %}
@@ -144,8 +115,8 @@
   var cat = document.getElementById('anCategoriaWrap');
   var proc = document.getElementById('anProcedimentoWrap');
   function toggle(){
-    cat.style.display = sel.value === 'CATEGORIA' ? '' : 'none';
-    proc.style.display = sel.value === 'PROCEDIMENTO' ? '' : 'none';
+    cat.hidden = sel.value !== 'CATEGORIA';
+    proc.hidden = sel.value !== 'PROCEDIMENTO';
   }
   sel.addEventListener('change', toggle);
   toggle();

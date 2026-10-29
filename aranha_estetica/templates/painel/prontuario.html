@@ -1,4 +1,5 @@
 {% extends 'painel/base_v2.html' %}
+{% load painel_tags %}
 
 {% block titulo %}Prontuário & consentimento — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Prontuário & consentimento{% endblock %}
@@ -6,205 +7,112 @@
 
 {% block admin_content %}
 
-{# ── Stats ── #}
-<div class="grid grid-cols-2 gap-3 mb-4">
-  <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 flex items-center gap-3">
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-sucesso-fundo text-sucesso" aria-hidden="true">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-      </svg>
-    </div>
-    <div>
-      <div class="font-extrabold text-[1.4rem] text-sucesso leading-none">{{ clientes_page.paginator.count }}</div>
-      <div class="text-[0.72rem] text-texto-suave mt-0.5">Clientes</div>
-    </div>
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 flex items-center gap-3">
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-info-fundo text-info" aria-hidden="true">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
-    </div>
-    <div>
-      <div class="font-extrabold text-[1.4rem] text-info leading-none">{{ total_perguntas }}</div>
-      <div class="text-[0.72rem] text-texto-suave mt-0.5">Perguntas Ativas</div>
-    </div>
-  </div>
+{# ── Indicadores ── #}
+<div class="grade-kpis mb-6">
+  <c-kpi rotulo="Clientes" valor="{{ clientes_page.paginator.count }}" icone="clientes"
+         detalhe="{% if search %}encontradas na busca{% endif %}" />
+  <c-kpi rotulo="Perguntas ativas" valor="{{ total_perguntas }}" icone="anamneses" detalhe="no questionário do prontuário" />
 </div>
 
-{# ── Busca (GET) ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
-  <form method="GET" class="flex gap-2 items-end">
-    <div class="flex-1">
-      <label for="searchInput" class="sr-only">Buscar cliente</label>
-      <input type="text" id="searchInput" name="search"
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.875rem] text-texto bg-fundo placeholder-texto-suave transition"
-             placeholder="Buscar por nome, CPF ou telefone..."
-             value="{{ search }}">
-    </div>
-    <button type="submit"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      Buscar
-    </button>
-    {% if search %}
-    <a href="{% url 'aranha:prontuario_consentimento' %}"
-       class="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-borda text-[0.82rem] text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline"
-       title="Limpar busca" aria-label="Limpar busca">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </a>
-    {% endif %}
-  </form>
-</div>
-
-{# ── Info cards ── #}
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-  <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4">
-    <div class="flex items-center gap-3 mb-2">
-      <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-sucesso-fundo text-sucesso" aria-hidden="true">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-      </div>
-      <div>
-        <div class="font-bold text-[0.9rem] text-texto">Prontuário Digital</div>
-        <div class="text-[0.72rem] text-texto-suave">Registro da equipe + fichas da cliente</div>
-      </div>
-    </div>
-    <p class="text-[0.8rem] text-texto-suave">
+{# ── O que fica no prontuario ── #}
+<div class="grid gap-4 mb-6 md:grid-cols-2">
+  <c-nota tom="marca" icone="prontuario" titulo="Prontuário digital">
+    <p class="text-sm text-texto-suave">
       Reúne o que a equipe registrou (alergias, contraindicações, anotações de cada sessão) e as fichas de avaliação
       que a própria cliente respondeu no agendamento. Alergias e contraindicações aparecem em destaque na lista.
     </p>
-  </div>
-  <div class="bg-superficie rounded-2xl shadow-sm px-4 py-4">
-    <div class="flex items-center gap-3 mb-2">
-      <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-info-fundo text-info" aria-hidden="true">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-        </svg>
-      </div>
-      <div>
-        <div class="font-bold text-[0.9rem] text-texto">Termo de Consentimento</div>
-        <div class="text-[0.72rem] text-texto-suave">Autorização para procedimentos</div>
-      </div>
-    </div>
-    <p class="text-[0.8rem] text-texto-suave">
+  </c-nota>
+  <c-nota tom="info" icone="escudo" titulo="Termo de consentimento">
+    <p class="text-sm text-texto-suave">
       Todo procedimento requer assinatura do termo de consentimento informado, com registro de IP e horário.
     </p>
-  </div>
+  </c-nota>
 </div>
 
-{# ── Perguntas do questionário de anamnese ── #}
-{% if perguntas %}
-<div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 mb-4">
-  <h2 class="flex items-center gap-2 text-[0.85rem] font-bold text-texto mb-3">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-    </svg>
-    Perguntas do questionário do prontuário
-  </h2>
-  {% if formulario_prontuario %}
-  <p class="text-[0.75rem] text-texto-suave mb-3">
-    Editar em <a href="{% url 'aranha:admin_anamnese_editar' formulario_prontuario.pk %}" class="font-bold text-marca">Anamneses &rsaquo; {{ formulario_prontuario.nome }}</a>.
-  </p>
-  {% endif %}
-  <div class="overflow-x-auto">
-    <table class="w-full text-[0.8rem]">
+<div class="grid gap-6{% if perguntas %} xl:grid-cols-[minmax(0,1fr)_26rem] xl:items-start{% endif %}">
+
+  {# ── Lista de clientes ── #}
+  <c-card titulo="Clientes" icone="clientes" espaco="nenhum">
+    <div class="px-5 py-4 border-b border-borda">
+      <form method="get" role="search" class="barra-filtros">
+        <div class="grupo-campo">
+          <label for="searchInput" class="rotulo">Buscar cliente</label>
+          <input type="search" id="searchInput" name="search" class="campo" value="{{ search }}"
+                 placeholder="Nome, CPF ou telefone">
+        </div>
+        <div class="barra-filtros-acoes">
+          <c-botao tipo="submit" icone="busca">Buscar</c-botao>
+          {% if search %}<c-botao variante="secundario" href="{% url 'aranha:prontuario_consentimento' %}" icone="fechar">Limpar busca</c-botao>{% endif %}
+        </div>
+      </form>
+    </div>
+
+    {% if clientes_list %}
+    <ul class="lista-itens">
+      {% for item in clientes_list %}
+      <li>
+        <a href="{% url 'aranha:prontuario_detalhe' cliente_id=item.cliente.pk %}"
+           class="item-lista items-start no-underline text-texto transition-colors hover:bg-fundo">
+          <span class="avatar" aria-hidden="true">{{ item.cliente.nome|iniciais }}</span>
+          <div class="item-lista-corpo">
+            <p class="item-lista-titulo">{{ item.cliente.nome }}</p>
+            <p class="item-lista-meta">
+              {{ item.cliente.telefone|default:"Sem telefone" }}{% if item.cliente.cpf %} · {{ item.cliente.cpf }}{% endif %}
+            </p>
+            {# Selos: prontuario, ficha online e termos #}
+            <p class="mt-2 flex flex-wrap gap-1.5">
+              {% if item.tem_prontuario %}<c-selo tom="sucesso" icone="prontuario">Prontuário</c-selo>{% endif %}
+              {% if item.tem_ficha %}<c-selo tom="info" icone="anamneses">Ficha online</c-selo>{% endif %}
+              {% if not item.tem_prontuario and not item.tem_ficha %}<c-selo tom="aviso">Sem dados de saúde</c-selo>{% endif %}
+              {% if item.total_termos > 0 %}<c-selo tom="marca" icone="escudo">{{ item.total_termos }} termo{{ item.total_termos|pluralize }}</c-selo>{% endif %}
+            </p>
+            {% include 'partials/_alerta_saude.html' with alertas=item.alertas %}
+          </div>
+          <c-icone nome="chevron-direita" class="w-5 h-5 shrink-0 self-center text-texto-suave" />
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    {% if search %}
+    <c-vazio titulo="Nenhum cliente encontrado" texto="Nenhum resultado para “{{ search }}”. Tente outro termo." icone="busca">
+      <c-botao variante="secundario" href="{% url 'aranha:prontuario_consentimento' %}" icone="fechar">Limpar busca</c-botao>
+    </c-vazio>
+    {% else %}
+    <c-vazio titulo="Nenhum cliente encontrado" texto="Nenhum cliente cadastrado ainda." icone="clientes" />
+    {% endif %}
+    {% endif %}
+  </c-card>
+
+  {# ── Perguntas do questionario do prontuario (Painel > Anamneses) ── #}
+  {% if perguntas %}
+  <c-card titulo="Perguntas do questionário do prontuário" icone="anamneses" espaco="nenhum" class="xl:sticky xl:top-24">
+    <c-slot name="acoes">{% if formulario_prontuario %}
+      <c-botao variante="secundario" tamanho="sm" icone="editar" href="{% url 'aranha:admin_anamnese_editar' formulario_prontuario.pk %}"
+               aria-label="Editar as perguntas em Anamneses: {{ formulario_prontuario.nome }}">Editar</c-botao>
+    {% endif %}</c-slot>
+    <c-tabela legenda="Perguntas do questionário do prontuário" compacta="1">
       <thead>
-        <tr class="border-b border-borda">
-          <th class="text-left text-texto-suave font-bold uppercase text-[0.65rem] tracking-wide py-2 w-8">#</th>
-          <th class="text-left text-texto-suave font-bold uppercase text-[0.65rem] tracking-wide py-2">Pergunta</th>
-          <th class="text-left text-texto-suave font-bold uppercase text-[0.65rem] tracking-wide py-2">Tipo</th>
+        <tr>
+          <th scope="col" class="num">#</th>
+          <th scope="col">Pergunta</th>
+          <th scope="col">Tipo</th>
         </tr>
       </thead>
       <tbody>
         {% for p in perguntas %}
-        <tr class="border-b border-borda/50 hover:bg-fundo transition-colors">
-          <td class="py-2 text-texto-suave">{{ forloop.counter }}</td>
-          <td class="py-2 text-texto">{{ p.label }}</td>
-          <td class="py-2">
-            <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-info-fundo text-info uppercase tracking-wide">{{ p.tipo }}</span>
-          </td>
+        <tr>
+          <td class="num text-texto-suave">{{ forloop.counter }}</td>
+          <td class="text-sm">{{ p.label }}</td>
+          <td><c-selo tom="info">{{ p.tipo }}</c-selo></td>
         </tr>
         {% endfor %}
       </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-{# ── Lista de clientes ── #}
-<p class="text-[0.78rem] font-bold text-texto-suave mb-2 flex items-center gap-1">
-  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-    <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75"/>
-  </svg>
-  Clientes
-</p>
-
-{% if clientes_list %}
-  {% for item in clientes_list %}
-  <a href="{% url 'aranha:prontuario_detalhe' cliente_id=item.cliente.pk %}"
-     class="flex items-center gap-3 bg-superficie rounded-2xl shadow-sm px-4 py-3 mb-2 hover:shadow-md hover:-translate-y-px transition-all duration-200 no-underline">
-
-    {# Avatar ── iniciais truncadas em 2 chars #}
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-[0.75rem] {% if item.tem_prontuario or item.tem_ficha %}bg-sucesso-fundo text-sucesso{% else %}bg-marca-forte/[0.12] text-[#7a5f1f]{% endif %}" aria-hidden="true">
-      {{ item.cliente.nome|truncatechars:2 }}
-    </div>
-
-    {# Info #}
-    <div class="flex-1 min-w-0">
-      <div class="font-bold text-[0.9rem] text-texto truncate">{{ item.cliente.nome }}</div>
-      <div class="text-[0.72rem] text-texto-suave mt-0.5">
-        {{ item.cliente.telefone|default:"Sem telefone" }}
-        {% if item.cliente.cpf %} &middot; {{ item.cliente.cpf }}{% endif %}
-      </div>
-      {% include 'partials/_alerta_saude.html' with alertas=item.alertas %}
-    </div>
-
-    {# Badges de status ── prontuário + termos #}
-    <div class="flex flex-col items-end gap-1 flex-shrink-0">
-      {% if item.tem_prontuario %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Prontuário</span>
-      {% endif %}
-      {% if item.tem_ficha %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-info-fundo text-info uppercase tracking-wide">Ficha online</span>
-      {% endif %}
-      {% if not item.tem_prontuario and not item.tem_ficha %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-aviso-fundo text-aviso uppercase tracking-wide">Sem dados de saúde</span>
-      {% endif %}
-      {% if item.total_termos > 0 %}
-      <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">{{ item.total_termos }} termo{{ item.total_termos|pluralize }}</span>
-      {% endif %}
-    </div>
-  </a>
-  {% endfor %}
-  {% include 'partials/_paginacao.html' with page=clientes_page %}
-{% else %}
-<div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-    </svg>
-  </div>
-  <p class="font-serif font-bold text-texto mb-1">Nenhum cliente encontrado</p>
-  <p class="text-[0.85rem] text-texto-suave">
-    {% if search %}Nenhum resultado para "{{ search }}". Tente outro termo.{% else %}Nenhum cliente cadastrado ainda.{% endif %}
-  </p>
-  {% if search %}
-  <a href="{% url 'aranha:prontuario_consentimento' %}"
-     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.82rem] font-bold hover:opacity-90 transition-opacity no-underline mt-4">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-    Limpar busca
-  </a>
+    </c-tabela>
+  </c-card>
   {% endif %}
 </div>
-{% endif %}
+
+{% include 'partials/_paginacao.html' with page=clientes_page %}
 
 {% endblock %}

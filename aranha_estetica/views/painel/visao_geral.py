@@ -24,7 +24,7 @@ from ...utils.busca import filtrar_clientes
 from ...services.nps import resumo_nps
 from ...services.indicadores import ocupacao_semana
 from ...utils.auditoria import registrar_log
-from ...utils.datas import dias_locais, hoje as hoje_local, inicio_do_dia, ler_data
+from ...utils.datas import data_local, dias_locais, hoje as hoje_local, inicio_do_dia, ler_data
 from ...utils.parse import id_int
 
 
@@ -34,6 +34,16 @@ def _marcar(request, atendimentos, tela, *, valores=False):
     lista = marcar_atendimentos(atendimentos, valores=valores)
     registrar_leitura_saude(request, (at.cliente_id for at in lista if at.alertas_saude), tela)
     return lista
+
+
+def _variacao(atual, anterior) -> dict | None:
+    """Comparacao de KPI com o periodo anterior: {'texto': '+12%', 'tendencia': sobe|desce|igual}.
+    Sem base (anterior zero, negativo ou ausente) nao ha comparacao honesta: None (so o valor)."""
+    if not anterior or anterior < 0:
+        return None
+    pct = round((atual - anterior) * 100 / anterior)
+    tendencia = 'sobe' if pct > 0 else 'desce' if pct < 0 else 'igual'
+    return {'texto': f'{pct:+d}%' if pct else '0%', 'tendencia': tendencia}
 
 
 def _limite_desfecho():
@@ -77,11 +87,22 @@ def painel_overview(request):
         status__in=STATUS_ATIVOS
     ).count()
 
+    # mesma conta da semana anterior (seg-dom): base da comparacao do card "Semana"
+    agendamentos_semana_anterior = Atendimento.objects.filter(
+        **dias_locais('data_hora_inicio', inicio_semana - timedelta(days=7), fim_semana - timedelta(days=7)),
+        status__in=STATUS_ATIVOS
+    ).count()
+
     total_clientes = Cliente.objects.filter(ativo=True).count()
     novos_clientes = Cliente.objects.filter(**mes.filtro('criado_em')).count()
 
     # Receita do mes = a mesma conta e o mesmo periodo do financeiro (services/financeiro, D20)
     receita = financeiro.resumo_receita(mes)
+    # comparacao justa com o mes em andamento: o mes anterior ate o mesmo dia (1 a N)
+    anterior = mes.anterior()
+    ate_mesmo_dia = financeiro.Periodo(
+        anterior.inicio, min(anterior.fim, anterior.inicio + timedelta(days=hoje.day)))
+    receita_anterior = financeiro.resumo_receita(ate_mesmo_dia)
 
     ocupacao = ocupacao_semana(inicio_semana, fim_semana)   # definicao em services/indicadores
 
@@ -96,8 +117,9 @@ def painel_overview(request):
     limite_30d = timezone.now() - timedelta(days=30)
     nps_30d = resumo_nps(AvaliacaoNPS.objects.filter(criado_em__gte=limite_30d))['nps']
 
+    # "Proximos dias": depois de amanha (hoje e amanha tem lista propria, abaixo)
     proximos_agendamentos = Atendimento.objects.filter(
-        data_hora_inicio__gte=timezone.now(),
+        data_hora_inicio__gte=inicio_do_dia(hoje + timedelta(days=2)),
         status__in=STATUS_ATIVOS
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:10]
 
@@ -106,9 +128,22 @@ def painel_overview(request):
         status=StatusAtendimento.PENDENTE,
         data_hora_inicio__gte=timezone.now(),
     ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:15]
-    # marcadores das duas listas num lote so (mesmas consultas p/ 1 ou 25 linhas)
-    marcados = _marcar(request, [*proximos_agendamentos, *pendentes_aprovacao], 'visao_geral')
-    proximos_agendamentos, pendentes_aprovacao = marcados[:len(proximos_agendamentos)], marcados[len(proximos_agendamentos):]
+    # Hoje e amanha (a primeira coisa da tela): o dia inteiro, inclusive o que ja passou/realizou;
+    # cancelado e reagendado saem (nao acontecem). Uma consulta so, separada por dia local.
+    amanha = hoje + timedelta(days=1)
+    dois_dias = list(Atendimento.objects.filter(
+        **dias_locais('data_hora_inicio', hoje, amanha),
+    ).exclude(
+        status__in=(StatusAtendimento.CANCELADO, StatusAtendimento.REAGENDADO),
+    ).select_related('cliente', 'profissional', 'procedimento').order_by('data_hora_inicio')[:60])
+    # marcadores das listas num lote so (mesmas consultas p/ 1 ou 60 linhas) e uma leitura na trilha
+    listas = (list(proximos_agendamentos), list(pendentes_aprovacao), dois_dias)
+    marcados = _marcar(request, [at for lista in listas for at in lista], 'visao_geral')
+    corte = [len(listas[0]), len(listas[0]) + len(listas[1])]
+    proximos_agendamentos = marcados[:corte[0]]
+    pendentes_aprovacao = marcados[corte[0]:corte[1]]
+    agenda_hoje = [at for at in marcados[corte[1]:] if data_local(at.data_hora_inicio) == hoje]
+    agenda_amanha = [at for at in marcados[corte[1]:] if data_local(at.data_hora_inicio) == amanha]
     total_sem_desfecho = Atendimento.objects.sem_desfecho().count()
     total_retornos = len(retornos_devidos())
     total_pendentes = Atendimento.objects.filter(
@@ -157,6 +192,16 @@ def painel_overview(request):
         # cor de cada fatia = token do selo do status (--st-<status>-texto), lida no template
         'status_codigos': [s['status'] for s in agendamentos_por_status],
         'pendentes_aprovacao': pendentes_aprovacao,
+        'agenda_hoje': agenda_hoje,
+        'agenda_amanha': agenda_amanha,
+        'hoje': hoje,
+        'amanha': amanha,
+        # comparacoes dos KPIs (None = sem base no periodo anterior)
+        'variacao_semana': _variacao(agendamentos_semana, agendamentos_semana_anterior),
+        'agendamentos_semana_anterior': agendamentos_semana_anterior,
+        'variacao_receita': _variacao(receita['total'], receita_anterior['total']),
+        'receita_mes_anterior': receita_anterior['total'],
+        'periodo_comparacao': ate_mesmo_dia,
         'total_pendentes': total_pendentes,
         'total_sem_desfecho': total_sem_desfecho,
         'total_retornos': total_retornos,
