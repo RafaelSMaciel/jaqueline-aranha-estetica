@@ -392,7 +392,7 @@
     {% endif %}
     {% if compra.status == 'ATIVO' or compra.status == 'EXPIRADO' %}
     <details class="mt-2">
-      <summary class="cursor-pointer text-[0.75rem] font-bold text-marca-forte">Prorrogar validade</summary>
+      <summary class="cursor-pointer text-[0.75rem] font-bold text-marca">Prorrogar validade</summary>
       <form method="post" action="{% url 'aranha:admin_prorrogar_compra_pacote' compra.pk %}" class="mt-2">
         {% csrf_token %}
         <label for="validadeNova{{ compra.pk }}" class="block text-[0.72rem] font-bold text-texto-suave mb-1">Nova validade{% if compra.status == 'EXPIRADO' %} (o pacote volta a ficar ativo){% endif %}</label>
