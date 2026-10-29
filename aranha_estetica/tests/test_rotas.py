@@ -187,7 +187,7 @@ ROTAS = {
     'aranha:admin_anamnese_respostas': (_d(pk=lambda d: d['form'].pk), '', STAFF),
     'aranha:admin_excecoes': (_d(prof_id=lambda d: d['prof'].pk), '', STAFF),
     'aranha:admin_excecao_criar': (_d(prof_id=lambda d: d['prof'].pk), '', SO_POST),
-    'aranha:admin_excecao_excluir': (_d(pk=lambda d: d['folga'].pk), '', OUTRA),
+    'aranha:admin_excecao_excluir': (_d(pk=lambda d: d['folga'].pk), '', SO_POST),
     # ─── portal do profissional ───
     'aranha:profissional_agenda': (SEM, '', PROFISSIONAL),
     'aranha:profissional_marcar_realizado': (_d(pk=lambda d: d['at'].pk), '', SO_POST),
