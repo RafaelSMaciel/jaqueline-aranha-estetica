@@ -130,7 +130,7 @@ TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_
   python manage.py test aranha_estetica
 ```
 
-São ~1.950 testes (fora a tag `migracoes`) em 122 arquivos (`aranha_estetica/tests/`); o runner
+São ~2.020 testes (fora a tag `migracoes`) em 124 arquivos (`aranha_estetica/tests/`); o runner
 é só o `manage.py test`. A CI também roda `migrate_atomico` do zero no Postgres, `check --deploy`
 com settings de produção e de staging, cobertura combinada (SQLite + Postgres) com catraca, o
 wizard no Chromium (Playwright), o build do Vite, o `docker build` com o smoke do pre-deploy e do

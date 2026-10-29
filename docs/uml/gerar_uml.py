@@ -278,7 +278,7 @@ def _enum_bloco(nome, cls):
 GRUPOS_SERVICOS = OrderedDict([
     ('10-servicos-agenda', ('Serviços — agenda, pedido online e atendimento', [
         'agenda', 'agendamento', 'agendamento_online', 'atendimento', 'disponibilidade', 'retorno',
-        'pacotes', 'precos', 'catalogo', 'lista_espera', 'indicadores'])),
+        'pacotes', 'precos', 'catalogo', 'lista_espera', 'indicadores', 'prova_social'])),
     ('11-servicos-clinico-lgpd', ('Serviços — fichas, prontuário, termos e LGPD', [
         'anamnese', 'alertas', 'prontuario', 'termos', 'consentimentos', 'lgpd', 'portal_cliente'])),
     ('12-servicos-financeiro', ('Serviços — financeiro e relatórios', [
