@@ -1,6 +1,6 @@
 # Autenticação & Acesso — Shiva Zen
 
-> Como o login e a identificação funcionam **hoje** (código do branch `front-fundacao`),
+> Como o login e a identificação funcionam **hoje** (código do branch `dev`),
 > o que isso protege e o que ainda falta. Cross-ref: [`PROJECT.md`](PROJECT.md) (§8 segurança,
 > §14 runbook), [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md), [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
@@ -12,9 +12,9 @@
 |---|---|---|
 | Conta e senha | Não — sem senha | Sim — e-mail + senha |
 | Identidade | **Celular** (só dígitos, 10–11; OTP só vai para celular) | E-mail (`Usuario`) |
-| Prova de posse | Código OTP de 6 dígitos por **SMS** | Senha + **TOTP** (obrigatório para ADMIN) |
-| Acesso sem login | Links por token (confirmar, reagendar, termo, NPS, descadastro) | — |
-| Papéis | — | ADMIN, PROFISSIONAL (RECEPCAO existe, sem login) |
+| Prova de posse | Código OTP de 6 dígitos por **SMS** | Senha + **TOTP** (obrigatório para ADMIN e PROFISSIONAL em produção) |
+| Acesso sem login | Links por token (confirmar presença, termo, NPS, ficha, descadastro); reagendar/cancelar só pelo portal com OTP | Feed ICS da agenda (link com token) |
+| Papéis | — | ADMIN, PROFISSIONAL (o RECEPCAO saiu na 0072) |
 
 São sistemas separados: a cliente nunca vira `Usuario`; a equipe nunca usa o OTP por SMS.
 
@@ -24,13 +24,15 @@ São sistemas separados: a cliente nunca vira `Usuario`; a equipe nunca usa o OT
 
 ### 1.1 Papéis e onde cada um entra
 
-`usuario.papel` (CHECK no banco; padrão PROFISSIONAL):
+`usuario.papel` (CHECK `ck_usuario_papel`: só ADMIN e PROFISSIONAL; padrão PROFISSIONAL):
 
 | Papel | Login | Área | Pode |
 |---|---|---|---|
-| **ADMIN** (`is_staff`) | `/admin-login/` | `/painel/` (+ `/django-admin-sv/`, `/api/`) | Tudo. `@staff_required` |
-| **PROFISSIONAL** vinculado a um Profissional **ativo** | `/admin-login/` | `/profissional/` | Própria agenda (dia/semana), aprovar/rejeitar os próprios pedidos, marcar Realizado (com override auditado "Realizado sem termo aceito"), anotações de sessão, ficha/prontuário só das clientes com vínculo (§1.6). `@profissional_required`; ADMIN também passa |
-| **RECEPCAO** | **sem login** | — | Papel reservado até existirem telas próprias; o painel não oferece mais criar RECEPCAO |
+| **ADMIN** (`is_staff`) | `/admin-login/` | `/painel/` (+ `/django-admin-sv/`, `/api/`) | Tudo, inclusive a recepção (agendar, aprovar, retornos). `@staff_required` |
+| **PROFISSIONAL** vinculado a um Profissional **ativo** | `/admin-login/` | `/profissional/` | Própria agenda (dia/semana), aprovar/rejeitar os próprios pedidos, marcar Realizado (com override auditado "Realizado sem termo aceito"), anotações de sessão, ficha/prontuário só das clientes com vínculo (§1.6), link do próprio feed ICS e "Minhas comissões" (só leitura, sem nome de cliente). `@profissional_required`; ADMIN também passa |
+
+O papel RECEPCAO saiu (migration 0072, que aborta se ainda houver usuário com ele): a dona faz a
+recepção pelo painel (ARCHITECTURE D27).
 
 `usuario_login` recusa quem não é ADMIN nem PROFISSIONAL vinculado (mensagem genérica). O
 `?next=` é validado antes do login (sem open redirect) e, para quem não é ADMIN, só vale dentro
@@ -41,9 +43,13 @@ de `/profissional/`. PROFISSIONAL que abre `/painel/` volta para o próprio port
 - Hash PBKDF2 (padrão Django); política: mínimo 10 caracteres, não parecida com os dados do
   usuário, não comum, não só números.
 - **django-axes**: 5 falhas (`AXES_FAILURE_LIMIT`) → bloqueio de 1 h (`AXES_COOLOFF_TIME_HOURS`)
-  por IP + usuário; zera no sucesso; página pt-BR `axes_bloqueio.html` (status 429). Limpar:
-  `python manage.py axes_reset`.
-- Rate-limit do login: 10/min por IP, 5/min por e-mail, e 5 falhas/min por IP no cache.
+  por **IP + usuário e por IP** (`AXES_LOCKOUT_PARAMETERS`), nunca por usuário sozinho — com o
+  e-mail da dona público, 5 senhas erradas de qualquer lugar a trancariam fora do painel (DoS
+  barato); o freio por usuário é o rate-limit curto. Zera no sucesso; página pt-BR
+  `axes_bloqueio.html` (status 429). Limpar: `python manage.py axes_reset`.
+- Rate-limit do login (`@ratelimit`, 429): 10/min por IP e 5/min por e-mail. Não há outro contador
+  de tentativas (o contador manual em cache saiu: era uma 3ª camada sobre o axes e o rate-limit).
+  Login falho vai ao log como `login_falho` com o e-mail mascarado.
 - IP sempre por `utils/seguranca.client_ip` (`CLIENT_IP_HEADER`; prod `X-Real-IP` do Railway).
 
 ### 1.3 2FA (TOTP)
@@ -56,6 +62,9 @@ de `/profissional/`. PROFISSIONAL que abre `/painel/` volta para o próprio port
   escanear o QR (SVG, sem Pillow) e confirmar o primeiro código. O middleware confere a
   obrigatoriedade **a cada request** (sessão promovida a ADMIN depois do login, sessão antiga ou
   aberta com a válvula desligada também cai no cadastro).
+- **Falha fechada:** se a consulta do TOTP der erro de banco (`statement_timeout`, conexão caída),
+  a sessão ainda não verificada vai para o desafio (403 JSON em `/api/` e `/webpush/`; log
+  `2fa_indisponivel`) — nunca segue só com a senha até o painel, o portal ou o prontuário.
 - **Desafio:** quem tem TOTP confirmado passa por `/painel/seguranca/2fa/challenge/` em toda
   sessão nova (`verificar/`: 5/min por usuário). Aceita o TOTP de qualquer device confirmado e
   os **códigos de backup** (tela do 2FA ou `setup_2fa`). Sucesso → `django_otp.login()` + troca do
@@ -103,11 +112,14 @@ de `/profissional/`. PROFISSIONAL que abre `/painel/` volta para o próprio port
 
 ### 1.6 Acesso do profissional à ficha (prontuário)
 
-Regra em `views/painel/prontuario._vinculo`: o profissional lê a ficha de uma cliente só se tiver com
-ela um atendimento **REALIZADO nos últimos 180 dias** ou **PENDENTE/AGENDADO/CONFIRMADO entre
-ontem e +60 dias** (escrita: o mesmo, sem PENDENTE). CANCELADO/REAGENDADO/FALTOU nunca dão
+Regra única em `services/prontuario.vinculo_clinico` (usada pelo painel — decorator de acesso e
+botão de editar — e pelo portal — agenda com alertas de saúde, anotação da sessão): o profissional
+**ativo** lê a ficha de uma cliente só se tiver com ela um atendimento **REALIZADO nos últimos 180
+dias** (`JANELA_REALIZADO_DIAS`) ou **PENDENTE/AGENDADO/CONFIRMADO entre ontem e +max(60 dias,
+`max_advance_dias` dele)** (`JANELA_FUTURO_DIAS`; quem aceita reserva com 90 dias de antecedência
+vê a ficha desde o pedido). Escrita: o mesmo, sem PENDENTE. CANCELADO/REAGENDADO/FALTOU nunca dão
 vínculo. Toda leitura, gravação e negativa vai para a `LogAuditoria` (sem nome da cliente no
-texto). ADMIN lê todas. O link "Ficha" no portal só aparece quando há vínculo.
+texto). ADMIN lê todas e não passa pela regra. O link "Ficha" no portal só aparece quando há vínculo.
 
 ---
 
@@ -157,14 +169,18 @@ anonimização) = 404; token de outra finalidade = 404.
 
 | Finalidade (`link_acesso`) | Onde | Validade | Dá acesso a |
 |---|---|---|---|
-| GERENCIAR_AGENDAMENTO | `/reagendar/<token>/`, `POST /ajax/cancelar-agendamento/ {token}` | **só os tokens migrados** (o portal usa id + sessão do OTP); expira no início do atendimento; reagendar só até 24h antes | Reagendar/cancelar aquele atendimento |
-| CONFIRMAR_PRESENCA (lembrete WhatsApp) | `/confirmar/<token>/` | uma resposta; até o início (depois só leitura) | Confirmar presença (AGENDADO → CONFIRMADO) ou cancelar |
+| CONFIRMAR_PRESENCA (lembrete D-1, WhatsApp ou e-mail) | `/confirmar/<token>/` | uma resposta; até o início (depois só leitura) | Confirmar presença (AGENDADO → CONFIRMADO) ou cancelar |
 | TERMO | `/termo/<token>/` | até o **fim do atendimento**; cada "Gerar link" emite outro e os anteriores continuam valendo | Aceitar os termos pendentes daquele atendimento |
 | NPS | `/nps/<token>/` | 7 dias, uma resposta | Dar nota 0–10, comentário e autorizar depoimento |
 | FORMULARIO | `/anamnese/<token>/`, `/pesquisa/<token>/` | 60 dias, uma resposta | Responder ficha/pesquisa (ficha de saúde com consentimento art. 11) |
 | DESCADASTRO | `/lgpd/unsubscribe/<token>/` | sem expiração; um por e-mail de marketing; revogado na anonimização | Descadastro de marketing e pesquisas |
-| FEED_ICS | `/agenda/<slug>/feed.ics?token=` | até gerar outro (painel "Novo link" ou portal do profissional) | Feed iCal com nomes das clientes |
+| FEED_ICS | `/agenda/<slug>/feed.ics?token=` | até gerar outro (painel "Novo link" ou portal do profissional) | Feed iCal da agenda do profissional, com o nome público da cliente (primeiro nome + inicial) e o procedimento |
 | Reset de senha (equipe) | `/admin-login/recuperar/<uid>/<token>/` | 1 h, uso único | Definir nova senha |
+
+Reagendar e cancelar **não têm link**: a cliente usa o portal "Meus agendamentos" (id do
+atendimento + sessão do OTP, só agendamentos do telefone verificado). O link legado de reagendar
+(GERENCIAR_AGENDAMENTO, tokens migrados na 0049) e o alvo atendimento do `link_acesso` saíram na
+0072 (ARCHITECTURE D29).
 
 ---
 
@@ -186,16 +202,18 @@ anonimização) = 404; token de outra finalidade = 404.
 ## 4. Avaliação
 
 **Forte hoje:** OTP com HMAC + cotas + propósito isolado + preso ao telefone; anti-enumeração no
-portal, no DSAR e na lista de espera; 2FA obrigatório do ADMIN conferido a cada request, sem
-tela de login paralela; sessão/HSTS/CSP estritos; no-store e no-referrer onde há dado sensível;
-tokens longos e redigidos nos logs; trilha de auditoria com IP.
+portal, no DSAR e na lista de espera; 2FA obrigatório do ADMIN e do PROFISSIONAL conferido a cada
+request e falhando fechado, sem tela de login paralela; axes por IP + usuário e por IP (sem
+trancar a dona por e-mail); sessão/HSTS/CSP estritos; no-store e no-referrer onde há dado
+sensível; tokens longos e redigidos no access log, no log da aplicação e no Sentry; segredos de
+header (cron, webhooks) comparados em tempo constante; trilha de auditoria com IP.
 
 **Riscos remanescentes (aceitos ou pendentes):**
 
 | Sev | Ponto | Situação |
 |---|---|---|
 | média | DSAR e portal liberados com 1 fator (SMS) — SIM-swap expõe o cadastro | Aceito por ora (público de estética, sem senha); evolução: 2º canal ou entrega do export por e-mail |
-| baixa | Link de descadastro não expira | Escopo limitado (opt-out); revogado na anonimização. Reagendar/cancelar sem token novo: portal por sessão do OTP; links legados expiram no início do atendimento |
+| baixa | Link de descadastro não expira | Escopo limitado (opt-out); revogado na anonimização. Reagendar/cancelar não têm token: só o portal por sessão do OTP |
 | baixa | `Enforce2FAMiddleware` depende do marcador de sessão do login da equipe | Em produção a única porta é `/admin-login/` (equivalente); hardening listado no ARCHITECTURE |
 | baixa | Link do termo pode ser enviado por `mailto:` ao e-mail do cadastro | Pendência listada no ARCHITECTURE |
 
@@ -206,5 +224,5 @@ possíveis (não implementadas): sessão única de "cliente verificada" para wiz
 
 ---
 
-_Última atualização: 2026-09-23 — reescrito após a auditoria pré-produção (2FA obrigatório,
-login do profissional, OTP preso ao telefone, rotas do two_factor removidas)._
+_Última atualização: 2026-10-28 — papéis só ADMIN/PROFISSIONAL, vínculo da ficha em
+`services/prontuario`, axes por IP, 2FA falhando fechado e sem o link legado de reagendar._
