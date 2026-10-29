@@ -301,7 +301,8 @@ class AgendamentosPainelTests(_AdminTestCase):
                 content_type='application/json',
             )
         self.assertEqual(resp.status_code, 409)
-        self.assertFalse(resp.json()['sucesso'])
+        self.assertFalse(resp.json()['ok'])
+        self.assertEqual(resp.json()['codigo'], 'horario_ocupado')   # contrato de utils/respostas
 
     def test_calendario_mover_segue_a_regra_do_slot_service(self):
         import json
@@ -318,14 +319,14 @@ class AgendamentosPainelTests(_AdminTestCase):
         # fora do expediente (grade 09h-18h): antes era aceito
         resp = mover(_local(5, 20))
         self.assertEqual(resp.status_code, 409)
-        self.assertIn('Fora do horário', resp.json()['erro'])
+        self.assertIn('Fora do horário', resp.json()['mensagem'])
         # feriado da clinica (profissional nulo): antes so a folga do proprio profissional barrava
         dia = _local(6, 11)
         AgendaExcecao.objects.create(tipo='FOLGA', profissional=None, origem='FERIADO_NACIONAL',
                                      data_inicio=dia.date(), data_fim=dia.date(), motivo='Feriado X')
         resp = mover(dia)
         self.assertEqual(resp.status_code, 409)
-        self.assertIn('feriado', resp.json()['erro'])
+        self.assertIn('feriado', resp.json()['mensagem'])
         # horario livre: move e mantem a duracao
         duracao = self.a1.data_hora_fim - self.a1.data_hora_inicio
         resp = mover(_local(5, 11))
@@ -343,6 +344,7 @@ class AgendamentosPainelTests(_AdminTestCase):
             content_type='application/json',
         )
         self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()['codigo'], 'fim_antes_do_inicio')
 
 
 # ─── Portal do profissional ───────────────────────────────────────────

@@ -1,124 +1,63 @@
-"""Aprovar/rejeitar pedidos de agendamento pelo painel (um a um e em lote)."""
-import logging
+"""Aprovar/rejeitar pedidos de agendamento pelo painel (um a um e em lote).
 
+Views finas: o AgendamentoService decide (FSM + auditoria + e-mail a cliente) e devolve se
+transitou; aqui so o aviso e o retorno p/ a tela de origem."""
 from django.contrib import messages
-from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
-from django_ratelimit.decorators import ratelimit
+from django.shortcuts import get_object_or_404
 
-from ...decorators import staff_required
+from ...decorators import escrita_painel
 from ...models import Atendimento
-from ...models.agendamentos import StatusAtendimento
-from ...utils.seguranca import safe_next
+from ...services.agendamento import AgendamentoService
+from ...utils.parse import id_int
+from .comum import avisar_transicao, voltar_para_origem
 
-logger = logging.getLogger(__name__)
-
-
-def _voltar(request):
-    """Volta p/ a pagina de origem (Referer local) ou p/ a lista de agendamentos."""
-    return redirect(safe_next(request, request.META.get('HTTP_REFERER'), 'aranha:painel_agendamentos'))
+ACOES_EM_LOTE = {'aprovar': 'aprovado(s)', 'rejeitar': 'rejeitado(s)'}
 
 
-@staff_required
-@require_POST
-@ratelimit(key='user', rate='60/m', method='POST', block=True)
+def _pedido(pk):
+    return get_object_or_404(Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'), pk=pk)
+
+
+@escrita_painel
 def admin_aprovar_agendamento(request, pk):
-    """Gerente/recepção aprova agendamento PENDENTE → AGENDADO.
-
-    View thin: delega regras + email + audit ao AgendamentoService.
-    """
-    atendimento = get_object_or_404(
-        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
-        pk=pk,
-    )
-    from ...services.agendamento import AgendamentoService
-    try:
-        transitou = AgendamentoService().aprovar(atendimento, by_user=request.user, request=request)
-    except Atendimento.TransicaoInvalida:
-        transitou = False
-    if not transitou:
-        messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
-    else:
-        messages.success(request, f'Agendamento de {atendimento.cliente.nome} aprovado.')
-    return _voltar(request)
+    """Gerente/recepção aprova agendamento PENDENTE → AGENDADO (e-mail de confirmacao a cliente)."""
+    atendimento = _pedido(pk)
+    ok = AgendamentoService().aprovar(atendimento, by_user=request.user, request=request)
+    avisar_transicao(request, ok, atendimento, 'aprovado')
+    return voltar_para_origem(request)
 
 
-@staff_required
-@require_POST
-@ratelimit(key='user', rate='60/m', method='POST', block=True)
+@escrita_painel
 def admin_rejeitar_agendamento(request, pk):
-    """Gerente/recepção rejeita agendamento PENDENTE → CANCELADO.
-
-    View thin: delega regras + email + audit ao AgendamentoService.
-    """
-    atendimento = get_object_or_404(
-        Atendimento.objects.select_related('cliente', 'procedimento', 'profissional'),
-        pk=pk,
-    )
-    from ...services.agendamento import AgendamentoService
-    try:
-        transitou = AgendamentoService().rejeitar(atendimento, by_user=request.user, request=request)
-    except Atendimento.TransicaoInvalida:
-        transitou = False
-    if not transitou:
-        messages.warning(request, f'Atendimento já está como {atendimento.get_status_display().lower()}.')
-    else:
-        messages.success(request, f'Agendamento de {atendimento.cliente.nome} rejeitado.')
-    return _voltar(request)
+    """Gerente/recepção rejeita agendamento PENDENTE → CANCELADO (e-mail de cancelamento)."""
+    atendimento = _pedido(pk)
+    ok = AgendamentoService().rejeitar(atendimento, by_user=request.user, request=request)
+    avisar_transicao(request, ok, atendimento, 'rejeitado')
+    return voltar_para_origem(request)
 
 
-@staff_required
-@require_POST
-@ratelimit(key='user', rate='10/m', method='POST', block=True)
+@escrita_painel
 def admin_bulk_agendamentos(request):
-    """Aprovacao/rejeicao em massa de agendamentos PENDENTES.
+    """Aprovacao/rejeicao em massa: POST ids=[...] + acao=aprovar|rejeitar.
 
-    POST: ids=[...] + acao=aprovar|rejeitar. Cada item passa pelo
-    AgendamentoService (FSM + auditoria + e-mail pos-commit com hora local);
-    item que mudou de estado no meio do caminho e ignorado sem abortar o lote.
-    """
-    ids_raw = request.POST.getlist('ids') or []
+    Cada item passa pelo AgendamentoService na sua propria transacao: o que mudou de estado no
+    meio do caminho e ignorado sem abortar o lote."""
     acao = request.POST.get('acao', '').strip().lower()
-
-    if acao not in ('aprovar', 'rejeitar'):
+    if acao not in ACOES_EM_LOTE:
         messages.error(request, 'Ação inválida.')
-        return _voltar(request)
-
-    try:
-        ids = [int(x) for x in ids_raw]
-    except (TypeError, ValueError):
+        return voltar_para_origem(request)
+    ids = [id_int(bruto) for bruto in request.POST.getlist('ids')]
+    if None in ids:
         messages.error(request, 'Seleção inválida.')
-        return _voltar(request)
-
+        return voltar_para_origem(request)
     if not ids:
         messages.warning(request, 'Nenhum agendamento selecionado.')
-        return _voltar(request)
+        return voltar_para_origem(request)
 
-    from ...services.agendamento import AgendamentoService
-    service = AgendamentoService()
-
-    processados = 0
-    with transaction.atomic():
-        atendimentos = list(
-            Atendimento.objects.select_related('cliente', 'procedimento', 'profissional')
-            .filter(pk__in=ids, status=StatusAtendimento.PENDENTE)
-        )
-        for at in atendimentos:
-            try:
-                if acao == 'aprovar':
-                    ok = service.aprovar(at, by_user=request.user, request=request)
-                else:
-                    ok = service.rejeitar(at, motivo='Rejeitado em lote', by_user=request.user, request=request)
-            except Atendimento.TransicaoInvalida:
-                ok = False
-            if ok:
-                processados += 1
-
+    processados = AgendamentoService().decidir_em_lote(ids, acao, by_user=request.user, request=request)
     ignorados = len(ids) - processados
-    msg_acao = 'aprovado(s)' if acao == 'aprovar' else 'rejeitado(s)'
-    msg = f'{processados} agendamento(s) {msg_acao}.'
+    msg = f'{processados} agendamento(s) {ACOES_EM_LOTE[acao]}.'
     if ignorados:
         msg += f' {ignorados} ignorado(s) (não estavam pendentes).'
     messages.success(request, msg)
-    return _voltar(request)
+    return voltar_para_origem(request)

@@ -146,7 +146,7 @@ ROTAS = {
     'aranha:admin_cancelar_compra_pacote': (_d(pk=lambda d: d['compra'].pk), '', SO_POST),
     'aranha:admin_prorrogar_compra_pacote': (_d(pk=lambda d: d['compra'].pk), '', SO_POST),
     'aranha:admin_bloqueios': (SEM, '', STAFF),
-    'aranha:admin_criar_bloqueio': (SEM, '', OUTRA),
+    'aranha:admin_criar_bloqueio': (SEM, '', SO_POST),
     'aranha:admin_excluir_bloqueio': (_d(bloqueio_id=lambda d: d['bloqueio'].pk), '', SO_POST),
     'aranha:admin_procedimentos': (SEM, '', STAFF),
     'aranha:admin_criar_procedimento': (SEM, '', OUTRA),
@@ -191,7 +191,7 @@ ROTAS = {
     'aranha:admin_anamnese_respostas': (_d(pk=lambda d: d['form'].pk), '', STAFF),
     'aranha:admin_excecoes': (_d(prof_id=lambda d: d['prof'].pk), '', STAFF),
     'aranha:admin_excecao_criar': (_d(prof_id=lambda d: d['prof'].pk), '', SO_POST),
-    'aranha:admin_excecao_excluir': (_d(pk=lambda d: d['folga'].pk), '', OUTRA),
+    'aranha:admin_excecao_excluir': (_d(pk=lambda d: d['folga'].pk), '', SO_POST),
     # ─── portal do profissional ───
     'aranha:profissional_agenda': (SEM, '', PROFISSIONAL),
     'aranha:profissional_marcar_realizado': (_d(pk=lambda d: d['at'].pk), '', SO_POST),
