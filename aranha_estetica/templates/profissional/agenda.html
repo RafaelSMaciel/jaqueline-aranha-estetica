@@ -1,302 +1,176 @@
 {% extends 'profissional/base.html' %}
 {% load static painel_tags django_vite %}
 
-{% block titulo %}Minha Agenda | {{ CLINIC_NAME }}{% endblock %}
+{% block titulo %}Minha agenda | {{ CLINIC_NAME }}{% endblock %}
 
 {% block css %}
 {# webpush.js le o token daqui: o cookie csrftoken e HttpOnly (sem ele o POST de inscricao da 403) #}
 <meta name="csrf-token" content="{{ csrf_token }}">
-<style nonce="{{ csp_nonce }}">
-    /* Borda do card na cor do status: mesma paleta dos selos (tokens --st-*, claro/escuro) */
-    .atn-card-AGENDADO   { border-left-color: var(--st-agendado-texto); }
-    .atn-card-CONFIRMADO { border-left-color: var(--st-confirmado-texto); }
-    .atn-card-REALIZADO  { border-left-color: var(--st-realizado-texto); }
-    .atn-card-CANCELADO  { border-left-color: var(--st-cancelado-texto); opacity: 0.6; }
-    .atn-card-FALTOU     { border-left-color: var(--st-faltou-texto); opacity: 0.6; }
-    .atn-card-REAGENDADO { border-left-color: var(--st-reagendado-texto); opacity: 0.6; }
-    .atn-card-PENDENTE   { border-left-color: var(--st-pendente-texto); background: var(--st-pendente-fundo); }
+{% endblock %}
 
-    @media (max-width: 768px) {
-        .week-grid { grid-template-columns: 1fr !important; }
-        .atn-card-wrap { flex-wrap: wrap; }
-        .atn-actions { width: 100%; justify-content: flex-end; }
-    }
-</style>
+{% block page_title %}Minha agenda{% endblock %}
+{% block page_subtitle %}Atendimentos de {{ profissional.nome }}{% endblock %}
+
+{% block page_actions %}
+{% webpush_configurado as push_ok %}
+{% if push_ok %}
+{# Avisos de novo agendamento neste aparelho (webpush.js remove se nao suportado/ja decidido) #}
+<c-botao variante="secundario" icone="sino" id="webpushEnable">Ativar avisos</c-botao>
+{% endif %}
+{# Feed ICS da propria agenda: gerar = revogar o link anterior (o token so aparece na geracao) #}
+<form method="post" action="{% url 'aranha:profissional_link_calendario' %}" class="m-0"
+      data-confirm="Gerar um novo link do calendário? Se você já assinou um link antes, ele deixará de funcionar.">
+  {% csrf_token %}
+  <c-botao tipo="submit" variante="secundario" icone="link">Link do calendário</c-botao>
+</form>
 {% endblock %}
 
 {% block conteudo %}
-<div class="min-h-screen bg-fundo py-8 pb-20">
-<div class="max-w-4xl mx-auto px-4">
 
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
-        <h1 class="font-serif text-2xl font-bold text-texto flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-[var(--cor-marca)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-            </svg>
-            Minha agenda
-        </h1>
-        <div class="flex items-center gap-2 flex-wrap">
-            {% if profissional %}
-            <span class="bg-fundo border border-borda text-texto-suave px-4 py-1.5 rounded-full font-bold text-sm">
-                {{ profissional.nome }}
-            </span>
-            {% endif %}
-            {% webpush_configurado as push_ok %}
-            {% if push_ok %}
-            {# Avisos de novo agendamento neste aparelho (webpush.js remove se nao suportado/ja decidido) #}
-            <button type="button" id="webpushEnable"
-                    class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
-                           text-texto-suave hover:text-texto font-bold text-sm cursor-pointer transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                Ativar avisos
-            </button>
-            {% endif %}
-            <a href="{% url 'aranha:profissional_comissoes' %}"
-               class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
-                      text-texto-suave hover:text-texto font-bold text-sm no-underline transition-colors">
-                Minhas comissões
-            </a>
-            {# Feed ICS da propria agenda: gerar = revogar o link anterior (o token so aparece na geracao) #}
-            <form method="post" action="{% url 'aranha:profissional_link_calendario' %}" class="m-0"
-                  data-confirm="Gerar um novo link do calendário? Se você já assinou um link antes, ele deixará de funcionar.">
-                {% csrf_token %}
-                <button type="submit"
-                        class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-borda bg-superficie
-                               text-texto-suave hover:text-texto font-bold text-sm cursor-pointer transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
-                    </svg>
-                    Link do calendário
-                </button>
-            </form>
-        </div>
+{# ── Pendentes de aprovacao (alerta de saude visivel ANTES de aprovar) ── #}
+{% if pendentes %}
+<c-card titulo="Aguardando sua aprovação" icone="relogio" espaco="nenhum" class="mb-6 border-l-4 border-l-aviso">
+  <c-slot name="acoes"><c-selo tom="aviso">{{ pendentes|length }} pendente{{ pendentes|length|pluralize }}</c-selo></c-slot>
+  <ul class="lista-itens">
+    {% for p in pendentes %}
+    <li class="item-lista items-start">
+      <div class="item-lista-corpo">
+        <p class="item-lista-titulo">{{ p.cliente.nome }}</p>
+        <p class="item-lista-meta mt-0.5">{{ p.procedimento.nome }} · {{ p.data_hora_inicio|date:"d/m/Y" }} às {{ p.data_hora_inicio|time:"H:i" }}</p>
+        {% include 'partials/_alerta_saude.html' with alertas=p.alertas %}
+        {% if p.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
+        {% if p.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
+      </div>
+      <div class="item-lista-acoes">
+        {% if p.tem_vinculo %}
+        <c-botao href="{% url 'aranha:prontuario_detalhe' p.cliente_id %}" variante="secundario" icone="documento">Ficha<span class="sr-only"> de {{ p.cliente.nome }}</span></c-botao>
+        {% endif %}
+        <form method="post" action="{% url 'aranha:profissional_rejeitar' pk=p.pk %}" class="m-0">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <c-botao tipo="submit" variante="perigo-contorno" icone="fechar" data-confirm="Rejeitar agendamento?">Rejeitar<span class="sr-only"> o agendamento de {{ p.cliente.nome }}</span></c-botao>
+        </form>
+        <form method="post" action="{% url 'aranha:profissional_aprovar' pk=p.pk %}" class="m-0">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <c-botao tipo="submit" variante="sucesso" icone="check" data-confirm="Aprovar agendamento?">Aprovar<span class="sr-only"> o agendamento de {{ p.cliente.nome }}</span></c-botao>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</c-card>
+{% endif %}
+
+{# ── Dia / Semana: abas acessiveis (painel.js); sem JS as duas secoes ficam visiveis ── #}
+<c-abas rotulo="Visualização da agenda">
+  <c-slot name="lista">
+    <c-abas.aba alvo="agenda-dia"><c-icone nome="agenda" class="w-4 h-4" />Dia</c-abas.aba>
+    <c-abas.aba alvo="agenda-semana"><c-icone nome="calendario" class="w-4 h-4" />Semana</c-abas.aba>
+  </c-slot>
+
+  {# ── Dia ── #}
+  <c-abas.painel id="agenda-dia">
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <c-botao href="?data={{ dia_anterior|date:'Y-m-d' }}" variante="secundario" so_icone="1" icone="chevron-esquerda"
+               aria-label="Dia anterior" title="Dia anterior"></c-botao>
+      <div class="flex min-w-0 flex-col items-center text-center">
+        <h2 class="font-serif text-lg font-semibold leading-snug text-texto">{{ dia|date:"l, d \d\e F"|lower|capfirst }}</h2>
+        {% if dia == hoje %}
+        <c-selo tom="marca" class="mt-1">Hoje</c-selo>
+        {% else %}
+        <c-botao href="{% url 'aranha:profissional_agenda' %}?data={{ hoje|date:'Y-m-d' }}" variante="fantasma" icone="agenda" class="mt-1">Voltar para hoje</c-botao>
+        {% endif %}
+      </div>
+      <c-botao href="?data={{ dia_seguinte|date:'Y-m-d' }}" variante="secundario" so_icone="1" icone="chevron-direita"
+               aria-label="Próximo dia" title="Próximo dia"></c-botao>
     </div>
 
-    <!-- Pendentes de aprovação -->
-    {% if pendentes %}
-    <div class="bg-aviso-fundo border-l-4 border-aviso rounded-xl px-5 py-4 mb-6">
-        <div class="flex items-center gap-2 font-bold text-aviso text-sm mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-            </svg>
-            Aguardando sua aprovação
-            <span class="bg-aviso text-superficie rounded-full w-5 h-5 inline-flex items-center justify-center text-xs font-bold">{{ pendentes|length }}</span>
-        </div>
-        {% for p in pendentes %}
-        <div class="bg-superficie rounded-lg px-4 py-3 mb-2 flex flex-wrap items-center gap-3 shadow-sm last:mb-0">
-            <div class="flex-1 min-w-0">
-                <div class="font-bold text-texto text-sm">{{ p.cliente.nome }}</div>
-                <div class="text-xs text-texto-suave mt-0.5">
-                    {{ p.procedimento.nome }} &bull;
-                    {{ p.data_hora_inicio|date:"d/m/Y" }} às {{ p.data_hora_inicio|time:"H:i" }}
-                    {% if p.tem_vinculo %}&bull; <a href="{% url 'aranha:prontuario_detalhe' p.cliente_id %}" class="font-bold text-info hover:underline">Ficha</a>{% endif %}
-                </div>
-                {% include 'partials/_alerta_saude.html' with alertas=p.alertas %}
-                {% if p.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
-                {% if p.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
-            </div>
-            <div class="flex gap-2 flex-shrink-0">
-                <form method="post" action="{% url 'aranha:profissional_aprovar' pk=p.pk %}" class="m-0">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit"
-                            class="bg-sucesso-forte hover:opacity-90 text-sobre-sucesso text-xs font-bold
-                                   px-3 py-2 rounded-lg inline-flex items-center gap-1 cursor-pointer transition-colors"
-                            data-confirm="Aprovar agendamento?">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                        Aprovar
-                    </button>
-                </form>
-                <form method="post" action="{% url 'aranha:profissional_rejeitar' pk=p.pk %}" class="m-0">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit"
-                            class="bg-superficie border border-erro text-erro
-                                   hover:bg-red-600 hover:text-white text-xs font-bold
-                                   px-3 py-2 rounded-lg inline-flex items-center gap-1 cursor-pointer transition-colors"
-                            data-confirm="Rejeitar agendamento?">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        Rejeitar
-                    </button>
-                </form>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- View Tabs -->
-    <div class="flex gap-2 justify-center mb-6">
-        <button type="button" id="tab-dia"
-                class="view-tab px-5 py-2 rounded-lg border-2 font-bold text-sm cursor-pointer transition-colors
-                       bg-marca-forte text-sobre-marca border-[var(--cor-marca-forte)]"
-                data-view="dia">
-            <svg xmlns="http://www.w3.org/2000/svg" class="inline w-4 h-4 mr-1 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-            </svg>Dia
-        </button>
-        <button type="button" id="tab-semana"
-                class="view-tab px-5 py-2 rounded-lg border-2 font-bold text-sm cursor-pointer transition-colors
-                       bg-superficie text-texto-suave border-borda hover:bg-fundo"
-                data-view="semana">
-            <svg xmlns="http://www.w3.org/2000/svg" class="inline w-4 h-4 mr-1 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5" />
-            </svg>Semana
-        </button>
-    </div>
-
-    <!-- ============== DIA VIEW ============== -->
-    <div id="view-dia">
-        <div class="flex items-center justify-center gap-3 mb-6">
-            <a href="?data={{ dia_anterior|date:'Y-m-d' }}"
-               class="w-9 h-9 rounded-lg bg-superficie border border-borda flex items-center justify-center
-                      hover:bg-fundo transition-colors shadow-sm"
-               title="Dia anterior">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-texto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                </svg>
-            </a>
-            <div class="text-center">
-                <div class="font-bold text-lg text-texto min-w-[200px] text-center">{{ dia|date:"l, d \d\e F" }}</div>
-                {% if dia == hoje %}
-                <div class="text-xs font-bold text-[var(--cor-marca)] text-center">HOJE</div>
-                {% endif %}
-            </div>
-            <a href="?data={{ dia_seguinte|date:'Y-m-d' }}"
-               class="w-9 h-9 rounded-lg bg-superficie border border-borda flex items-center justify-center
-                      hover:bg-fundo transition-colors shadow-sm"
-               title="Próximo dia">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-texto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-            </a>
-        </div>
-
+    <c-card espaco="nenhum" class="overflow-hidden">
+      {% if atendimentos_dia %}
+      <ul class="lista-itens">
         {% for atd in atendimentos_dia %}
-        <div class="atn-card-wrap bg-superficie rounded-xl border-l-4 border-borda atn-card-{{ atd.status }}
-                    px-4 py-3 mb-3 flex items-center gap-4 shadow-sm
-                    hover:translate-x-1 transition-transform">
-            <div class="text-xl font-black text-texto min-w-[60px] text-center">
-                {{ atd.data_hora_inicio|time:"H:i" }}
+        {# Faixa a esquerda na cor do status (tokens --st-*, claro/escuro); encerrado fica esmaecido #}
+        <li class="item-lista items-start {% if atd.status == 'AGENDADO' %}shadow-[inset_4px_0_0_var(--st-agendado-texto)]{% elif atd.status == 'CONFIRMADO' %}shadow-[inset_4px_0_0_var(--st-confirmado-texto)]{% elif atd.status == 'REALIZADO' %}shadow-[inset_4px_0_0_var(--st-realizado-texto)]{% elif atd.status == 'PENDENTE' %}shadow-[inset_4px_0_0_var(--st-pendente-texto)]{% elif atd.status == 'CANCELADO' %}shadow-[inset_4px_0_0_var(--st-cancelado-texto)] opacity-75{% elif atd.status == 'FALTOU' %}shadow-[inset_4px_0_0_var(--st-faltou-texto)] opacity-75{% elif atd.status == 'REAGENDADO' %}shadow-[inset_4px_0_0_var(--st-reagendado-texto)] opacity-75{% endif %}">
+          <p class="item-lista-hora text-lg leading-6">{{ atd.data_hora_inicio|time:"H:i" }}</p>
+          <div class="item-lista-corpo">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p class="item-lista-titulo">{{ atd.cliente.nome }}</p>
+              {% include 'partials/_status_badge.html' with status=atd.status %}
             </div>
-            <div class="flex-1 min-w-0">
-                <div class="font-bold text-sm text-texto flex items-center gap-1 flex-wrap">
-                    {{ atd.cliente.nome }}
-                </div>
-                <div class="text-xs text-texto-suave mt-0.5">
-                    {{ atd.procedimento.nome }} &bull; {{ atd.data_hora_inicio|time:"H:i" }}–{{ atd.data_hora_fim|time:"H:i" }}
-                </div>
-                {% include 'partials/_alerta_saude.html' with alertas=atd.alertas %}
-                {% if atd.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
-                {% if atd.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
-                <div class="mt-1">{% include 'partials/_status_badge.html' with status=atd.status %}</div>
-            </div>
-            <div class="atn-actions flex gap-2 flex-shrink-0">
-                {% if atd.status == 'AGENDADO' or atd.status == 'CONFIRMADO' %}{% if atd.data_hora_inicio <= limite_desfecho %}
-                <form method="post" action="{% url 'aranha:profissional_marcar_realizado' pk=atd.pk %}" class="m-0 flex flex-col items-end gap-1">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{% url 'aranha:profissional_agenda' %}?data={{ dia|date:'Y-m-d' }}">
-                    {% if atd.termo_pendente %}
-                    {# Override explicito: sem o aceite do termo o servidor recusa sem esta marcacao #}
-                    <label class="inline-flex items-center gap-1 text-xs font-bold text-aviso cursor-pointer">
-                        <input type="checkbox" name="sem_termo" value="1" required class="w-3.5 h-3.5">
-                        Realizado sem termo aceito
-                    </label>
-                    {% endif %}
-                    <button type="submit"
-                            class="bg-sucesso-fundo hover:bg-sucesso-fundo text-sucesso
-                                   text-xs font-bold px-3 py-2 rounded-lg inline-flex items-center gap-1
-                                   cursor-pointer transition-colors border-0"
-                            data-confirm="Marcar como realizado?">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Realizado
-                    </button>
-                </form>
-                {% endif %}{% endif %}
-                {% if atd.tem_vinculo %}
-                {# mesma regra do prontuario (_vinculo): sem vinculo o link so daria 403 #}
-                <a href="{% url 'aranha:prontuario_detalhe' atd.cliente_id %}"
-                   class="bg-fundo hover:bg-borda text-texto text-xs font-bold
-                          px-3 py-2 rounded-lg inline-flex items-center gap-1 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Ficha
-                </a>
-                {% endif %}
-                <a href="{% url 'aranha:profissional_anotar' pk=atd.pk %}"
-                   class="bg-info-fundo hover:bg-info-fundo text-info text-xs font-bold
-                          px-3 py-2 rounded-lg inline-flex items-center gap-1 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                    </svg>
-                    Anotar
-                </a>
-            </div>
-        </div>
-        {% empty %}
-        <div class="text-center py-12 text-texto-suave">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 mx-auto mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="text-sm">Nenhum atendimento para este dia.</p>
-        </div>
+            <p class="item-lista-meta mt-0.5">{{ atd.procedimento.nome }} · {{ atd.data_hora_inicio|time:"H:i" }}–{{ atd.data_hora_fim|time:"H:i" }}</p>
+            {% include 'partials/_alerta_saude.html' with alertas=atd.alertas %}
+            {% if atd.termo_pendente %}{% include 'profissional/_termo_pendente.html' %}{% endif %}
+            {% if atd.ficha_pendente %}{% include 'partials/_ficha_pendente.html' %}{% endif %}
+          </div>
+          <div class="item-lista-acoes">
+            {% if atd.status == 'AGENDADO' or atd.status == 'CONFIRMADO' %}{% if atd.data_hora_inicio <= limite_desfecho %}
+            <form method="post" action="{% url 'aranha:profissional_marcar_realizado' pk=atd.pk %}" class="m-0 flex flex-col items-start gap-2 sm:items-end">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{% url 'aranha:profissional_agenda' %}?data={{ dia|date:'Y-m-d' }}">
+              {% if atd.termo_pendente %}
+              {# Override explicito: sem o aceite do termo o servidor recusa sem esta marcacao #}
+              <label class="opcao text-legenda font-bold text-aviso">
+                <input type="checkbox" name="sem_termo" value="1" required>
+                Realizado sem termo aceito
+              </label>
+              {% endif %}
+              <c-botao tipo="submit" variante="sucesso" icone="check-circulo" data-confirm="Marcar como realizado?">Realizado<span class="sr-only">: marcar o atendimento de {{ atd.cliente.nome }}</span></c-botao>
+            </form>
+            {% endif %}{% endif %}
+            {% if atd.tem_vinculo %}
+            {# mesma regra do prontuario (_vinculo): sem vinculo o link so daria 403 #}
+            <c-botao href="{% url 'aranha:prontuario_detalhe' atd.cliente_id %}" variante="secundario" icone="documento">Ficha<span class="sr-only"> de {{ atd.cliente.nome }}</span></c-botao>
+            {% endif %}
+            <c-botao href="{% url 'aranha:profissional_anotar' pk=atd.pk %}" variante="secundario" icone="editar">Anotar<span class="sr-only"> no atendimento de {{ atd.cliente.nome }}</span></c-botao>
+          </div>
+        </li>
         {% endfor %}
-    </div>
+      </ul>
+      {% else %}
+      <c-vazio titulo="Nenhum atendimento para este dia" icone="agenda"
+               texto="Use as setas para ver outros dias ou a aba Semana para a semana inteira." />
+      {% endif %}
+    </c-card>
+  </c-abas.painel>
 
-    <!-- ============== SEMANA VIEW ============== -->
-    <div id="view-semana" class="hidden">
-        {% load tz %}
-        <div class="week-grid grid grid-cols-7 gap-2">
-            {% for d, atds in agenda_por_dia.items %}
-            <div class="bg-superficie rounded-xl border border-borda p-3 min-h-[120px] shadow-sm">
-                <div class="text-xs font-black uppercase text-texto-suave text-center pb-1 mb-1
-                            border-b-2 border-borda {% if d == hoje %}text-[var(--cor-marca)] border-[var(--cor-marca)]{% endif %}">
-                    {{ d|date:"D" }}
-                </div>
-                <div class="text-sm font-bold text-texto text-center mb-1">{{ d|date:"d/m" }}</div>
-                {% for atd in atds %}
-                <div class="text-xs px-1.5 py-1 mt-1 rounded bg-fundo text-texto truncate">
-                    <span class="font-black">{{ atd.data_hora_inicio|time:"H:i" }}</span>
-                    {{ atd.cliente.nome|truncatechars:12 }}
-                    {% if atd.alertas %}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="inline w-3 h-3 -mt-0.5 text-erro" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                    </svg><span class="sr-only">Alerta de saúde: {% for a in atd.alertas %}{{ a.label }}: {{ a.valor }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>
-                    {% endif %}
-                    {% if atd.termo_pendente %}<span class="font-bold text-aviso">· termo pendente</span>{% endif %}
-                    {% if atd.ficha_pendente %}<span class="font-bold text-aviso">· ficha pendente</span>{% endif %}
-                </div>
-                {% empty %}
-                <div class="text-xs text-texto-suave text-center mt-2">—</div>
-                {% endfor %}
-            </div>
-            {% endfor %}
+  {# ── Semana: 7 colunas no desktop, dias empilhados no celular (sem rolagem lateral) ── #}
+  <c-abas.painel id="agenda-semana">
+    <h2 class="mb-4 font-serif text-lg font-semibold text-texto">Semana de {{ dias_semana.0|date:"d/m" }} a {{ dias_semana|last|date:"d/m" }}</h2>
+    <ol class="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+      {% for d, atds in agenda_por_dia.items %}
+      <li class="cartao min-w-0 p-3{% if d == hoje %} border-marca-forte{% endif %}">
+        {# dia vazio: no celular o aviso fica na mesma linha do dia (lista mais curta) #}
+        <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:block">
+          <h3 class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <a href="?data={{ d|date:'Y-m-d' }}" class="font-bold text-texto no-underline hover:text-marca hover:underline">{{ d|date:"D" }} {{ d|date:"d/m" }}</a>
+            {% if d == hoje %}<c-selo tom="marca">Hoje</c-selo>{% endif %}
+          </h3>
+          {% if not atds %}<p class="text-legenda text-texto-suave lg:mt-2">Sem atendimentos</p>{% endif %}
         </div>
-    </div>
-
-    <!-- Voltar para hoje -->
-    <div class="text-center mt-8">
-        <a href="{% url 'aranha:profissional_agenda' %}?data={{ hoje|date:'Y-m-d' }}"
-           class="text-[var(--cor-marca)] font-bold text-sm hover:opacity-80 transition-opacity inline-flex items-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-            </svg>
-            Voltar para hoje
-        </a>
-    </div>
-
-</div>
-</div>
+        {% if atds %}
+        <ul class="mt-2 flex flex-col gap-1.5">
+          {% for atd in atds %}
+          <li class="rounded-lg bg-fundo px-2.5 py-1.5 text-legenda leading-snug text-texto">
+            <p class="flex min-w-0 items-center gap-1.5">
+              <span class="shrink-0 font-bold tabular-nums">{{ atd.data_hora_inicio|time:"H:i" }}</span>
+              <span class="truncate">{{ atd.cliente.nome }}</span>
+              {% if atd.alertas %}
+              <c-icone nome="alerta" class="w-3.5 h-3.5 shrink-0 text-erro" /><span class="sr-only">Alerta de saúde: {% for a in atd.alertas %}{{ a.label }}: {{ a.valor }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>
+              {% endif %}
+            </p>
+            {% if atd.termo_pendente or atd.ficha_pendente %}
+            <p class="mt-0.5 font-bold text-aviso">{% if atd.termo_pendente %}Termo pendente{% endif %}{% if atd.termo_pendente and atd.ficha_pendente %} · {% endif %}{% if atd.ficha_pendente %}Ficha pendente{% endif %}</p>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </c-abas.painel>
+</c-abas>
 {% endblock %}
 
 {% block js %}
@@ -310,35 +184,5 @@
 </script>
 {% vite_asset 'aranha_estetica/static/src/js/webpush.js' %}
 {% endif %}
-<script nonce="{{ csp_nonce }}">
-(function () {
-    /* ── 1. View tabs (substitui os 2 onclick nas tabs Dia/Semana) ── */
-    var tabDia    = document.getElementById('tab-dia');
-    var tabSemana = document.getElementById('tab-semana');
-    var viewDia    = document.getElementById('view-dia');
-    var viewSemana = document.getElementById('view-semana');
-
-    var ACTIVE   = ['bg-marca-forte','text-sobre-marca','border-[var(--cor-marca-forte)]'];
-    var INACTIVE = ['bg-superficie','text-texto-suave','border-borda','hover:bg-fundo'];
-
-    function showView(view) {
-        var isDia = (view === 'dia');
-        viewDia.style.display    = isDia ? 'block' : 'none';
-        viewSemana.style.display = isDia ? 'none'  : 'block';
-
-        /* troca classes ativas */
-        [tabDia, tabSemana].forEach(function(t) {
-            t.classList.remove.apply(t.classList, ACTIVE.concat(INACTIVE));
-        });
-        var activeTab   = isDia ? tabDia : tabSemana;
-        var inactiveTab = isDia ? tabSemana : tabDia;
-        activeTab.classList.add.apply(activeTab.classList, ACTIVE);
-        inactiveTab.classList.add.apply(inactiveTab.classList, INACTIVE);
-    }
-
-    tabDia.addEventListener('click',    function () { showView('dia'); });
-    tabSemana.addEventListener('click', function () { showView('semana'); });
-    /* Confirmacao dos botoes: handler global [data-confirm] do app.js */
-}());
-</script>
+{# Abas Dia/Semana: painel.js (carregado pela casca). Confirmacao dos botoes: [data-confirm] do app.js #}
 {% endblock %}

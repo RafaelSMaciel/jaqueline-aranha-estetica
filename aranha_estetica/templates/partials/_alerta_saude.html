@@ -6,19 +6,19 @@ lista = utils.saude.alertas_saude(cliente) / services.alertas.alertas_por_client
 tipo='revogado' e a revogacao do consentimento de saude, utils.saude.marcador_revogado).
 {% endcomment %}
 {% if alertas %}
-<div role="note" class="mt-1.5 rounded-lg border border-erro bg-erro-fundo px-2.5 py-1.5 text-xs leading-snug text-erro">
-  <p class="m-0 flex items-center gap-1 font-bold">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+<div role="note" class="mt-2 rounded-lg border border-erro/40 border-l-4 border-l-erro bg-erro-fundo px-3 py-2 text-legenda leading-snug text-erro">
+  <p class="m-0 flex items-center gap-1.5 font-bold">
+    <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/>
     </svg>
     Alerta de saúde
   </p>
-  <ul class="m-0 mt-0.5 list-none p-0">
+  <ul class="m-0 mt-1 list-none p-0">
     {% for a in alertas %}
     {% if a.tipo == 'revogado' %}
-    <li class="break-words font-bold">Consentimento de saúde revogado em {{ a.em|date:"d/m/Y" }} <span class="font-normal opacity-80">(o registro já feito continua guardado; novo atendimento pede ficha nova)</span></li>
+    <li class="break-words font-bold">Consentimento de saúde revogado em {{ a.em|date:"d/m/Y" }} <span class="font-normal">(o registro já feito continua guardado; novo atendimento pede ficha nova)</span></li>
     {% else %}
-    <li class="break-words"><strong>{{ a.label }}:</strong> {{ a.valor }}{% if a.origem == 'anamnese' %} <span class="font-normal opacity-80">(ficha da cliente)</span>{% endif %}</li>
+    <li class="break-words"><strong>{{ a.label }}:</strong> {{ a.valor }}{% if a.origem == 'anamnese' %} <span class="font-normal">(ficha da cliente)</span>{% endif %}</li>
     {% endif %}
     {% endfor %}
   </ul>

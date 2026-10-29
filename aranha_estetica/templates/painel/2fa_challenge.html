@@ -3,55 +3,43 @@
 {% block titulo %}Verificação 2FA — {{ CLINIC_NAME }}{% endblock %}
 
 {% block conteudo %}
-<div class="bg-superficie border border-borda rounded-lg p-8 text-center">
-  <div class="w-16 h-16 rounded-full bg-marca-forte text-sobre-marca flex items-center justify-center mx-auto mb-4">
-    <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-    </svg>
+<div class="cartao p-6 text-center sm:p-8">
+  <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-marca-suave text-marca">
+    <c-icone nome="escudo" class="w-8 h-8" />
   </div>
-  <p class="text-xs uppercase tracking-widest text-texto-suave mb-1">{{ CLINIC_NAME }}</p>
-  <h1 class="text-lg font-extrabold text-texto mb-1">Verificação em duas etapas</h1>
-  <p class="text-[0.88rem] text-texto-suave mb-6">
+  <p class="mb-1 text-xs font-bold uppercase tracking-widest text-texto-suave">{{ CLINIC_NAME }}</p>
+  <h1 class="mb-2 font-serif text-2xl font-semibold text-texto">Verificação em duas etapas</h1>
+  <p class="mb-6 text-texto-suave">
     Abra seu app autenticador e digite o código de 6 dígitos (ou um código de backup).
   </p>
 
   {% if messages %}
+  <div class="mb-4 flex flex-col gap-2 text-left">
     {% for message in messages %}
-      <div class="mb-4 rounded-md px-4 py-3 text-sm font-medium
-        {% if message.tags == 'error' %}bg-erro-fundo text-erro border border-erro
-        {% elif message.tags == 'success' %}bg-sucesso-fundo text-sucesso border border-sucesso
-        {% else %}bg-info-fundo text-info border border-info{% endif %}">
-        {{ message }}
-      </div>
+    <c-nota tom="{% if message.tags == 'error' %}erro{% elif message.tags == 'success' %}sucesso{% elif message.tags == 'warning' %}aviso{% else %}info{% endif %}"
+            papel="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</c-nota>
     {% endfor %}
+  </div>
   {% endif %}
 
-  <form method="post" action="{% url 'aranha:admin_2fa_verify' %}">
+  {# Aceita o TOTP (6 digitos) e o codigo de backup (8 letras/numeros): sem inputmode numerico #}
+  <form method="post" action="{% url 'aranha:admin_2fa_verify' %}" class="flex flex-col gap-4">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
-    <label for="token-2fa" class="sr-only">Código de verificação</label>
-    <input type="text" id="token-2fa" name="token"
-           maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
-           placeholder="000000" required autofocus
-           class="w-full px-4 py-4 mb-4 rounded-xl border-2 border-borda bg-fundo text-texto text-3xl text-center font-bold font-mono tracking-[0.6em] focus:border-marca transition-colors">
-    <button type="submit"
-            class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-marca-forte text-sobre-marca text-[0.95rem] font-extrabold border-none cursor-pointer hover:opacity-90 transition-opacity">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-      </svg>
-      Verificar
-    </button>
+    <c-campo nome="token" id="token-2fa" label="Código de verificação"
+             class="min-h-14 text-3xl text-center font-bold font-mono tracking-[0.4em]"
+             maxlength="8" autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
+             placeholder="000000" required autofocus></c-campo>
+    <c-botao tipo="submit" tamanho="lg" icone="check" class="w-full">Verificar</c-botao>
   </form>
 
-  <p class="text-xs text-texto-suave mt-6">
+  <p class="mt-6 text-sm text-texto-suave">
     Perdeu o acesso ao app? Use um código de backup ou peça a um administrador para redefinir o seu 2FA.
   </p>
 
-  <form method="post" action="{% url 'aranha:usuario_logout' %}" class="mt-4">
+  <form method="post" action="{% url 'aranha:usuario_logout' %}" class="mt-2">
     {% csrf_token %}
-    <button type="submit" class="text-sm text-marca hover:underline bg-transparent border-none cursor-pointer">
-      Sair e entrar com outra conta
-    </button>
+    <c-botao tipo="submit" variante="fantasma">Sair e entrar com outra conta</c-botao>
   </form>
 </div>
 {% endblock %}

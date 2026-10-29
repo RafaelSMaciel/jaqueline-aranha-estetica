@@ -1,326 +1,260 @@
 {% extends base_template %}
+{% comment %}
+Prontuario da cliente. base_template: painel/base_v2.html (equipe) ou painel/prontuario_portal_base.html
+(profissional, casca do portal). Modal de anotacao: componente Alpine "anotacaoModal" (app.js) —
+x-ref dialogo/texto, data-csrf na raiz e data-atendimento-id no botao que abre.
+{% endcomment %}
 
 {% block titulo %}Prontuário — {{ cliente.nome }} — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}{% if request.user.is_staff %}<a href="{% url 'aranha:prontuario_consentimento' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Prontuários</a>{% else %}{{ block.super }}{% endif %}{% endblock %}
 {% block page_title %}Prontuário — {{ cliente.nome }}{% endblock %}
 {% block page_subtitle %}Ficha de anamnese, histórico e termos de consentimento{% endblock %}
 
 {% block admin_content %}
-<div x-data="anotacaoModal" data-csrf="{{ csrf_token }}">
+<div x-data="anotacaoModal" data-csrf="{{ csrf_token }}" class="flex flex-col gap-6">
 
-{# ── Alerta de saúde (prontuário + fichas respondidas pela cliente) ── #}
+{# ── Alerta de saude (prontuario + fichas respondidas pela cliente) ── #}
 {% if alertas %}
-<div class="flex items-start gap-3 rounded-2xl border-2 border-erro bg-superficie p-4 mb-4" role="alert">
-  <svg class="w-6 h-6 text-erro shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-  <div class="flex-1 min-w-0">
-    <p class="font-bold text-erro text-[0.9rem] mb-1.5">Alerta de saúde — confira antes do procedimento</p>
-    <ul class="space-y-1 text-[0.85rem] text-texto">
-      {% for a in alertas %}
-      <li class="break-words">
-        <strong>{{ a.label }}:</strong> {{ a.valor }}
-        <span class="text-[0.72rem] text-texto-suave">({% if a.origem == 'anamnese' %}declarado pela cliente na ficha{% else %}registrado no prontuário{% endif %})</span>
+<c-nota tom="erro" papel="alert" titulo="Alerta de saúde — confira antes do procedimento">
+  <ul class="space-y-1">
+    {% for a in alertas %}
+    <li class="break-words">
+      <strong>{{ a.label }}:</strong> {{ a.valor }}
+      <span class="text-legenda text-texto-suave">({% if a.origem == 'anamnese' %}declarado pela cliente na ficha{% else %}registrado no prontuário{% endif %})</span>
+    </li>
+    {% endfor %}
+  </ul>
+</c-nota>
+{% endif %}
+
+{# ── Dados da cliente ── #}
+<c-card>
+  <dl class="dados">
+    <div><dt>Telefone</dt><dd>{{ cliente.telefone|default:"Não informado" }}</dd></div>
+    <div><dt>E-mail</dt><dd>{{ cliente.email|default:"Não informado" }}</dd></div>
+    <div><dt>Data de nascimento</dt><dd>{{ cliente.data_nascimento|date:"d/m/Y"|default:"Não informado" }}</dd></div>
+  </dl>
+</c-card>
+
+<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
+<div class="flex flex-col gap-6 min-w-0">
+
+  {# ── Ficha de anamnese (registro da equipe + questionario do prontuario) ── #}
+  <c-card titulo="Ficha de anamnese" icone="prontuario">
+    {% if not pode_editar %}
+    <c-nota tom="info" icone="cadeado" class="mb-5">Somente leitura: a edição fica disponível para quem tem atendimento aprovado ou realizado recentemente com a cliente.</c-nota>
+    {% endif %}
+    <form method="post" action="{% url 'aranha:prontuario_salvar' cliente_id=cliente.pk %}">
+      {% csrf_token %}
+      {# Trava otimista: se outra pessoa salvar antes, o POST e recusado sem sobrescrever #}
+      <input type="hidden" name="versao" value="{{ versao_prontuario }}">
+      <fieldset class="conjunto" {% if not pode_editar %}disabled{% endif %}>
+        <legend class="sr-only">Prontuário de {{ cliente.nome }}</legend>
+        <div class="grade-campos grade-campos-2">
+          <c-campo nome="alergias" label="Alergias" tipo="textarea" rows="3"
+                   valor="{{ prontuario.alergias|default:'' }}" placeholder="Descreva alergias conhecidas..."></c-campo>
+          <c-campo nome="contraindicacoes" label="Contraindicações" tipo="textarea" rows="3"
+                   valor="{{ prontuario.contraindicacoes|default:'' }}" placeholder="Contraindicações a procedimentos..."></c-campo>
+          <c-campo nome="historico_saude" label="Histórico de saúde" tipo="textarea" rows="3"
+                   valor="{{ prontuario.historico_saude|default:'' }}" placeholder="Condições de saúde relevantes..."></c-campo>
+          <c-campo nome="medicamentos_uso" label="Medicamentos em uso" tipo="textarea" rows="3"
+                   valor="{{ prontuario.medicamentos_uso|default:'' }}" placeholder="Medicamentos atuais..."></c-campo>
+        </div>
+        <c-campo nome="observacoes_gerais" label="Observações gerais" tipo="textarea" rows="2" classe_grupo="mt-4"
+                 valor="{{ prontuario.observacoes_gerais|default:'' }}" placeholder="Outras observações..."></c-campo>
+
+        {% if perguntas %}
+        {# Perguntas do formulario PRONTUARIO (Painel > Anamneses), validadas como as fichas #}
+        <div class="mt-6 pt-6 border-t border-borda">
+        <fieldset class="conjunto">
+          <legend class="secao-titulo">Questionário de anamnese</legend>
+          <div class="flex flex-col gap-4">
+            {% for pergunta in perguntas %}
+            {% if pergunta.tipo == 'bool' %}
+            <fieldset class="conjunto">
+              <legend class="rotulo">{{ pergunta.label }}</legend>
+              <div class="flex flex-wrap gap-x-6 gap-y-2">
+                <label class="opcao"><input type="radio" name="{{ pergunta.nome }}" value="sim" id="p{{ pergunta.key }}_sim" {% if pergunta.valor is True %}checked{% endif %}> Sim</label>
+                <label class="opcao"><input type="radio" name="{{ pergunta.nome }}" value="nao" id="p{{ pergunta.key }}_nao" {% if pergunta.valor is False %}checked{% endif %}> Não</label>
+              </div>
+            </fieldset>
+            {% elif pergunta.tipo == 'checkboxes' %}
+            <fieldset class="conjunto">
+              <legend class="rotulo">{{ pergunta.label }}</legend>
+              <input type="hidden" name="{{ pergunta.nome }}__enviado" value="1">
+              <div class="flex flex-wrap gap-x-6 gap-y-2">
+                {% for opt in pergunta.opcoes %}
+                <label class="opcao"><input type="checkbox" name="{{ pergunta.nome }}" value="{{ opt }}" {% if opt|stringformat:"s" in pergunta.valor_lista %}checked{% endif %}> {{ opt }}</label>
+                {% endfor %}
+              </div>
+            </fieldset>
+            {% elif pergunta.tipo == 'select' or pergunta.tipo == 'scale' %}
+            <div class="grupo-campo">
+              <label for="p_{{ pergunta.key }}" class="rotulo">{{ pergunta.label }}</label>
+              <select name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}" class="campo">
+                <option value="">—</option>
+                {% for opt in pergunta.opcoes %}
+                <option value="{{ opt }}" {% if opt|stringformat:"s" == pergunta.valor_texto %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% elif pergunta.tipo == 'text' or pergunta.tipo == 'number' or pergunta.tipo == 'date' or pergunta.tipo == 'email' %}
+            <div class="grupo-campo">
+              <label for="p_{{ pergunta.key }}" class="rotulo">{{ pergunta.label }}</label>
+              <input type="{% if pergunta.tipo == 'number' %}number{% elif pergunta.tipo == 'date' %}date{% elif pergunta.tipo == 'email' %}email{% else %}text{% endif %}"
+                     name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}" value="{{ pergunta.valor_texto }}"
+                     {% if pergunta.tipo == 'number' %}step="any"{% endif %} class="campo">
+            </div>
+            {% else %}
+            <div class="grupo-campo">
+              <label for="p_{{ pergunta.key }}" class="rotulo">{{ pergunta.label }}</label>
+              <textarea name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}" rows="2" placeholder="Resposta..." class="campo">{{ pergunta.valor_texto }}</textarea>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+        </fieldset>
+        </div>
+        {% endif %}
+      </fieldset>
+
+      {% if pode_editar %}
+      <c-botao tipo="submit" icone="check" class="mt-6">Salvar prontuário</c-botao>
+      {% endif %}
+    </form>
+
+    {# Historico clinico: cada edicao guarda o valor anterior (ProntuarioVersao) #}
+    {% if historico_prontuario %}
+    <details class="mt-6 rounded-xl border border-borda bg-fundo">
+      <summary class="cursor-pointer px-4 py-3 text-sm font-bold text-texto">Histórico de alterações ({{ historico_prontuario|length }})</summary>
+      <div class="px-4 pb-4">
+        <p class="text-legenda text-texto-suave">Registro permanente: cada edição guarda o que estava escrito antes. Valor anterior riscado.</p>
+        <ol class="mt-1">
+          {% for h in historico_prontuario %}
+          <li class="mt-3 border-t border-borda pt-3 text-sm">
+            <p class="mb-1 text-legenda text-texto-suave">
+              <strong class="text-texto">{{ h.versao.criado_em|date:"d/m/Y H:i" }}</strong> · {% if h.autor %}{{ h.autor }}{% else %}autor removido{% endif %}
+            </p>
+            {% for m in h.mudancas %}
+            <div class="mb-1 min-w-0 break-words">
+              <span class="block text-legenda font-bold text-texto-suave">{{ m.campo }}</span>
+              <del class="text-texto-suave">{{ m.antes|default:"(vazio)"|linebreaksbr }}</del> &rarr; <span class="text-texto">{{ m.depois|default:"(vazio)"|linebreaksbr }}</span>
+            </div>
+            {% empty %}
+            <p class="text-texto-suave">Sem diferença nos campos do prontuário.</p>
+            {% endfor %}
+          </li>
+          {% endfor %}
+        </ol>
+      </div>
+    </details>
+    {% endif %}
+  </c-card>
+
+  {# ── Historico de atendimentos (com as notas de cada sessao) ── #}
+  <c-card titulo="Histórico de atendimentos" icone="retornos" espaco="nenhum"
+          descricao="{% if atendimentos.has_other_pages %}{{ atendimentos.paginator.count }} atendimentos · mais recentes primeiro{% endif %}">
+    {% if atendimentos.object_list %}
+    <ul class="lista-itens">
+      {% for atend in atendimentos %}
+      <li class="item-lista items-start">
+        <div class="item-lista-corpo">
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="item-lista-titulo">{{ atend.procedimento.nome }}</p>
+            {% include 'partials/_status_badge.html' with status=atend.status %}
+          </div>
+          <p class="item-lista-meta mt-0.5">{{ atend.data_hora_inicio|date:"d/m/Y H:i" }} · {{ atend.profissional.nome }}</p>
+          {% for anot in atend.anotacoes.all %}
+          <div class="mt-2 flex items-start gap-2 rounded-lg bg-fundo px-3 py-2 text-sm text-texto">
+            <c-icone nome="editar" class="mt-0.5 w-4 h-4 shrink-0 text-marca" />
+            <p class="min-w-0 break-words">{{ anot.texto|linebreaksbr }} <span class="text-texto-suave">— {% if anot.autor_nome %}{{ anot.autor_nome }}{% elif anot.autor %}{{ anot.autor.nome|default:anot.autor.email }}{% else %}autor removido{% endif %}, {{ anot.criado_em|date:"d/m/Y H:i" }}</span></p>
+          </div>
+          {% endfor %}
+        </div>
+        {% if atend.pode_anotar %}
+        <div class="item-lista-acoes">
+          <c-botao variante="secundario" tamanho="sm" icone="mais" x-on:click="abrir" data-atendimento-id="{{ atend.pk }}">Adicionar nota</c-botao>
+        </div>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>
-  </div>
-</div>
-{% endif %}
-
-{# ── Info do Cliente ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-    <div>
-      <span class="block text-[0.72rem] text-texto-suave">Telefone</span>
-      <strong class="text-texto">{{ cliente.telefone|default:"Não informado" }}</strong>
-    </div>
-    <div>
-      <span class="block text-[0.72rem] text-texto-suave">E-mail</span>
-      <strong class="text-texto">{{ cliente.email|default:"Não informado" }}</strong>
-    </div>
-    <div>
-      <span class="block text-[0.72rem] text-texto-suave">Data de Nascimento</span>
-      <strong class="text-texto">{{ cliente.data_nascimento|date:"d/m/Y"|default:"Não informado" }}</strong>
-    </div>
-  </div>
-</div>
-
-{# ── Formulário de Anamnese ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="font-sans flex items-center gap-2 font-bold text-texto mb-4">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"/><line x1="12" y1="8" x2="12" y2="14"/><line x1="9" y1="11" x2="15" y2="11"/>
-    </svg>
-    Ficha de Anamnese
-  </h2>
-  {% if not pode_editar %}
-  <p class="text-[0.8rem] text-texto-suave mb-3">Somente leitura: a edição fica disponível para quem tem atendimento aprovado ou realizado recentemente com a cliente.</p>
-  {% endif %}
-  <form method="post" action="{% url 'aranha:prontuario_salvar' cliente_id=cliente.pk %}">
-    {% csrf_token %}
-    {# Trava otimista: se outra pessoa salvar antes, o POST e recusado sem sobrescrever #}
-    <input type="hidden" name="versao" value="{{ versao_prontuario }}">
-    <fieldset class="border-0 p-0 m-0 min-w-0" {% if not pode_editar %}disabled{% endif %}>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-      <div>
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Alergias</label>
-        <textarea name="alergias" rows="3" placeholder="Descreva alergias conhecidas..."
-                  class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ prontuario.alergias|default:"" }}</textarea>
-      </div>
-      <div>
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Contraindicações</label>
-        <textarea name="contraindicacoes" rows="3" placeholder="Contraindicações a procedimentos..."
-                  class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ prontuario.contraindicacoes|default:"" }}</textarea>
-      </div>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-      <div>
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Histórico de Saúde</label>
-        <textarea name="historico_saude" rows="3" placeholder="Condições médicas relevantes..."
-                  class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ prontuario.historico_saude|default:"" }}</textarea>
-      </div>
-      <div>
-        <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Medicamentos em Uso</label>
-        <textarea name="medicamentos_uso" rows="3" placeholder="Medicamentos atuais..."
-                  class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ prontuario.medicamentos_uso|default:"" }}</textarea>
-      </div>
-    </div>
-    <div class="mb-3">
-      <label class="block text-[0.75rem] font-bold text-texto-suave mb-1">Observações Gerais</label>
-      <textarea name="observacoes_gerais" rows="2" placeholder="Outras observações..."
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ prontuario.observacoes_gerais|default:"" }}</textarea>
-    </div>
-
-    {% if perguntas %}
-    <h2 class="font-sans flex items-center gap-2 font-bold text-texto mt-5 mb-3">
-      <svg class="w-4 h-4 text-info" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
-      </svg>
-      Questionário de Anamnese
-    </h2>
-    {# Perguntas do formulario PRONTUARIO (Painel > Anamneses), validadas como as fichas #}
-    {% for pergunta in perguntas %}
-    <div class="mb-3">
-      <label class="block text-[0.75rem] font-bold text-texto-suave mb-1" {% if pergunta.tipo != 'bool' and pergunta.tipo != 'checkboxes' %}for="p_{{ pergunta.key }}"{% endif %}>{{ pergunta.label }}</label>
-      {% if pergunta.tipo == 'bool' %}
-        <div class="flex gap-4">
-          <label class="inline-flex items-center gap-1.5 text-[0.85rem] text-texto cursor-pointer">
-            <input type="radio" name="{{ pergunta.nome }}" value="sim" id="p{{ pergunta.key }}_sim"
-                   {% if pergunta.valor is True %}checked{% endif %} class="border-borda"> Sim
-          </label>
-          <label class="inline-flex items-center gap-1.5 text-[0.85rem] text-texto cursor-pointer">
-            <input type="radio" name="{{ pergunta.nome }}" value="nao" id="p{{ pergunta.key }}_nao"
-                   {% if pergunta.valor is False %}checked{% endif %} class="border-borda"> Não
-          </label>
-        </div>
-      {% elif pergunta.tipo == 'select' or pergunta.tipo == 'scale' %}
-        <select name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}"
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-          <option value="">—</option>
-          {% for opt in pergunta.opcoes %}
-          <option value="{{ opt }}" {% if opt|stringformat:"s" == pergunta.valor_texto %}selected{% endif %}>{{ opt }}</option>
-          {% endfor %}
-        </select>
-      {% elif pergunta.tipo == 'checkboxes' %}
-        <input type="hidden" name="{{ pergunta.nome }}__enviado" value="1">
-        <div class="flex gap-4 flex-wrap">
-          {% for opt in pergunta.opcoes %}
-          <label class="inline-flex items-center gap-1.5 text-[0.85rem] text-texto cursor-pointer">
-            <input type="checkbox" name="{{ pergunta.nome }}" value="{{ opt }}" class="border-borda"
-                   {% if opt|stringformat:"s" in pergunta.valor_lista %}checked{% endif %}> {{ opt }}
-          </label>
-          {% endfor %}
-        </div>
-      {% elif pergunta.tipo == 'text' or pergunta.tipo == 'number' or pergunta.tipo == 'date' or pergunta.tipo == 'email' %}
-        <input type="{% if pergunta.tipo == 'number' %}number{% elif pergunta.tipo == 'date' %}date{% elif pergunta.tipo == 'email' %}email{% else %}text{% endif %}"
-               name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}" value="{{ pergunta.valor_texto }}"
-               {% if pergunta.tipo == 'number' %}step="any"{% endif %}
-               class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      {% else %}
-        <textarea name="{{ pergunta.nome }}" id="p_{{ pergunta.key }}" rows="2" placeholder="Resposta..."
-                  class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y">{{ pergunta.valor_texto }}</textarea>
-      {% endif %}
-    </div>
-    {% endfor %}
+    {% if atendimentos.has_other_pages %}
+    <div class="border-t border-borda px-5 pb-5">{% include 'partials/_paginacao.html' with page=atendimentos %}</div>
     {% endif %}
-    </fieldset>
-
-    {% if pode_editar %}
-    <button type="submit"
-            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-      </svg>
-      Salvar Prontuário
-    </button>
+    {% else %}
+    <c-vazio titulo="Nenhum atendimento registrado" icone="agenda" />
     {% endif %}
-  </form>
+  </c-card>
 
-  {# Histórico clínico: cada edição guarda o valor anterior (ProntuarioVersao) #}
-  {% if historico_prontuario %}
-  <details class="mt-4 rounded-xl border border-borda bg-fundo p-3">
-    <summary class="cursor-pointer text-[0.8rem] font-bold text-texto">Histórico de alterações ({{ historico_prontuario|length }})</summary>
-    <p class="text-[0.72rem] text-texto-suave mt-2 mb-0">Registro permanente: cada edição guarda o que estava escrito antes. Valor anterior riscado.</p>
-    <ol class="list-none p-0 m-0">
-      {% for h in historico_prontuario %}
-      <li class="border-t border-borda mt-2 pt-2 text-[0.8rem]">
-        <div class="text-[0.72rem] text-texto-suave mb-1">
-          <strong class="text-texto">{{ h.versao.criado_em|date:"d/m/Y H:i" }}</strong> &middot; {% if h.autor %}{{ h.autor }}{% else %}autor removido{% endif %}
-        </div>
-        {% for m in h.mudancas %}
-        <div class="min-w-0 break-words mb-1">
-          <span class="block text-[0.72rem] font-bold text-texto-suave">{{ m.campo }}</span>
-          <del class="text-texto-suave">{{ m.antes|default:"(vazio)"|linebreaksbr }}</del> &rarr; <span class="text-texto">{{ m.depois|default:"(vazio)"|linebreaksbr }}</span>
-        </div>
-        {% empty %}
-        <p class="m-0 text-texto-suave">Sem diferença nos campos do prontuário.</p>
-        {% endfor %}
+</div>
+<div class="flex flex-col gap-6 min-w-0">
+
+  {# ── Fichas de avaliacao respondidas pela cliente (agendamento / link) ── #}
+  <c-card titulo="Fichas de avaliação respondidas" icone="anamneses" espaco="nenhum"
+          descricao="Declarações da própria cliente. Para virar registro do prontuário, copie o que for relevante na ficha de anamnese.">
+    {% if fichas %}
+    <ul class="lista-itens">
+      {% for ficha in fichas %}
+      <li class="px-5 py-4">
+        <p class="item-lista-meta mb-3"><strong class="text-texto">{{ ficha.formulario }}</strong> · {{ ficha.data|date:"d/m/Y H:i" }}{% if ficha.procedimento %} · {{ ficha.procedimento }}{% endif %}</p>
+        <dl class="dados">
+          {% for label, valor in ficha.itens %}
+          <div class="min-w-0"><dt>{{ label }}</dt><dd>{{ valor|linebreaksbr }}</dd></div>
+          {% endfor %}
+        </dl>
       </li>
       {% endfor %}
-    </ol>
-  </details>
-  {% endif %}
-</div>
-
-{# ── Fichas de avaliação respondidas pela cliente (booking / link) ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="font-sans flex items-center gap-2 font-bold text-texto mb-1">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>
-    </svg>
-    Fichas de avaliação respondidas
-  </h2>
-  <p class="text-[0.75rem] text-texto-suave mb-3">Declarações da própria cliente. Para virar registro do prontuário, copie o que for relevante nos campos acima.</p>
-  {% for ficha in fichas %}
-  <div class="py-2.5 {% if not forloop.last %}border-b border-borda{% endif %}">
-    <div class="text-[0.78rem] text-texto-suave mb-1.5">
-      <strong class="text-texto">{{ ficha.formulario }}</strong> &middot; {{ ficha.data|date:"d/m/Y H:i" }}{% if ficha.procedimento %} &middot; {{ ficha.procedimento }}{% endif %}
-    </div>
-    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[0.82rem]">
-      {% for label, valor in ficha.itens %}
-      <div class="min-w-0">
-        <dt class="text-[0.72rem] font-bold text-texto-suave">{{ label }}</dt>
-        <dd class="text-texto break-words m-0">{{ valor|linebreaksbr }}</dd>
-      </div>
-      {% endfor %}
-    </dl>
-  </div>
-  {% empty %}
-  <p class="text-texto-suave text-center py-3 text-[0.85rem]">Nenhuma ficha respondida pela cliente.</p>
-  {% endfor %}
-</div>
-
-{# ── Histórico de Atendimentos ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="font-sans flex items-center gap-2 font-bold text-texto mb-3">
-    <svg class="w-4 h-4 text-sucesso" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><polyline points="12 7 12 12 15 15"/>
-    </svg>
-    Histórico de Atendimentos
-  </h2>
-  {% if atendimentos.object_list %}
-  {% if atendimentos.has_other_pages %}<p class="text-[0.75rem] text-texto-suave mb-2">{{ atendimentos.paginator.count }} atendimentos &middot; mais recentes primeiro</p>{% endif %}
-  {% for atend in atendimentos %}
-  <div class="flex items-start gap-3 py-2.5 {% if not forloop.last %}border-b border-borda{% endif %}">
-    <div class="w-9 h-9 rounded-xl bg-sucesso-fundo text-sucesso flex items-center justify-center shrink-0">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/>
-      </svg>
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="font-bold text-[0.88rem] text-texto">{{ atend.procedimento.nome }}</div>
-      <div class="flex items-center gap-1.5 flex-wrap text-[0.78rem] text-texto-suave">
-        {{ atend.data_hora_inicio|date:"d/m/Y H:i" }} &middot; {{ atend.profissional.nome }} &middot;
-        <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold uppercase tracking-wide
-          {% if atend.status == 'REALIZADO' %}bg-sucesso-fundo text-sucesso{% elif atend.status == 'CANCELADO' %}bg-erro-fundo text-erro{% elif atend.status == 'CONFIRMADO' %}bg-info-fundo text-info{% else %}bg-aviso-fundo text-aviso{% endif %}">
-          {{ atend.get_status_display }}
-        </span>
-      </div>
-      {% for anot in atend.anotacoes.all %}
-      <div class="flex items-start gap-1.5 mt-1 p-2 rounded-lg bg-fundo text-[0.78rem] text-texto">
-        <svg class="w-3.5 h-3.5 text-marca shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        <span class="min-w-0 break-words">{{ anot.texto|linebreaksbr }} <span class="text-texto-suave">— {% if anot.autor_nome %}{{ anot.autor_nome }}{% elif anot.autor %}{{ anot.autor.nome|default:anot.autor.email }}{% else %}autor removido{% endif %}, {{ anot.criado_em|date:"d/m/Y H:i" }}</span></span>
-      </div>
-      {% endfor %}
-    </div>
-    {% if atend.pode_anotar %}
-    <button type="button" x-on:click="abrir" data-atendimento-id="{{ atend.pk }}"
-            class="inline-flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-full border border-borda text-texto text-[0.72rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">
-      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Nota
-    </button>
+    </ul>
+    {% else %}
+    <c-vazio titulo="Nenhuma ficha respondida" texto="A cliente ainda não respondeu nenhuma ficha de avaliação." icone="anamneses" />
     {% endif %}
-  </div>
-  {% endfor %}
-  {% include 'partials/_paginacao.html' with page=atendimentos %}
-  {% else %}
-  <p class="text-texto-suave text-center py-3 text-[0.85rem]">Nenhum atendimento registrado.</p>
+  </c-card>
+
+  {# ── Termos assinados ── #}
+  {% if aceites or assinaturas %}
+  <c-card titulo="Termos assinados" icone="escudo" espaco="nenhum">
+    <ul class="lista-itens">
+      {% for a in aceites %}
+      <li class="item-lista">
+        <div class="item-lista-corpo">
+          <p class="item-lista-titulo">{{ a.versao_termo.titulo }}</p>
+          <p class="item-lista-meta">LGPD v{{ a.versao_termo.versao }} · {{ a.criado_em|date:"d/m/Y H:i" }}</p>
+        </div>
+        <c-selo tom="sucesso" icone="check">Aceito</c-selo>
+      </li>
+      {% endfor %}
+      {% for a in assinaturas %}
+      <li class="item-lista">
+        <div class="item-lista-corpo">
+          <p class="item-lista-titulo">{{ a.versao_termo.titulo }}</p>
+          <p class="item-lista-meta">Procedimento v{{ a.versao_termo.versao }} · {{ a.criado_em|date:"d/m/Y H:i" }}</p>
+        </div>
+        <c-selo tom="sucesso" icone="check">Assinado</c-selo>
+      </li>
+      {% endfor %}
+    </ul>
+  </c-card>
   {% endif %}
+
+</div>
 </div>
 
-{# ── Termos Assinados ── #}
-{% if aceites or assinaturas %}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="font-sans flex items-center gap-2 font-bold text-texto mb-3">
-    <svg class="w-4 h-4 text-info" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/>
-    </svg>
-    Termos Assinados
-  </h2>
-  {% for a in aceites %}
-  <div class="flex items-center gap-3 py-2.5 {% if not forloop.last %}border-b border-borda{% endif %}">
-    <div class="w-9 h-9 rounded-xl bg-info-fundo text-info flex items-center justify-center shrink-0">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+{# ── Modal de anotacao (um so, compartilhado; salva por fetch) ── #}
+<c-dialogo id="dlg-anotacao" titulo="Adicionar anotação" tamanho="sm"
+           x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar">
+  <div class="dialogo-corpo">
+    <div class="grupo-campo">
+      <label for="anotacaoTexto" class="rotulo">Anotação da sessão</label>
+      <textarea id="anotacaoTexto" x-ref="texto" rows="4" class="campo" placeholder="Observações clínicas desta sessão..."></textarea>
     </div>
-    <div class="flex-1 min-w-0">
-      <div class="font-bold text-[0.88rem] text-texto">{{ a.versao_termo.titulo }}</div>
-      <div class="text-[0.78rem] text-texto-suave">LGPD v{{ a.versao_termo.versao }} &middot; {{ a.criado_em|date:"d/m/Y H:i" }}</div>
-    </div>
-    <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Aceito</span>
+    <p x-show="erro" x-cloak x-text="erro" class="erro-campo" role="alert"></p>
   </div>
-  {% endfor %}
-  {% for a in assinaturas %}
-  <div class="flex items-center gap-3 py-2.5 {% if not forloop.last %}border-b border-borda{% endif %}">
-    <div class="w-9 h-9 rounded-xl bg-aviso-fundo text-aviso flex items-center justify-center shrink-0">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="font-bold text-[0.88rem] text-texto">{{ a.versao_termo.titulo }}</div>
-      <div class="text-[0.78rem] text-texto-suave">Procedimento v{{ a.versao_termo.versao }} &middot; {{ a.criado_em|date:"d/m/Y H:i" }}</div>
-    </div>
-    <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Assinado</span>
+  <div class="dialogo-rodape">
+    <c-botao variante="secundario" x-on:click="fechar">Cancelar</c-botao>
+    <c-botao icone="check" x-on:click="salvar">Salvar</c-botao>
   </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-{# ── Voltar ── #}
-<a href="{% if request.user.is_staff %}{% url 'aranha:prontuario_consentimento' %}{% else %}{% url 'aranha:profissional_agenda' %}{% endif %}"
-   class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-borda text-texto text-[0.85rem] font-bold no-underline hover:bg-fundo transition-colors">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-  Voltar
-</a>
-
-{# ── Modal de anotação (shared, fetch) ── #}
-<dialog x-ref="dialogo" x-on:click="cliqueFora" x-on:close="aoFechar" aria-label="Adicionar anotação" class="dialogo">
-  <div
-       class="bg-superficie text-texto rounded-2xl w-full max-w-md shadow-xl">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-borda">
-      <h2 class="font-bold text-[0.95rem]">Adicionar Anotação</h2>
-      <button type="button" x-on:click="fechar" aria-label="Fechar"
-              class="text-texto-suave hover:text-texto text-2xl leading-none border-none bg-transparent cursor-pointer">&times;</button>
-    </div>
-    <div class="p-5">
-      <textarea x-ref="texto" rows="4" placeholder="Observações clínicas desta sessão..."
-                class="w-full px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition resize-y"></textarea>
-      <p x-show="erro" x-cloak x-text="erro" class="text-[0.8rem] text-erro mt-2"></p>
-    </div>
-    <div class="flex justify-end gap-2 px-5 py-4 border-t border-borda">
-      <button type="button" x-on:click="fechar"
-              class="px-4 py-2 rounded-full border border-borda text-texto text-[0.85rem] font-bold bg-superficie cursor-pointer hover:bg-fundo transition-colors">Cancelar</button>
-      <button type="button" x-on:click="salvar"
-              class="px-5 py-2 rounded-full bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Salvar</button>
-    </div>
-  </div>
-</dialog>
+</c-dialogo>
 
 </div>
 {% endblock %}

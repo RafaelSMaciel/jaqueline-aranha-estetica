@@ -2,14 +2,9 @@
 {% load l10n %}
 
 {% block titulo %}Novo agendamento — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{% url 'aranha:painel_agendamentos' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Agendamentos</a>{% endblock %}
 {% block page_title %}Novo agendamento{% endblock %}
 {% block page_subtitle %}Agendamento pela recepção (telefone, WhatsApp ou balcão){% endblock %}
-{% block page_actions %}
-<a href="{% url 'aranha:painel_agendamentos' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave no-underline hover:text-texto hover:border-texto-suave transition-colors">
-  ← Agendamentos
-</a>
-{% endblock %}
 
 {% block admin_content %}
 {% comment %}
@@ -17,157 +12,132 @@ Um unico form POST (sem JS): o 1o botao de envio e "Buscar", entao Enter na
 busca busca. "Ver horarios" re-renderiza com os horarios livres do
 SlotService; "Agendar" valida tudo de novo no servidor.
 {% endcomment %}
-<form method="post" action="{% url 'aranha:admin_agendamento_novo' %}" class="max-w-3xl">
+<form method="post" action="{% url 'aranha:admin_agendamento_novo' %}" class="flex max-w-4xl flex-col gap-6">
   {% csrf_token %}
 
   {# ── 1. Cliente ── #}
-  <section class="bg-superficie rounded-2xl shadow-sm p-5 mb-3" aria-labelledby="secCliente">
-    <h2 id="secCliente" class="text-[0.9rem] font-bold text-texto mb-3">1. Cliente</h2>
-    <label for="buscaCliente" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Buscar por nome, telefone, e-mail ou CPF</label>
-    <div class="flex gap-2 flex-wrap mb-3">
-      <input id="buscaCliente" type="search" name="q" value="{{ q }}" maxlength="100" autocomplete="off"
-             class="flex-1 min-w-[12rem] px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
-      <button type="submit" name="acao" value="buscar" formnovalidate
-              class="px-4 py-2 rounded-xl bg-[#1a1a2e] text-white text-[0.82rem] font-bold border-none cursor-pointer hover:opacity-90">Buscar</button>
-    </div>
-
-    <fieldset class="border-0 p-0 m-0">
-      <legend class="sr-only">Escolha a cliente</legend>
-      {% if cliente %}
-      <label class="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl border-2 border-marca-forte bg-fundo cursor-pointer text-[0.85rem] text-texto">
-        <input type="radio" name="cliente_id" value="{{ cliente.pk }}" checked>
-        <span><strong>{{ cliente.nome }}</strong>{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}{% if cliente.email %} · {{ cliente.email }}{% endif %}</span>
-      </label>
-      {% endif %}
-      {% for c in resultados %}{% if not cliente or c.pk != cliente.pk %}
-      <label class="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl border border-borda cursor-pointer text-[0.85rem] text-texto hover:bg-fundo">
-        <input type="radio" name="cliente_id" value="{{ c.pk }}">
-        <span><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}{% if c.email %} · {{ c.email }}{% endif %}</span>
-      </label>
-      {% endif %}{% empty %}
-      {% if buscou and q and not inativas %}<p class="text-[0.8rem] text-texto-suave mb-2">Nenhuma cliente encontrada para "{{ q }}". Cadastre abaixo.</p>{% endif %}
-      {% endfor %}
-      {# Cadastro inativo: nao agenda nem recadastra (telefone unico) — reativa na ficha #}
-      {% for c in inativas %}{% if not cliente_inativa or c.pk != cliente_inativa.pk %}
-      <p class="flex items-center gap-2 flex-wrap px-3 py-2 mb-1 rounded-xl border border-dashed border-borda text-[0.85rem] text-texto-suave">
-        <span><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}</span>
-        <span class="px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase bg-fundo text-texto-suave">Inativa</span>
-        <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" class="font-bold text-info hover:underline">Reativar na ficha</a>
-      </p>
-      {% endif %}{% endfor %}
-      {% if cliente_inativa %}
-      <p class="flex items-center gap-2 flex-wrap px-3 py-2 mb-1 rounded-xl border border-aviso bg-aviso-fundo text-[0.85rem] text-aviso" role="note">
-        <span><strong>{{ cliente_inativa.nome }}</strong> está com o cadastro inativo.</span>
-        <a href="{% url 'aranha:admin_cliente_detalhe' cliente_inativa.pk %}" class="font-bold underline">Abrir a ficha para reativar</a>
-      </p>
-      {% endif %}
-      <label class="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl border border-dashed border-borda cursor-pointer text-[0.85rem] text-texto hover:bg-fundo">
-        <input type="radio" name="cliente_id" value="" {% if not cliente %}checked{% endif %}>
-        <span><strong>Cliente nova</strong> — preencha abaixo</span>
-      </label>
-    </fieldset>
-
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-      <div>
-        <label for="novoNome" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Nome completo</label>
-        <input id="novoNome" type="text" name="novo_nome" value="{{ novo.nome }}" maxlength="150" autocomplete="off"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
+  <c-card titulo="1. Cliente" icone="clientes" id="secCliente">
+    <div class="flex flex-col gap-5">
+      <div class="grupo-campo">
+        <label for="buscaCliente" class="rotulo">Buscar por nome, telefone, e-mail ou CPF</label>
+        <div class="flex flex-wrap gap-2">
+          <input id="buscaCliente" type="search" name="q" value="{{ q }}" maxlength="100" autocomplete="off"
+                 class="campo min-w-0 flex-[1_1_12rem]">
+          <c-botao tipo="submit" variante="secundario" icone="busca" name="acao" value="buscar" formnovalidate>Buscar</c-botao>
+        </div>
       </div>
-      <div>
-        <label for="novoTelefone" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Telefone (com DDD)</label>
-        <input id="novoTelefone" type="tel" name="novo_telefone" value="{{ novo.telefone }}" inputmode="tel" autocomplete="off" placeholder="(17) 99999-9999"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
-      </div>
-      <div>
-        <label for="novoEmail" class="block text-[0.75rem] font-bold text-texto-suave mb-1">E-mail (opcional)</label>
-        <input id="novoEmail" type="email" name="novo_email" value="{{ novo.email }}" autocomplete="off"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
+
+      <fieldset class="conjunto">
+        <legend class="sr-only">Escolha a cliente</legend>
+        <div class="flex flex-col gap-2">
+          {% if cliente %}
+          <label class="opcao w-full rounded-lg border border-borda-campo px-3 py-2.5 has-checked:border-marca-forte has-checked:bg-marca-suave">
+            <input type="radio" name="cliente_id" value="{{ cliente.pk }}" checked>
+            <span class="min-w-0 break-words"><strong>{{ cliente.nome }}</strong>{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}{% if cliente.email %} · {{ cliente.email }}{% endif %}</span>
+          </label>
+          {% endif %}
+          {% for c in resultados %}{% if not cliente or c.pk != cliente.pk %}
+          <label class="opcao w-full rounded-lg border border-borda-campo px-3 py-2.5 hover:bg-fundo-realce has-checked:border-marca-forte has-checked:bg-marca-suave">
+            <input type="radio" name="cliente_id" value="{{ c.pk }}">
+            <span class="min-w-0 break-words"><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}{% if c.email %} · {{ c.email }}{% endif %}</span>
+          </label>
+          {% endif %}{% empty %}
+          {% if buscou and q and not inativas %}<p class="text-sm text-texto-suave">Nenhuma cliente encontrada para “{{ q }}”. Cadastre abaixo.</p>{% endif %}
+          {% endfor %}
+          {# Cadastro inativo: nao agenda nem recadastra (telefone unico) — reativa na ficha #}
+          {% for c in inativas %}{% if not cliente_inativa or c.pk != cliente_inativa.pk %}
+          <p class="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-borda-campo px-3 py-2.5 text-texto-suave">
+            <span class="min-w-0 break-words"><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}</span>
+            <c-selo>Inativa</c-selo>
+            <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" class="btn btn-link text-sm">Reativar na ficha</a>
+          </p>
+          {% endif %}{% endfor %}
+          {% if cliente_inativa %}
+          <c-nota tom="aviso">
+            <p><strong>{{ cliente_inativa.nome }}</strong> está com o cadastro inativo.
+              <a href="{% url 'aranha:admin_cliente_detalhe' cliente_inativa.pk %}" class="font-bold text-texto underline">Abrir a ficha para reativar</a></p>
+          </c-nota>
+          {% endif %}
+          <label class="opcao w-full rounded-lg border border-dashed border-borda-campo px-3 py-2.5 hover:bg-fundo-realce has-checked:border-solid has-checked:border-marca-forte has-checked:bg-marca-suave">
+            <input type="radio" name="cliente_id" value="" {% if not cliente %}checked{% endif %}>
+            <span><strong>Cliente nova</strong> — preencha abaixo</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="grade-campos grade-campos-3">
+        <c-campo nome="novo_nome" id="novoNome" label="Nome completo" value="{{ novo.nome }}" maxlength="150" autocomplete="off"></c-campo>
+        <c-campo nome="novo_telefone" id="novoTelefone" label="Telefone (com DDD)" tipo="tel" value="{{ novo.telefone }}"
+                 inputmode="tel" autocomplete="off" placeholder="(17) 99999-9999"></c-campo>
+        <c-campo nome="novo_email" id="novoEmail" label="E-mail" tipo="email" opcional="1" value="{{ novo.email }}" autocomplete="off"></c-campo>
       </div>
     </div>
-  </section>
+  </c-card>
 
   {# ── 2. Procedimento, profissional e dia ── #}
-  <section class="bg-superficie rounded-2xl shadow-sm p-5 mb-3" aria-labelledby="secAtendimento">
-    <h2 id="secAtendimento" class="text-[0.9rem] font-bold text-texto mb-3">2. Procedimento, profissional e dia</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div>
-        <label for="selProcedimento" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Procedimento</label>
-        <select id="selProcedimento" name="procedimento_id"
-                class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
-          <option value="">Selecione...</option>
-          {% for p in procedimentos %}
-          <option value="{{ p.pk }}" {% if procedimento and p.pk == procedimento.pk %}selected{% endif %}>{{ p.nome }} ({{ p.duracao_minutos }} min)</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label for="selProfissional" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Profissional</label>
-        <select id="selProfissional" name="profissional_id"
-                class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
-          <option value="">Selecione...</option>
-          {% for prof in profissionais %}
-          <option value="{{ prof.pk }}" {% if profissional and prof.pk == profissional.pk %}selected{% endif %}>{{ prof.nome }}</option>
-          {% endfor %}
-        </select>
-        {% if procedimento %}<p class="text-[0.7rem] text-texto-suave mt-1">Só quem realiza {{ procedimento.nome }}.</p>{% endif %}
-      </div>
-      <div>
-        <label for="inpData" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Dia</label>
-        <input id="inpData" type="date" name="data" value="{{ data|date:'Y-m-d' }}" min="{{ data_min|date:'Y-m-d' }}"
-               class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
-      </div>
-    </div>
-    <button type="submit" name="acao" value="horarios" formnovalidate
-            class="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-borda bg-superficie text-texto text-[0.82rem] font-bold cursor-pointer hover:bg-fundo transition-colors">
-      Ver horários livres
-    </button>
-  </section>
-
-  {# ── 3. Horário e valor ── #}
-  {% if viu_horarios %}
-  <section class="bg-superficie rounded-2xl shadow-sm p-5 mb-3" aria-labelledby="secHorario">
-    <h2 id="secHorario" class="text-[0.9rem] font-bold text-texto mb-1">3. Horário e valor</h2>
-    <p class="text-[0.75rem] text-texto-suave mb-3">{{ procedimento.nome }} com {{ profissional.nome }} em {{ data|date:"d/m/Y" }}. Horários livres pela mesma regra do site (expediente, folgas, bloqueios e antecedência).</p>
-    {% if slots %}
-    <fieldset class="border-0 p-0 m-0">
-      <legend class="sr-only">Horários livres</legend>
-      <div class="flex flex-wrap gap-2">
-        {% for s in slots %}
-        <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-borda bg-fundo cursor-pointer text-[0.85rem] font-bold text-texto">
-          <input type="radio" name="hora" value="{{ s }}" {% if s == hora %}checked{% endif %} required>
-          {{ s }}
-        </label>
+  <c-card titulo="2. Procedimento, profissional e dia" icone="procedimentos" id="secAtendimento">
+    <div class="grade-campos grade-campos-3">
+      <c-campo nome="procedimento_id" id="selProcedimento" label="Procedimento" tipo="select">
+        <option value="">Selecione...</option>
+        {% for p in procedimentos %}
+        <option value="{{ p.pk }}" {% if procedimento and p.pk == procedimento.pk %}selected{% endif %}>{{ p.nome }} ({{ p.duracao_minutos }} min)</option>
         {% endfor %}
-      </div>
-    </fieldset>
-    {% else %}
-    <p class="text-[0.85rem] font-bold text-aviso bg-aviso-fundo rounded-lg px-3 py-2">Nenhum horário livre neste dia para este profissional. Escolha outro dia ou profissional.</p>
-    {% endif %}
+      </c-campo>
+      <c-campo nome="profissional_id" id="selProfissional" label="Profissional" tipo="select"
+               ajuda="{% if procedimento %}Só quem realiza {{ procedimento.nome }}.{% endif %}">
+        <option value="">Selecione...</option>
+        {% for prof in profissionais %}
+        <option value="{{ prof.pk }}" {% if profissional and prof.pk == profissional.pk %}selected{% endif %}>{{ prof.nome }}</option>
+        {% endfor %}
+      </c-campo>
+      <c-campo nome="data" id="inpData" label="Dia" tipo="date" value="{{ data|date:'Y-m-d' }}" min="{{ data_min|date:'Y-m-d' }}"></c-campo>
+    </div>
+    <c-botao tipo="submit" variante="secundario" icone="relogio" name="acao" value="horarios" formnovalidate class="mt-5">Ver horários livres</c-botao>
+  </c-card>
 
-    <div class="mt-4 text-[0.85rem] text-texto">
-      {% if preco and preco.valor_cobrado is not None %}
-      Valor:
-      {% if preco.promocao %}<s class="text-texto-suave">{{ preco.valor_original|brl }}</s>{% endif %}
-      <strong>{{ preco.valor_cobrado|brl }}</strong>
-      {% if preco.promocao %}<span class="ml-1 px-2 py-0.5 rounded-full text-[0.7rem] font-bold bg-sucesso-fundo text-sucesso">Promoção {{ preco.promocao.nome }}</span>{% endif %}
+  {# ── 3. Horario e valor ── #}
+  {% if viu_horarios %}
+  <c-card titulo="3. Horário e valor" icone="relogio" id="secHorario">
+    <div class="flex flex-col gap-5">
+      <p class="text-sm text-texto-suave">{{ procedimento.nome }} com {{ profissional.nome }} em {{ data|date:"d/m/Y" }}. Horários livres pela mesma regra do site (expediente, folgas, bloqueios e antecedência).</p>
+      {% if slots %}
+      <fieldset class="conjunto">
+        <legend class="rotulo">Horário</legend>
+        <div class="flex flex-wrap gap-2">
+          {% for s in slots %}
+          <label class="opcao rounded-lg border border-borda-campo bg-superficie px-3 py-2 font-bold tabular-nums hover:bg-fundo-realce has-checked:border-marca-forte has-checked:bg-marca-suave">
+            <input type="radio" name="hora" value="{{ s }}" {% if s == hora %}checked{% endif %} required> {{ s }}
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
       {% else %}
-      Procedimento sem preço cadastrado (valor a consultar).
+      <c-nota tom="aviso">Nenhum horário livre neste dia para este profissional. Escolha outro dia ou profissional.</c-nota>
+      {% endif %}
+
+      <div class="rounded-lg bg-fundo px-4 py-3">
+        {% if preco and preco.valor_cobrado is not None %}
+        <p class="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span class="text-texto-suave">Valor:</span>
+          {% if preco.promocao %}<s class="text-texto-suave tabular-nums">{{ preco.valor_original|brl }}</s>{% endif %}
+          <strong class="text-lg tabular-nums">{{ preco.valor_cobrado|brl }}</strong>
+          {% if preco.promocao %}<c-selo tom="sucesso" icone="promocoes">Promoção {{ preco.promocao.nome }}</c-selo>{% endif %}
+        </p>
+        {% else %}
+        <p class="text-texto-suave">Procedimento sem preço cadastrado (valor a consultar).</p>
+        {% endif %}
+      </div>
+
+      <c-campo nome="valor" id="inpValor" label="Valor combinado" opcional="1" value="{{ valor }}" inputmode="decimal"
+               classe_grupo="sm:max-w-xs"
+               placeholder="{% if preco and preco.valor_cobrado is not None %}{{ preco.valor_cobrado|unlocalize }}{% else %}0,00{% endif %}"
+               ajuda="Deixe vazio para usar o valor acima. Um valor diferente fica registrado como combinado pela recepção."></c-campo>
+
+      {% if slots %}
+      <c-botao tipo="submit" icone="check" name="acao" value="agendar" class="self-start">Agendar</c-botao>
       {% endif %}
     </div>
-    <div class="mt-2 max-w-xs">
-      <label for="inpValor" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Valor combinado (opcional)</label>
-      <input id="inpValor" type="text" name="valor" value="{{ valor }}" inputmode="decimal" placeholder="{% if preco and preco.valor_cobrado is not None %}{{ preco.valor_cobrado|unlocalize }}{% else %}0,00{% endif %}"
-             class="w-full px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.85rem] text-texto">
-      <p class="text-[0.7rem] text-texto-suave mt-1">Deixe vazio para usar o valor acima. Um valor diferente fica registrado como combinado pela recepção.</p>
-    </div>
-
-    {% if slots %}
-    <button type="submit" name="acao" value="agendar"
-            class="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-      Agendar
-    </button>
-    {% endif %}
-  </section>
+  </c-card>
   {% endif %}
 </form>
 {% endblock %}

@@ -1,6 +1,7 @@
 {% extends 'painel/base_v2.html' %}
 
 {% block titulo %}Link do calendário — {{ CLINIC_NAME }}{% endblock %}
+{% block page_voltar %}<a href="{{ voltar }}" class="voltar-pagina"><c-icone nome="voltar" class="" />{{ voltar_rotulo }}</a>{% endblock %}
 {% block page_title %}Link do calendário{% endblock %}
 {% block page_subtitle %}{{ profissional.nome }} · feed ICS{% endblock %}
 

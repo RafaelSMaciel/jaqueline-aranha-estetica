@@ -3,31 +3,29 @@ Link do feed ICS recem-gerado (painel/ics_link.html e profissional/ics_link.html
 Contexto: profissional, link (URL completa com o token — so existe nesta resposta:
 o banco guarda o hash; a pagina nao e cacheada).
 {% endcomment %}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4 max-w-2xl">
-  <p class="text-[0.85rem] text-texto mb-3">
+<div class="cartao cartao-corpo max-w-2xl flex flex-col gap-4">
+  <p>
     Assine este endereço no aplicativo de agenda (Google Agenda: <em>Outras agendas → Do URL</em>;
     iPhone: <em>Ajustes → Calendário → Contas → Adicionar calendário assinado</em>) para ver os
     atendimentos de {{ profissional.nome }}.
   </p>
-  <p class="text-[0.82rem] text-texto-suave mb-4" role="note">
-    <strong class="text-texto">Guarde agora:</strong> por segurança este link não é exibido de novo.
+  <c-nota tom="aviso">
+    <p><strong>Guarde agora:</strong> por segurança este link não é exibido de novo.
     O link anterior deixou de funcionar — atualize a assinatura onde ele estava.
-    Se perder o link, gere outro.
-  </p>
+    Se perder o link, gere outro.</p>
+  </c-nota>
 
-  <label for="linkIcs" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Link do calendário (ICS)</label>
-  <div class="flex gap-2 flex-wrap">
-    <input id="linkIcs" type="text" readonly value="{{ link }}"
-           class="flex-1 min-w-[16rem] px-3 py-2 rounded-xl border border-borda bg-fundo text-[0.8rem] text-texto">
-    <button type="button" id="copiarLinkIcs"
-            class="px-4 py-2 rounded-xl border border-borda bg-superficie text-texto text-[0.8rem] font-bold cursor-pointer hover:bg-fundo transition-colors">
-      Copiar
-    </button>
+  <div class="grupo-campo">
+    <label for="linkIcs" class="rotulo">Link do calendário (ICS)</label>
+    <div class="flex gap-2 flex-wrap">
+      <input id="linkIcs" type="text" readonly value="{{ link }}" class="campo flex-1 min-w-[min(100%,16rem)]">
+      <button type="button" id="copiarLinkIcs" class="btn btn-secundario"><c-icone nome="copiar" class="" />Copiar</button>
+    </div>
+    <p id="copiadoLinkIcs" class="hidden text-legenda font-bold text-sucesso" role="status">Link copiado.</p>
   </div>
-  <p id="copiadoLinkIcs" class="hidden text-[0.75rem] text-sucesso font-bold mt-1" role="status">Link copiado.</p>
 
-  <div class="mt-5">
-    <a href="{{ voltar }}" class="text-[0.8rem] font-bold text-marca no-underline hover:opacity-90">← {{ voltar_rotulo }}</a>
+  <div>
+    <a href="{{ voltar }}" class="voltar-pagina mb-0"><c-icone nome="voltar" class="" />{{ voltar_rotulo }}</a>
   </div>
 </div>
 <script nonce="{{ csp_nonce }}">

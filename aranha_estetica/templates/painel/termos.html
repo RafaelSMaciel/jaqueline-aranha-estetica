@@ -4,126 +4,78 @@
 {% block page_title %}Termos de consentimento{% endblock %}
 {% block page_subtitle %}Gerencie versões de termos LGPD e de procedimento{% endblock %}
 {% block page_actions %}
-<a href="{% url 'aranha:admin_termos_compliance' %}"
-   class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[0.82rem] font-bold border border-borda text-texto-suave hover:text-texto hover:border-texto-suave transition-colors no-underline">
-  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-  </svg>
-  Compliance (quem assinou)
-</a>
+<c-botao variante="secundario" href="{% url 'aranha:admin_termos_compliance' %}" icone="check-circulo">Compliance (quem assinou)</c-botao>
 {% endblock %}
 
 {% block admin_content %}
+<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem] xl:items-start">
 
-{# ── Formulário de criação ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-5 mb-4">
-  <h2 class="flex items-center gap-2 text-[0.9rem] font-bold text-texto mb-4">
-    <svg class="w-4 h-4 text-marca-forte" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-    </svg>
-    Publicar nova versão
-  </h2>
-  <p class="text-[0.78rem] text-texto-suave -mt-2 mb-4">Ao publicar, a versão ativa do mesmo tipo (e procedimento) é arquivada e os clientes passam a ter a nova versão pendente de aceite.</p>
-  <form method="post" action="{% url 'aranha:admin_criar_termo' %}">
-    {% csrf_token %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-      <div>
-        <label for="tipo_termo" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Tipo</label>
-        <select name="tipo" id="tipo_termo"
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
-          <option value="LGPD">LGPD / Privacidade</option>
-          <option value="PROCEDIMENTO">Procedimento</option>
-        </select>
-      </div>
-      <div id="proc_group" style="display:none;">
-        <label for="procedimento_select" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Procedimento</label>
-        <select name="procedimento_id" id="procedimento_select"
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
+  {# ── Versoes publicadas (vigentes primeiro) ── #}
+  <c-card titulo="Versões publicadas" icone="termos" espaco="nenhum" class="xl:order-1">
+    {% if termos %}
+    <ul class="lista-itens">
+      {% for t in termos %}
+      <li class="item-lista items-start{% if not t.ativa %} opacity-75{% endif %}">
+        <div class="item-lista-corpo">
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="item-lista-titulo">{{ t.titulo }}</p>
+            {% if t.tipo == "LGPD" %}<c-selo tom="info">LGPD</c-selo>{% elif t.tipo == "SAUDE" %}<c-selo tom="aviso">Dados de saúde</c-selo>{% else %}<c-selo tom="destaque">Procedimento</c-selo>{% endif %}
+            {% if t.ativa %}<c-selo tom="sucesso" icone="check">Vigente</c-selo>{% else %}<c-selo>Arquivada</c-selo>{% endif %}
+          </div>
+          <p class="item-lista-meta mt-1">
+            v{{ t.versao }} · Vigente desde {{ t.vigente_desde|date:"d/m/Y" }}{% if t.procedimento %} · {{ t.procedimento.nome }}{% endif %}
+          </p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <c-vazio titulo="Nenhum termo cadastrado" icone="termos"
+             texto="Use o formulário ao lado para cadastrar o primeiro termo." />
+    {% endif %}
+  </c-card>
+
+  {# ── Publicar nova versao ── #}
+  <c-card titulo="Publicar nova versão" icone="mais" class="xl:order-2 xl:sticky xl:top-24">
+    <form method="post" action="{% url 'aranha:admin_criar_termo' %}" class="flex flex-col gap-4">
+      {% csrf_token %}
+      <p class="ajuda">Ao publicar, a versão ativa do mesmo tipo (e procedimento) é arquivada e os clientes passam a ter a nova versão pendente de aceite.</p>
+      <c-campo nome="tipo" id="tipo_termo" label="Tipo" tipo="select">
+        <option value="LGPD">LGPD / Privacidade</option>
+        <option value="PROCEDIMENTO">Procedimento</option>
+      </c-campo>
+      {# So para termo de procedimento (o script abaixo mostra/esconde) #}
+      <div id="proc_group" hidden>
+        <c-campo nome="procedimento_id" id="procedimento_select" label="Procedimento" tipo="select">
           <option value="">Geral (vale para todos os procedimentos)</option>
           {% for p in procedimentos %}
           <option value="{{ p.pk }}">{{ p.nome }}</option>
           {% endfor %}
-        </select>
+        </c-campo>
       </div>
-    </div>
-    <div class="mb-3">
-      <label for="titulo_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Título</label>
-      <input type="text" name="titulo" id="titulo_input" required
-             placeholder="Ex: Termo de Consentimento para Peeling"
-             class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition">
-    </div>
-    <div class="mb-3">
-      <label for="conteudo_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Conteúdo</label>
-      <textarea name="conteudo" id="conteudo_input" rows="5" required
-                placeholder="Texto completo do termo..."
-                class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo placeholder-texto-suave transition resize-y"></textarea>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-      <div>
-        <label for="versao_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Versão</label>
-        <input type="text" name="versao" id="versao_input" value="1.0" required
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
+      <c-campo nome="titulo" id="titulo_input" label="Título" required
+               placeholder="Ex.: Termo de consentimento para peeling"></c-campo>
+      <c-campo nome="conteudo" id="conteudo_input" label="Conteúdo" tipo="textarea" rows="8" required
+               placeholder="Texto completo do termo..."></c-campo>
+      <div class="grade-campos grade-campos-2">
+        <c-campo nome="versao" id="versao_input" label="Versão" value="1.0" required></c-campo>
+        <c-campo nome="vigente_desde" id="vigente_desde_input" label="Vigente desde" tipo="date"></c-campo>
       </div>
-      <div>
-        <label for="vigente_desde_input" class="block text-[0.75rem] font-bold text-texto-suave mb-1">Vigente Desde</label>
-        <input type="date" name="vigente_desde" id="vigente_desde_input"
-               class="w-full px-3 py-2 rounded-xl border border-borda text-[0.85rem] text-texto bg-fundo transition">
-      </div>
-    </div>
-    <button type="submit"
-            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-      </svg>
-      Publicar
-    </button>
-  </form>
+      <c-botao tipo="submit" icone="check" class="self-start">Publicar</c-botao>
+    </form>
+  </c-card>
 </div>
-
-{# ── Lista de termos ── #}
-{% for t in termos %}
-<div class="bg-superficie rounded-2xl shadow-sm px-4 py-4 mb-2 border-l-4 {% if t.ativa %}border-sucesso{% else %}border-borda opacity-70{% endif %} hover:shadow-md transition-all duration-200">
-  <div class="flex items-start justify-between gap-2">
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2 flex-wrap mb-1">
-        <span class="font-bold text-[0.95rem] text-texto truncate">{{ t.titulo }}</span>
-        {% if t.tipo == "LGPD" %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-info-fundo text-info uppercase tracking-wide">LGPD</span>
-        {% else %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-destaque-fundo text-destaque uppercase tracking-wide">Procedimento</span>
-        {% endif %}
-        {% if not t.ativa %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-erro-fundo text-erro uppercase tracking-wide">Arquivada</span>
-        {% else %}
-        <span class="inline-block px-2 py-0.5 rounded-full text-[0.6rem] font-bold bg-sucesso-fundo text-sucesso uppercase tracking-wide">Vigente</span>
-        {% endif %}
-      </div>
-      <div class="text-[0.75rem] text-texto-suave">
-        v{{ t.versao }}
-        &bull; Vigente desde {{ t.vigente_desde|date:"d/m/Y" }}
-        {% if t.procedimento %} &bull; {{ t.procedimento.nome }}{% endif %}
-      </div>
-    </div>
-  </div>
-</div>
-{% empty %}
-<div class="bg-superficie rounded-2xl p-12 text-center shadow-sm">
-  <div class="w-16 h-16 rounded-full bg-marca-forte/[0.12] flex items-center justify-center mx-auto mb-4">
-    <svg class="w-7 h-7 text-marca-forte" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-    </svg>
-  </div>
-  <p class="font-serif font-bold text-texto mb-1">Nenhum termo cadastrado</p>
-  <p class="text-[0.85rem] text-texto-suave">Use o formulário acima para cadastrar o primeiro termo.</p>
-</div>
-{% endfor %}
-
 {% endblock %}
 
 {% block js %}
 <script nonce="{{ csp_nonce }}">
-document.getElementById('tipo_termo').addEventListener('change', function() {
-  document.getElementById('proc_group').style.display = this.value === 'PROCEDIMENTO' ? '' : 'none';
-});
+(function () {
+  var tipo = document.getElementById('tipo_termo');
+  var grupo = document.getElementById('proc_group');
+  if (!tipo || !grupo) return;
+  function atualizar() { grupo.hidden = tipo.value !== 'PROCEDIMENTO'; }
+  tipo.addEventListener('change', atualizar);
+  atualizar();   // o navegador pode restaurar "Procedimento" ao voltar para a pagina
+})();
 </script>
 {% endblock %}

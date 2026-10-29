@@ -69,29 +69,20 @@ class CspHeaderTests(TestCase):
             with self.subTest(host=host):
                 self.assertNotIn(host, csp)
 
-    def test_jsdelivr_so_por_caminho_da_lib(self):
-        # Host inteiro liberado = qualquer pacote npm/GitHub roda apesar do nonce
+    def test_sem_cdn_de_pacotes_na_csp(self):
+        # FullCalendar e Chart.js vem do npm via Vite: o jsdelivr (que serve QUALQUER pacote
+        # npm/GitHub) nao fica liberado em diretiva nenhuma, nem por caminho
         csp = self._get_csp()
-        for nome in ('script-src', 'style-src', 'font-src'):
+        self.assertNotIn('jsdelivr', csp)
+        for nome in ('script-src', 'style-src', 'font-src', 'connect-src'):
             with self.subTest(diretiva=nome):
-                self.assertNotIn('https://cdn.jsdelivr.net ', _diretiva(csp, nome) + ' ')
+                self.assertFalse(permitido_pela_csp('https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js',
+                                                    _diretiva(csp, nome)))
         script_src = _diretiva(csp, 'script-src')
         self.assertFalse(permitido_pela_csp('https://cdn.jsdelivr.net/gh/evil/x.js', script_src))
-        self.assertFalse(permitido_pela_csp('https://cdn.jsdelivr.net/npm/angular@1.8.3/angular.js', script_src))
-
-    def test_libs_de_cdn_dos_templates_liberadas_na_csp(self):
-        # Trocou a versao no template sem atualizar JSDELIVR_PATHS -> quebra em prod
-        csp = self._get_csp()
-        script_src, style_src = _diretiva(csp, 'script-src'), _diretiva(csp, 'style-src')
-        padrao = re.compile(r'<(script|link)\b[^>]*?(?:src|href)="(https://cdn\.jsdelivr\.net/[^"]+)"')
-        urls = []
-        for arq in TEMPLATES_DIR.rglob('*.html'):
-            for tag, url in padrao.findall(arq.read_text(encoding='utf-8')):
-                urls.append(url)
-                diretiva = script_src if tag == 'script' else style_src
-                with self.subTest(template=str(arq.relative_to(TEMPLATES_DIR)), url=url):
-                    self.assertTrue(permitido_pela_csp(url, diretiva), f'{url} bloqueada pela CSP')
-        self.assertTrue(urls, 'nenhuma lib de CDN encontrada: revise o teste')
+        # unico host externo de script: o Turnstile (captcha dos formularios publicos)
+        externos = [f for f in script_src.split()[1:] if f.startswith('http') and 'localhost' not in f]
+        self.assertEqual(externos, ['https://challenges.cloudflare.com'])
 
     def test_embed_pode_ser_embutido(self):
         try:
@@ -141,31 +132,34 @@ class SemHandlersInlineTests(TestCase):
         self.assertEqual(achados, [], 'handlers inline encontrados (use data-* + listener)')
 
 
-class CdnComSriTests(TestCase):
-    """Lib de CDN sem integrity = arquivo trocado no jsDelivr roda com o nonce da pagina."""
+class SemScriptExternoTests(TestCase):
+    """Lib de terceiro entra pelo package.json (bundle do Vite, arquivo com hash), nunca por
+    <script>/<link> de CDN: arquivo trocado no CDN rodaria com o nonce da pagina."""
 
-    def test_scripts_e_css_de_cdn_com_sri(self):
-        padrao = re.compile(r'<(?:script|link)\b[^>]*?(?:src|href)="(https://cdn\.jsdelivr\.net/[^"]+)"[^>]*>')
-        urls = []
+    PERMITIDOS = ('https://challenges.cloudflare.com/',)   # Turnstile (partials/_antiabuso.html)
+
+    def test_templates_sem_script_ou_css_de_outro_host(self):
+        padrao = re.compile(r'<(?:script|link)\b[^>]*?(?:src|href)="(https?://[^"]+)"[^>]*>')
+        achados = []
         for arq in TEMPLATES_DIR.rglob('*.html'):
+            if 'email' in arq.relative_to(TEMPLATES_DIR).parts:
+                continue
             for m in padrao.finditer(arq.read_text(encoding='utf-8')):
                 tag, url = m.group(0), m.group(1)
-                urls.append(url)
-                with self.subTest(template=str(arq.relative_to(TEMPLATES_DIR)), url=url):
-                    self.assertRegex(tag, r'\bintegrity="sha384-[A-Za-z0-9+/]{64}"')
-                    self.assertIn('crossorigin="anonymous"', tag)
-                    # .min.js que o pacote nao publica e gerado pelo jsDelivr na
-                    # hora (o proprio arquivo avisa: nao usar SRI) — hash quebraria
-                    self.assertFalse(url.endswith('chart.umd.min.js'), url)
-                    if tag.startswith('<script'):
-                        self.assertIn('nonce="{{ csp_nonce }}"', tag)
-        self.assertTrue(urls, 'nenhuma lib de CDN encontrada: revise o teste')
+                if tag.startswith('<link') and 'rel="stylesheet"' not in tag and 'rel="preload"' not in tag:
+                    continue   # canonical/alternate/manifest nao carregam codigo
+                if not url.startswith(self.PERMITIDOS):
+                    achados.append(f'{arq.relative_to(TEMPLATES_DIR)}: {url}')
+        self.assertEqual(achados, [])
 
-    def test_jsdelivr_fora_do_style_src(self):
-        # nenhum template carrega CSS do jsdelivr: liberar o host no style-src so abria porta
+    def test_libs_do_painel_sao_dependencias_npm_fixas(self):
+        import json
+        pacote = json.loads((TEMPLATES_DIR.parents[1] / 'package.json').read_text(encoding='utf-8'))
+        deps = pacote['dependencies']
+        for lib in ('@fullcalendar/core', '@fullcalendar/timegrid', '@fullcalendar/interaction', 'chart.js'):
+            with self.subTest(lib=lib):
+                self.assertRegex(deps.get(lib, ''), r'^\d+\.\d+\.\d+$')   # versao exata, sem ^/~
+
+    def test_style_src_so_do_proprio_site(self):
         from aranha_estetica.middleware import ContentSecurityPolicyMiddleware as Csp
-        self.assertFalse([origem for origem in Csp.ALLOWED_STYLE_SRCS if 'jsdelivr' in origem])
-        css_de_cdn = re.compile(r'<link\b[^>]*?href="https://cdn\.jsdelivr\.net/')
-        for arq in TEMPLATES_DIR.rglob('*.html'):
-            with self.subTest(template=str(arq.relative_to(TEMPLATES_DIR))):
-                self.assertIsNone(css_de_cdn.search(arq.read_text(encoding='utf-8')))
+        self.assertEqual(Csp.ALLOWED_STYLE_SRCS, ["'self'"])
