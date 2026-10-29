@@ -1,0 +1,391 @@
+/* Design system do painel e do portal da profissional (telas da equipe).
+ *
+ * Classes de componente na camada `components`: o utilitario do template (camada `utilities`)
+ * sempre vence, entao `<c-botao class="w-full">` ou `class="cartao mb-6"` ajustam sem !important.
+ * Cores so por token (tokens.css, claro/escuro). Os componentes cotton (templates/cotton/) emitem
+ * estas classes; elemento que o cotton nao cobre (<summary>, <label> de upload) usa a classe direto.
+ *
+ * Escala: texto base 15px (.painel-admin), rotulo/meta 13px, nada abaixo de 12px; espacamento
+ * em multiplos de 4px; raio 8px (controle), 12px (menu/aviso), 16px (cartao/modal).
+ */
+
+/* ── Casca: corpo do painel e do portal ── */
+@layer base {
+  .painel-admin { font-size: var(--text-corpo); line-height: 1.55; }
+  .painel-admin :is(h1, h2, h3, h4, h5) { line-height: 1.3; }
+  .painel-admin :is(strong, b) { font-weight: 700; }
+}
+
+@layer components {
+  /* ── Cabecalho de pagina (bloco page_title/page_subtitle/page_actions da casca) ── */
+  .cabecalho-pagina {
+    display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+    gap: 0.75rem 1.5rem; margin-bottom: 1.5rem;
+  }
+  .cabecalho-pagina-texto { min-width: 0; flex: 1 1 18rem; }
+  .titulo-pagina {
+    font-family: var(--heading-font); font-size: 1.625rem; font-weight: 600; line-height: 1.2;
+    letter-spacing: -0.01em; color: var(--cor-texto); overflow-wrap: anywhere;
+  }
+  @media (min-width: 1024px) { .titulo-pagina { font-size: 1.875rem; } }
+  .subtitulo-pagina { margin-top: 0.375rem; font-size: var(--text-corpo); color: var(--cor-texto-suave); }
+  .subtitulo-pagina:empty { display: none; }
+  .acoes-pagina { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .acoes-pagina:empty { display: none; }
+  .voltar-pagina {
+    display: inline-flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem;
+    font-size: 0.875rem; font-weight: 700; color: var(--cor-texto-suave); text-decoration: none;
+  }
+  .voltar-pagina:hover { color: var(--cor-marca); }
+  .voltar-pagina svg { width: 1rem; height: 1rem; }
+
+  /* ── Botao: <c-botao variante="primario|secundario|perigo|perigo-contorno|sucesso|fantasma|link"> ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    min-height: 2.5rem; padding: 0.5rem 1rem; border: 1px solid transparent; border-radius: 0.5rem;
+    font-size: 0.875rem; font-weight: 700; line-height: 1.25rem; text-align: center;
+    text-decoration: none; white-space: nowrap; cursor: pointer; user-select: none;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+  }
+  .btn svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+  .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+  .btn-sm { min-height: 2rem; padding: 0.25rem 0.75rem; gap: 0.375rem; font-size: var(--text-legenda); }
+  .btn-sm svg { width: 0.875rem; height: 0.875rem; }
+  .btn-lg { min-height: 2.75rem; padding: 0.625rem 1.25rem; font-size: var(--text-corpo); }
+  .btn-icone { width: 2.5rem; padding: 0; }
+  .btn-sm.btn-icone { width: 2rem; }
+  .btn-bloco { display: flex; width: 100%; }
+
+  .btn-primario { background: var(--cor-marca-forte); color: var(--cor-sobre-marca); }
+  .btn-primario:hover:not(:disabled) { background: var(--cor-marca-forte-hover); }
+  .btn-secundario { background: var(--cor-superficie); color: var(--cor-texto); border-color: var(--cor-borda-forte); }
+  .btn-secundario:hover:not(:disabled) { background: var(--cor-fundo-realce); border-color: var(--cor-borda-campo); }
+  .btn-fantasma { background: transparent; color: var(--cor-texto-suave); }
+  .btn-fantasma:hover:not(:disabled) { background: var(--cor-fundo-realce); color: var(--cor-texto); }
+  .btn-sucesso { background: var(--cor-sucesso-forte); color: var(--cor-sobre-sucesso); }
+  .btn-sucesso:hover:not(:disabled) { filter: brightness(0.92); }
+  .btn-perigo { background: var(--cor-perigo-forte); color: var(--cor-sobre-perigo); }
+  .btn-perigo:hover:not(:disabled) { background: var(--cor-perigo-forte-hover); }
+  .btn-perigo-contorno { background: var(--cor-superficie); color: var(--cor-erro); border-color: currentColor; }
+  .btn-perigo-contorno:hover:not(:disabled) { background: var(--cor-erro-fundo); }
+  .btn-link {
+    min-height: 0; padding: 0; border: 0; background: none; color: var(--cor-marca);
+    text-decoration: underline; text-underline-offset: 4px; white-space: normal;
+  }
+  .btn-link:hover { text-decoration-thickness: 2px; }
+  .btn-girando {
+    width: 1rem; height: 1rem; border-radius: 9999px; border: 2px solid currentColor;
+    border-top-color: transparent; animation: girar .8s linear infinite;
+  }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  /* ── Campo: <c-campo> (rotulo + controle + ajuda + erro com aria-describedby) ── */
+  .grupo-campo { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
+  .rotulo { display: block; font-size: 0.875rem; font-weight: 700; line-height: 1.25rem; color: var(--cor-texto); }
+  .rotulo-opcional { font-weight: 400; color: var(--cor-texto-suave); }
+  .campo {
+    display: block; width: 100%; min-height: 2.5rem; padding: 0.5rem 0.75rem;
+    border: 1px solid var(--cor-borda-campo); border-radius: 0.5rem;
+    background: var(--cor-superficie); color: var(--cor-texto);
+    font: inherit; font-size: 1rem; line-height: 1.5rem;   /* 16px no celular: o iOS nao da zoom no foco */
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  @media (min-width: 640px) { .campo { font-size: var(--text-corpo); line-height: 1.375rem; } }
+  .campo::placeholder { color: var(--cor-texto-suave); opacity: 1; }
+  .campo:hover:not(:disabled):not(:focus) { border-color: var(--cor-texto-suave); }
+  .campo:focus { border-color: var(--cor-marca); }
+  .campo:disabled, .campo[readonly] { background: var(--cor-fundo); color: var(--cor-texto-suave); }
+  textarea.campo { min-height: 5.5rem; resize: vertical; }
+  select.campo { padding-right: 2rem; cursor: pointer; }
+  .campo-sm { min-height: 2rem; padding: 0.25rem 0.5rem; font-size: 0.875rem; line-height: 1.25rem; }
+  .ajuda { font-size: var(--text-legenda); line-height: 1.25rem; color: var(--cor-texto-suave); }
+  .erro-campo { font-size: var(--text-legenda); line-height: 1.25rem; font-weight: 700; color: var(--cor-erro); }
+  /* checkbox/radio com o texto ao lado (o input fica dentro do label) */
+  .opcao {
+    display: inline-flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;
+    font-size: var(--text-corpo); line-height: 1.375rem; color: var(--cor-texto);
+  }
+  .opcao input { flex-shrink: 0; width: 1.125rem; height: 1.125rem; margin-top: 0.125rem; accent-color: var(--cor-marca-forte); cursor: pointer; }
+  .grade-campos { display: grid; gap: 1rem; }
+  @media (min-width: 640px) {
+    .grade-campos-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grade-campos-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  fieldset.conjunto { border: 0; margin: 0; padding: 0; min-width: 0; }
+  fieldset.conjunto > legend { padding: 0; margin-bottom: 0.5rem; }
+
+  /* ── Cartao: <c-card titulo descricao> + slot "acoes" ── */
+  .cartao {
+    background: var(--cor-superficie); color: var(--cor-texto);
+    border: 1px solid var(--cor-borda); border-radius: 1rem; box-shadow: var(--sombra-cartao);
+    min-width: 0;
+  }
+  .cartao-cabecalho {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 0.5rem 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--cor-borda);
+  }
+  .cartao-titulo {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-family: var(--heading-font); font-size: 1.125rem; font-weight: 600; line-height: 1.4; color: var(--cor-texto);
+  }
+  .cartao-titulo svg { width: 1.125rem; height: 1.125rem; color: var(--cor-marca); flex-shrink: 0; }
+  .cartao-descricao { margin-top: 0.125rem; font-size: 0.875rem; color: var(--cor-texto-suave); }
+  .cartao-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .cartao-corpo { padding: 1.25rem; }
+  .cartao-rodape {
+    display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem;
+    padding: 0.875rem 1.25rem; border-top: 1px solid var(--cor-borda);
+  }
+  .cartao-destaque { border-left: 4px solid var(--cor-marca-forte); }
+  /* secao de formulario dentro do cartao */
+  .secao + .secao { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--cor-borda); }
+  .secao-titulo { font-family: var(--heading-font); font-size: 1rem; font-weight: 600; color: var(--cor-texto); margin-bottom: 0.75rem; }
+
+  /* ── Selo: <c-selo tom="neutro|info|sucesso|aviso|erro|marca|destaque"> (status: .status-*) ── */
+  .selo {
+    display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.625rem;
+    border-radius: 9999px; font-size: 0.75rem; font-weight: 700; line-height: 1.125rem;
+    white-space: nowrap; background: var(--cor-fundo-realce); color: var(--cor-texto-suave);
+  }
+  .selo svg { width: 0.75rem; height: 0.75rem; flex-shrink: 0; }
+  .selo-md { padding: 0.25rem 0.75rem; font-size: var(--text-legenda); }
+  .selo-info { background: var(--cor-info-fundo); color: var(--cor-info); }
+  .selo-sucesso { background: var(--cor-sucesso-fundo); color: var(--cor-sucesso); }
+  .selo-aviso { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
+  .selo-erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+  .selo-marca { background: var(--cor-marca-suave); color: var(--cor-marca); }
+  .selo-destaque { background: var(--cor-destaque-fundo); color: var(--cor-destaque); }
+
+  /* ── Nota (aviso em bloco): <c-nota tom="info|aviso|erro|sucesso|marca" titulo> ── */
+  .nota {
+    display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.875rem 1rem;
+    border: 1px solid var(--cor-borda); border-left-width: 4px; border-radius: 0.75rem;
+    background: var(--cor-superficie); color: var(--cor-texto); font-size: var(--text-corpo);
+  }
+  .nota > svg { width: 1.25rem; height: 1.25rem; flex-shrink: 0; margin-top: 0.125rem; }
+  .nota-titulo { font-weight: 700; }
+  .nota-corpo { min-width: 0; flex: 1; }
+  .nota-corpo > * + * { margin-top: 0.25rem; }
+  .nota-info { border-left-color: var(--cor-info); } .nota-info > svg { color: var(--cor-info); }
+  .nota-aviso { border-left-color: var(--cor-aviso); background: var(--cor-aviso-fundo); } .nota-aviso > svg { color: var(--cor-aviso); }
+  .nota-erro { border-left-color: var(--cor-erro); background: var(--cor-erro-fundo); } .nota-erro > svg { color: var(--cor-erro); }
+  .nota-sucesso { border-left-color: var(--cor-sucesso); } .nota-sucesso > svg { color: var(--cor-sucesso); }
+  .nota-marca { border-left-color: var(--cor-marca-forte); } .nota-marca > svg { color: var(--cor-marca); }
+  /* nota que e um link inteiro (ex.: "3 atendimentos sem desfecho — Resolver") */
+  a.nota { text-decoration: none; transition: background-color .15s ease; }
+  a.nota:hover { background: var(--cor-fundo-realce); }
+
+  /* ── KPI: <c-kpi rotulo valor detalhe variacao tom icone href> ── */
+  .kpi { display: flex; flex-direction: column; gap: 0.25rem; padding: 1rem 1.25rem; }
+  .kpi-topo { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .kpi-rotulo { font-size: var(--text-legenda); font-weight: 700; color: var(--cor-texto-suave); }
+  .kpi-icone {
+    display: flex; align-items: center; justify-content: center; width: 2rem; height: 2rem;
+    border-radius: 0.625rem; background: var(--cor-marca-suave); color: var(--cor-marca); flex-shrink: 0;
+  }
+  .kpi-icone svg { width: 1rem; height: 1rem; }
+  .kpi-valor {
+    font-size: 1.625rem; font-weight: 700; line-height: 1.2; color: var(--cor-texto);
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+  }
+  .kpi-detalhe { font-size: var(--text-legenda); color: var(--cor-texto-suave); }
+  .kpi-variacao { display: inline-flex; align-items: center; gap: 0.25rem; font-size: var(--text-legenda); font-weight: 700; }
+  .kpi-variacao svg { width: 0.875rem; height: 0.875rem; }
+  .kpi-variacao-sobe { color: var(--cor-sucesso); }
+  .kpi-variacao-desce { color: var(--cor-erro); }
+  .kpi-variacao-igual { color: var(--cor-texto-suave); }
+  a.kpi { text-decoration: none; transition: border-color .15s ease; }
+  a.kpi:hover { border-color: var(--cor-borda-campo); }
+  .grade-kpis { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); }
+
+  /* ── Tabela: <c-tabela legenda responsiva> — tabela no desktop; cartoes empilhados < 768px ── */
+  .tabela-rolagem { overflow-x: auto; }
+  .tabela-envoltorio { min-width: 0; }   /* responsiva: sem rolagem (o menu "⋯" da linha nao e cortado) */
+  .tabela { width: 100%; border-collapse: collapse; font-size: var(--text-corpo); color: var(--cor-texto); }
+  .tabela th {
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--cor-borda); text-align: left; vertical-align: bottom;
+    font-size: var(--text-legenda); font-weight: 700; color: var(--cor-texto-suave); white-space: nowrap;
+  }
+  .tabela td { padding: 0.875rem 1rem; border-bottom: 1px solid var(--cor-borda); vertical-align: middle; }
+  .tabela tbody tr:last-child > td { border-bottom: 0; }
+  .tabela tbody tr:hover > td { background: var(--cor-fundo); }
+  .tabela .num, .tabela th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tabela .acoes { text-align: right; white-space: nowrap; }
+  .tabela .acoes > * { vertical-align: middle; }
+  .tabela-compacta td { padding: 0.5rem 1rem; }
+  .tabela-compacta th { padding: 0.5rem 1rem; }
+  .linha-destaque > td:first-child { box-shadow: inset 4px 0 0 var(--cor-aviso); }
+  @media (max-width: 767.98px) {
+    .tabela-responsiva thead {
+      position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+    }
+    .tabela-responsiva, .tabela-responsiva tbody, .tabela-responsiva tr, .tabela-responsiva td { display: block; width: 100%; }
+    .tabela-responsiva tr { padding: 1rem; border-bottom: 1px solid var(--cor-borda); }
+    .tabela-responsiva tbody tr:last-child { border-bottom: 0; }
+    .tabela-responsiva tbody tr:hover > td { background: none; }
+    .tabela-responsiva td { padding: 0.25rem 0; border: 0; }
+    .tabela-responsiva td[data-rotulo] {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; text-align: right;
+    }
+    .tabela-responsiva td[data-rotulo]::before {
+      content: attr(data-rotulo); flex-shrink: 0; text-align: left;
+      font-size: var(--text-legenda); font-weight: 700; color: var(--cor-texto-suave);
+    }
+    .tabela-responsiva td.num { white-space: normal; }
+    .tabela-responsiva td.acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding-top: 0.75rem; white-space: normal; }
+    .tabela-responsiva .linha-destaque { box-shadow: inset 4px 0 0 var(--cor-aviso); }
+    .tabela-responsiva .linha-destaque > td:first-child { box-shadow: none; }
+  }
+
+  /* ── Abas: <c-abas> + <c-abas.aba> + <c-abas.painel> (painel.js liga role=tab/tabpanel e as setas) ── */
+  .abas-lista {
+    display: flex; gap: 0.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--cor-borda);
+    overflow-x: auto; scrollbar-width: thin;
+  }
+  .aba {
+    display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; margin-bottom: -1px;
+    border-bottom: 2px solid transparent; font-size: var(--text-corpo); font-weight: 700;
+    color: var(--cor-texto-suave); text-decoration: none; white-space: nowrap;
+  }
+  .aba:hover { color: var(--cor-texto); }
+  .aba[aria-selected="true"] { color: var(--cor-marca); border-bottom-color: var(--cor-marca-forte); }
+  .aba .selo { font-size: 0.75rem; }
+  .abas-painel:focus-visible { outline-offset: 4px; border-radius: 0.5rem; }
+
+  /* ── Menu de acoes "⋯": <c-menu-acoes rotulo> (details nativo; painel.js fecha fora/Esc) ── */
+  .menu-acoes { position: relative; display: inline-block; text-align: left; }
+  .menu-acoes > summary { list-style: none; }
+  .menu-acoes > summary::-webkit-details-marker { display: none; }
+  .menu-acoes-lista {
+    position: absolute; right: 0; top: calc(100% + 0.25rem); z-index: 40;
+    min-width: 14rem; max-width: min(20rem, calc(100vw - 2rem)); padding: 0.375rem;
+    background: var(--cor-superficie); border: 1px solid var(--cor-borda); border-radius: 0.75rem;
+    box-shadow: var(--sombra-flutuante); white-space: normal;
+  }
+  .menu-acoes-lista form { margin: 0; }
+  .menu-item {
+    display: flex; width: 100%; align-items: center; gap: 0.625rem; padding: 0.5rem 0.75rem;
+    border: 0; border-radius: 0.5rem; background: transparent; color: var(--cor-texto);
+    font: inherit; font-size: 0.875rem; font-weight: 700; line-height: 1.25rem; text-align: left;
+    text-decoration: none; cursor: pointer;
+  }
+  .menu-item svg { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--cor-texto-suave); }
+  .menu-item:hover { background: var(--cor-fundo-realce); }
+  .menu-item-perigo, .menu-item-perigo svg { color: var(--cor-erro); }
+  .menu-item-perigo:hover { background: var(--cor-erro-fundo); }
+  .menu-separador { height: 1px; margin: 0.375rem 0; background: var(--cor-borda); }
+
+  /* ── Estado vazio: <c-vazio titulo texto icone> (slot = acao) ── */
+  .vazio { padding: 2.5rem 1.5rem; text-align: center; }
+  .vazio-icone {
+    display: flex; align-items: center; justify-content: center; width: 3.5rem; height: 3.5rem;
+    margin: 0 auto 1rem; border-radius: 9999px; background: var(--cor-marca-suave); color: var(--cor-marca);
+  }
+  .vazio-icone svg { width: 1.5rem; height: 1.5rem; }
+  .vazio-titulo { font-family: var(--heading-font); font-size: 1.125rem; font-weight: 600; color: var(--cor-texto); }
+  .vazio-texto { max-width: 30rem; margin: 0.375rem auto 0; font-size: var(--text-corpo); color: var(--cor-texto-suave); }
+  .vazio-acoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 1.25rem; }
+  .vazio-acoes:empty { display: none; }
+
+  /* ── Modal: <c-dialogo id titulo tamanho> (<dialog class="dialogo"> do app.css) ── */
+  .dialogo-painel {
+    width: 100%; max-height: calc(100vh - 2rem); overflow-y: auto;
+    background: var(--cor-superficie); color: var(--cor-texto);
+    border: 1px solid var(--cor-borda); border-radius: 1rem; box-shadow: var(--sombra-flutuante);
+  }
+  .dialogo-cabecalho {
+    position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--cor-borda); background: var(--cor-superficie);
+  }
+  .dialogo-titulo { font-family: var(--heading-font); font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
+  .dialogo-corpo { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; }
+  .dialogo-rodape {
+    display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem;
+    padding: 1rem 1.25rem; border-top: 1px solid var(--cor-borda);
+  }
+  dialog.dialogo-sm { max-width: 28rem; }
+  dialog.dialogo-lg { max-width: 56rem; }
+
+  /* ── Barra de filtros (formulario GET acima de lista) ── */
+  .barra-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
+  .barra-filtros > .grupo-campo { flex: 1 1 11rem; }
+  .barra-filtros-acoes { display: flex; gap: 0.5rem; align-items: center; }
+
+  /* ── Lista de dados (rotulo: valor) ── */
+  .dados { display: grid; gap: 0.75rem 1.5rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); }
+  .dados dt { font-size: var(--text-legenda); font-weight: 700; color: var(--cor-texto-suave); }
+  .dados dd { margin: 0.125rem 0 0; color: var(--cor-texto); overflow-wrap: anywhere; }
+
+  /* ── Lista de itens (linhas dentro de cartao: pendentes, hoje/amanha...) ── */
+  .lista-itens > * + * { border-top: 1px solid var(--cor-borda); }
+  .item-lista { display: flex; align-items: center; gap: 0.875rem; padding: 0.875rem 1.25rem; min-width: 0; }
+  .item-lista-hora {
+    flex-shrink: 0; width: 3.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--cor-texto);
+  }
+  .item-lista-corpo { flex: 1; min-width: 0; }
+  .item-lista-titulo { font-weight: 700; color: var(--cor-texto); overflow-wrap: anywhere; }
+  .item-lista-meta { font-size: 0.875rem; color: var(--cor-texto-suave); }
+  .item-lista-acoes { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-shrink: 0; }
+  @media (max-width: 639.98px) {
+    .item-lista { flex-wrap: wrap; }
+    .item-lista-acoes { width: 100%; justify-content: flex-start; }
+  }
+
+  /* ── Avatar com iniciais ── */
+  .avatar {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 2.5rem; height: 2.5rem; border-radius: 9999px; background: var(--cor-marca-suave);
+    color: var(--cor-marca); font-weight: 700; font-size: 0.875rem; text-transform: uppercase;
+  }
+
+  /* ── Linha do tempo (ficha da cliente) ── */
+  .linha-tempo { position: relative; padding-left: 1.75rem; }
+  .linha-tempo::before {
+    content: ''; position: absolute; top: 0.5rem; bottom: 0.5rem; left: 0.5625rem; width: 2px; background: var(--cor-borda);
+  }
+  .linha-tempo-item { position: relative; padding-bottom: 1.25rem; }
+  .linha-tempo-item:last-child { padding-bottom: 0; }
+  .linha-tempo-item::before {
+    content: ''; position: absolute; left: -1.5rem; top: 0.375rem; width: 0.875rem; height: 0.875rem;
+    border-radius: 9999px; background: var(--cor-superficie); border: 3px solid var(--cor-marca-forte);
+  }
+  .linha-tempo-item.is-FALTOU::before { border-color: var(--st-faltou-texto); }
+  .linha-tempo-item.is-CANCELADO::before { border-color: var(--st-cancelado-texto); }
+  .linha-tempo-item.is-REALIZADO::before { border-color: var(--st-realizado-texto); }
+  .linha-tempo-item.is-CONFIRMADO::before { border-color: var(--st-confirmado-texto); }
+  .linha-tempo-item.is-AGENDADO::before { border-color: var(--st-agendado-texto); }
+  .linha-tempo-item.is-PENDENTE::before { border-color: var(--st-pendente-texto); }
+  .linha-tempo-item.is-REAGENDADO::before { border-color: var(--st-reagendado-texto); }
+
+  /* ── Paginacao ── */
+  .paginacao { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; }
+  .paginacao-info { padding: 0 0.5rem; font-size: 0.875rem; color: var(--cor-texto-suave); }
+
+  /* ── Barra de acao em lote (agenda) ── */
+  .barra-lote {
+    position: sticky; top: 4.5rem; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+    padding: 0.625rem 0.75rem 0.625rem 1rem; margin-bottom: 1rem; border-radius: 0.75rem;
+    background: var(--cor-cromo-fundo); color: var(--cor-cromo-texto); box-shadow: var(--sombra-flutuante);
+  }
+  .barra-lote[hidden] { display: none; }
+}
+
+/* Menu lateral e topo da casca (fora de camada so o necessario p/ vencer o utilitario do hover) */
+@layer components {
+  .menu-lateral-link {
+    display: flex; align-items: center; gap: 0.75rem; margin: 0.0625rem 0.75rem; padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem; font-size: var(--text-corpo); font-weight: 700; line-height: 1.375rem;
+    color: var(--cor-cromo-texto); text-decoration: none; transition: background-color .15s ease, color .15s ease;
+  }
+  .menu-lateral-link svg { width: 1.125rem; height: 1.125rem; flex-shrink: 0; color: var(--cor-cromo-suave); }
+  .menu-lateral-link:hover { background: var(--cor-cromo-elevado); color: var(--cor-cromo-texto); }
+  .menu-lateral-link[aria-current="page"] {
+    background: var(--cor-cromo-ativo-fundo); color: var(--cor-cromo-ativo-texto);
+    box-shadow: inset 3px 0 0 var(--cor-marca-forte);
+  }
+  .menu-lateral-link[aria-current="page"] svg { color: var(--cor-cromo-ativo-texto); }
+  .menu-lateral-secao {
+    margin: 0; padding: 1.25rem 1.5rem 0.375rem; font-size: 0.75rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--cor-cromo-suave);
+  }
+}
