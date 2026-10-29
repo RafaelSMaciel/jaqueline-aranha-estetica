@@ -118,6 +118,7 @@ def agendamento_publico(request):
     # Consentimento art. 11: o texto exibido e o da versao SAUDE que o POST grava
     _termo_saude, texto_consentimento_saude = VersaoTermo.texto_saude_vigente()
     otp_telefone = otp_service.telefone_verificado_agendamento(request)
+    titular = Cliente.objects.filter(telefone=otp_telefone).first() if otp_telefone else None
     context = {
         'procedimentos': cards,
         'categorias_disponiveis': sorted({(c['categoria'], c['categoria_label']) for c in cards}),
@@ -132,7 +133,8 @@ def agendamento_publico(request):
         # Telefone ja verificado nesta sessao (reidratar sem exigir novo SMS) e se ja tem cadastro
         # (D16: o nome da titular fica so leitura)
         'otp_telefone': otp_telefone,
-        'otp_titular': bool(otp_telefone) and Cliente.objects.filter(telefone=otp_telefone).exists(),
+        'otp_titular': titular is not None,
+        'otp_fichas_em_dia': agendamento_online.fichas_em_dia_do_wizard(titular),
         'rehidratar': bool(request.session.pop(SESSAO_REHIDRATAR, False)),
         # Sem canal de SMS (prod sem provedor) o OTP e impossivel: avisa ja no
         # passo 1 (antes de escolher tratamento/horario) e de novo no passo 3

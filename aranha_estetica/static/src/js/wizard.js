@@ -755,6 +755,52 @@
             });
             fields.appendChild(formWrap);
         });
+        aplicarFichasEmDia();
+    }
+
+    // ═══ FICHA EM DIA (D14: vale 12 meses) ═══
+    // {id da ficha: 'dd/mm/aaaa'} — decidido no servidor (OTP ou celular já verificado na sessão).
+    // Ficha obrigatória em dia não é pedida de novo; "Atualizar" abre as perguntas (e, se a pessoa
+    // responder, ela é validada e gravada como a opcional).
+    var FICHAS_EM_DIA = {};
+    try {
+        FICHAS_EM_DIA = JSON.parse(document.getElementById('fichas-em-dia-data').textContent) || {};
+    } catch (e) { FICHAS_EM_DIA = {}; }
+
+    function aplicarFichasEmDia() {
+        var wraps = document.querySelectorAll('#anamneseFields [data-ficha-id]');
+        for (var i = 0; i < wraps.length; i++) {
+            var wrap = wraps[i];
+            var data = FICHAS_EM_DIA[wrap.dataset.fichaId];
+            if (!data || wrap.dataset.emDia || !wrap.dataset.fichaObrigatoria) continue;
+            if (fichaPreenchida(wrap.dataset.fichaId)) continue;  // já começou a responder
+            marcarEmDia(wrap, data);
+        }
+        sincronizarObrigatorios();
+        atualizarConsentSaude();
+    }
+
+    function marcarEmDia(wrap, data) {
+        wrap.dataset.emDia = '1';
+        wrap.dataset.fichaObrigatoria = '';
+        var campos = wrap.querySelectorAll('.ficha-campo');
+        for (var k = 0; k < campos.length; k++) campos[k].hidden = true;
+        var nota = document.createElement('p');
+        nota.className = 'ficha-em-dia';
+        nota.textContent = 'Sua ficha de ' + data + ' está em dia — algo mudou? ';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ficha-atualizar';
+        btn.textContent = 'Atualizar';
+        btn.addEventListener('click', function() {
+            for (var j = 0; j < campos.length; j++) campos[j].hidden = false;
+            nota.remove();
+            var primeiro = wrap.querySelector('[data-form-id]');
+            if (primeiro) primeiro.focus();
+        });
+        nota.appendChild(btn);
+        var titulo = wrap.querySelector('.ficha-titulo');
+        wrap.insertBefore(nota, titulo ? titulo.nextSibling : wrap.firstChild);
     }
 
     function temResposta(campos) {
@@ -1081,6 +1127,8 @@
             var fd = new FormData();
             fd.append('telefone', digitos);
             fd.append('codigo', codigo);
+            // horário escolhido: o servidor diz quais fichas ainda estarão em dia nele (D14)
+            if (selectedSlot && selectedSlot.iso) fd.append('inicio', selectedSlot.iso);
             fd.append('csrfmiddlewaretoken', OTP_CSRF);
             fetch(cfg.urlOtpVerificar, {method:'POST', body: fd, headers:{'X-CSRFToken': OTP_CSRF}})
                 .then(lerJson)
@@ -1095,6 +1143,8 @@
                         // checkboxes agora refletem o cadastro (ou cliente novo)
                         consentsSincronizados(true);
                         mostrarDados(res.data.prefill, !!res.data.prefill);
+                        FICHAS_EM_DIA = res.data.fichas_em_dia || {};
+                        aplicarFichasEmDia();
                     } else if (res.data.codigo === 'limite') {
                         setOtpMsg('Muitas tentativas. Aguarde um minuto.', false);
                     } else {

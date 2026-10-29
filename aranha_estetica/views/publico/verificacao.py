@@ -5,15 +5,17 @@ recebe o SMS: e-mail digitado nunca vira identidade (senao qualquer um
 receberia no proprio celular o codigo que libera o cadastro de outra pessoa).
 """
 import logging
+from datetime import datetime
 
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ...models import Cliente, CodigoOtp
-from ...services import consentimentos
+from ...services import agendamento_online, consentimentos
 from ...services import otp as otp_service
 from ...services.agendamento_online import MSG_BLOQUEADO_ONLINE
 from ...utils.captcha import turnstile_enabled, verificar_turnstile
@@ -123,7 +125,19 @@ def verificar_otp_agendamento(request):
             # nem zerados as cegas.
             'consents': consentimentos.estado_wizard(cliente),
         }
-    return json_ok(prefill=prefill, aviso=aviso, aviso_mensagem=aviso_mensagem)
+    return json_ok(prefill=prefill, aviso=aviso, aviso_mensagem=aviso_mensagem,
+                   # horario escolhido no wizard: a ficha tem de estar em dia NELE (D14)
+                   fichas_em_dia=agendamento_online.fichas_em_dia_do_wizard(
+                       cliente, _instante(request.POST.get('inicio'))))
+
+
+def _instante(valor):
+    """ISO 8601 com fuso (datetime_iso do slot) -> datetime aware, ou None."""
+    try:
+        instante = datetime.fromisoformat(str(valor or ''))
+    except (TypeError, ValueError):
+        return None
+    return instante if timezone.is_aware(instante) else None
 
 
 def _telefone_do_identificador(identificador):
