@@ -5,7 +5,8 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-from aranha_estetica.forms.painel import BloqueioForm, ProcedimentoForm, TermoForm, parse_preco
+from aranha_estetica.forms.cadastros import ProcedimentoForm
+from aranha_estetica.forms.painel import BloqueioForm, TermoForm, parse_preco
 
 from .factories import criar_procedimento, criar_profissional
 

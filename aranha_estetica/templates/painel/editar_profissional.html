@@ -18,6 +18,15 @@
 {% block conteudo %}
 <div class="max-w-2xl mx-auto">
 
+  {% if orfaos_url %}
+  {# Recusa por atendimento orfao (a mensagem no topo lista os horarios): atalho p/ reagendar/cancelar #}
+  <p class="bg-aviso-fundo text-texto rounded-lg border-l-[3px] border-aviso px-4 py-3 text-sm mb-4">
+    Nada foi salvo.
+    <a href="{{ orfaos_url }}" class="font-bold text-marca">Ver os agendamentos de {{ profissional.nome }}</a>
+    para reagendar ou cancelar antes de mudar a agenda.
+  </p>
+  {% endif %}
+
   <form method="post" action="{% url 'aranha:profissional_editar' profissional.pk %}">
     {% csrf_token %}
 
@@ -27,7 +36,7 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
-          <c-campo nome="nome" label="Nome Completo *" tipo="text"
+          <c-campo nome="nome" label="Nome Completo *" tipo="text" erro="{{ erros.nome }}"
                    value="{{ form_nome }}" required></c-campo>
         </div>
         <div>
@@ -43,7 +52,7 @@
                  class="rounded border-borda">
           Ativo
         </label>
-        <p class="text-xs text-texto-suave mt-1">Profissional inativo não aparece no agendamento online.</p>
+        <p class="text-xs text-texto-suave mt-1">Profissional inativo não aparece no agendamento online. Desativar também desativa o link do calendário (feed ICS).</p>
       </div>
     </div>
 
