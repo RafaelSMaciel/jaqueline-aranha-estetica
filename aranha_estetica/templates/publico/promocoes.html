@@ -1,89 +1,66 @@
 {% extends 'estrutura/base_v2.html' %}
-{% load static %}
 
 {% block titulo %}Promoções | {{ CLINIC_NAME }}{% endblock %}
-{% block meta_description %}Promoções vigentes da {{ CLINIC_NAME }} em tratamentos faciais e corporais. Agende online.{% endblock %}
+{% block meta_description %}Promoções vigentes da {{ CLINIC_NAME }} em tratamentos faciais e corporais, com o preço que o agendamento online aplica.{% endblock %}
 
 {% block conteudo %}
 
-{# ═══════════════════════════════════════════════════════════ #}
-{# HERO                                                        #}
-{# ═══════════════════════════════════════════════════════════ #}
-<section id="promo-hero" class="py-16 md:py-24 bg-fundo">
+{# ═══ HERO — arte da marca (sem foto real) + quantas promocoes estao valendo hoje ═══ #}
+<section id="promo-hero" class="py-10 md:py-16 bg-fundo">
   <div class="max-w-6xl mx-auto px-6">
-    <div class="grid md:grid-cols-2 gap-12 items-center">
+    <div class="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
 
-      {# — conteúdo textual — #}
       <div class="space-y-6">
-        {# badge #}
-        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
-          <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-            <line x1="7" y1="7" x2="7.01" y2="7"/>
-          </svg>
-          Ofertas especiais
-        </div>
+        <p class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          Condições especiais
+        </p>
 
         <h1 class="text-4xl md:text-5xl font-bold text-texto leading-tight">
-          <span class="text-marca">Promoções</span> exclusivas para você
+          <span class="text-marca">Promoções</span> do momento
         </h1>
 
         <p class="text-texto-suave text-lg leading-relaxed">
-          Aproveite condições especiais nos nossos tratamentos de estética. Ofertas por tempo limitado com os mesmos padrões de qualidade e excelência que você merece.
+          Condições especiais em tratamentos do nosso catálogo, com o mesmo preço que o agendamento online aplica. Cada promoção vale para atendimentos dentro do período indicado.
         </p>
 
-        <div class="flex flex-wrap gap-4">
+        <div class="flex flex-wrap gap-3">
+          {% if promocoes %}
           <a href="#promo-grid"
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
             Ver promoções
           </a>
+          {% else %}
+          <c-cta-agendar texto="Agendar avaliação" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold no-underline hover:opacity-90 transition-opacity" />
+          {% endif %}
           {% if WHATSAPP_NUMERO %}
-          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es+exclusivas."
+          <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+as+promo%C3%A7%C3%B5es."
              target="_blank" rel="noopener"
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
-            <svg class="w-5 h-5 text-whatsapp" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-              <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
-            </svg>
+            {% include 'partials/_icone_whatsapp.html' with classe='w-5 h-5 text-whatsapp' %}
             Tirar dúvidas no WhatsApp
           </a>
           {% endif %}
         </div>
       </div>
 
-      {# — visual — #}
       <div class="relative">
-        <div class="group relative rounded-xl overflow-hidden aspect-[4/5]">
-          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
-            <svg class="w-14 h-14 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.5L19.5 10l-5.6 1.5L12 17l-1.9-5.5L4.5 10l5.6-1.5z"/></svg>
-          </div>
-
-          {# floating card — desconto #}
-          <div class="absolute bottom-6 left-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-[200px]">
-            <div class="flex-shrink-0 w-9 h-9 rounded-md bg-marca-forte flex items-center justify-center">
-              <svg class="w-5 h-5 text-sobre-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <line x1="19" y1="5" x2="5" y2="19"/>
-                <circle cx="6.5" cy="6.5" r="2.5"/>
-                <circle cx="17.5" cy="17.5" r="2.5"/>
-              </svg>
-            </div>
+        <div class="relative rounded-2xl overflow-hidden aspect-[4/3] md:aspect-[4/5] border border-borda">
+          {% include 'partials/_arte_marca.html' with icone='presente' rotulo='Cuidado em boa hora' %}
+          {# cartao com dado real: as promocoes que o agendamento aplica hoje #}
+          <div class="absolute bottom-4 left-4 md:bottom-6 md:left-6 bg-superficie/95 backdrop-blur border border-borda rounded-xl p-4 shadow-lg flex items-start gap-3 max-w-[16rem]">
+            <span class="shrink-0 w-9 h-9 rounded-full bg-marca-forte text-sobre-marca flex items-center justify-center" aria-hidden="true">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+            </span>
             <div>
-              <p class="text-texto font-semibold text-sm leading-tight">Descontos Especiais</p>
-              <p class="text-texto-suave text-xs mt-0.5">Por Tempo Limitado</p>
-              <p class="text-marca text-xs mt-0.5">Aproveite agora!</p>
+              {% if promocoes %}
+              <p class="text-texto font-semibold text-sm leading-tight">{{ promocoes|length }} promoç{{ promocoes|length|pluralize:"ão,ões" }} valendo hoje</p>
+              <p class="text-texto-suave text-xs mt-1">O desconto vale pela data do atendimento.</p>
+              {% else %}
+              <p class="text-texto font-semibold text-sm leading-tight">Nenhuma promoção hoje</p>
+              <p class="text-texto-suave text-xs mt-1">Novas condições aparecem aqui assim que forem lançadas.</p>
+              {% endif %}
             </div>
-          </div>
-
-          {# floating card — exclusivo #}
-          <div class="absolute top-6 right-6 bg-superficie border border-borda rounded-lg p-4 shadow-lg text-center min-w-[120px]">
-            <svg class="w-6 h-6 text-marca mx-auto mb-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="20 12 20 22 4 22 4 12"/>
-              <rect x="2" y="7" width="20" height="5"/>
-              <line x1="12" y1="22" x2="12" y2="7"/>
-              <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
-            </svg>
-            <p class="text-texto font-bold text-sm">Exclusivo</p>
-            <p class="text-texto-suave text-xs mt-0.5">Condições Imperdíveis</p>
           </div>
         </div>
       </div>
@@ -92,15 +69,13 @@
   </div>
 </section>
 
-{# ═══════════════════════════════════════════════════════════ #}
-{# GRID DE PROMOÇÕES                                           #}
-{# ═══════════════════════════════════════════════════════════ #}
+{# ═══ GRADE DE PROMOCOES ═══ #}
 <section id="promo-grid" class="py-16 md:py-24 bg-superficie">
   <div class="max-w-6xl mx-auto px-6">
 
-    <div class="text-center mb-14">
+    <div class="text-center mb-12">
       <h2 class="text-3xl md:text-4xl font-bold text-texto">Promoções ativas</h2>
-      <p class="text-texto-suave mt-3 text-lg">Aproveite nossas ofertas especiais por tempo limitado</p>
+      <p class="text-texto-suave mt-3 text-lg">O valor mostrado é o que o agendamento grava</p>
     </div>
 
     {% if promocoes %}
@@ -108,10 +83,8 @@
       {% for promo in promocoes %}
       <article class="rounded-xl border border-borda bg-fundo flex flex-col overflow-hidden">
 
-        {# cabeçalho do card com badge de desconto #}
         <div class="bg-superficie px-6 py-5 flex items-start justify-between gap-4 border-b border-borda">
           <div class="space-y-1 flex-1 min-w-0">
-            {# badge de desconto #}
             {% if promo.desconto_percentual %}
             <span class="inline-block px-2.5 py-0.5 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold mb-2">
               -{{ promo.desconto_percentual|floatformat:0 }}%
@@ -122,26 +95,20 @@
             <p class="text-marca text-sm font-medium">{{ promo.procedimento.nome }}</p>
             {% endif %}
           </div>
-          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-fundo border border-borda flex items-center justify-center mt-1">
-            <svg class="w-5 h-5 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-              <line x1="7" y1="7" x2="7.01" y2="7"/>
-            </svg>
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-fundo border border-borda flex items-center justify-center mt-1 text-marca" aria-hidden="true">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
           </div>
         </div>
 
-        {# corpo #}
         <div class="p-6 flex flex-col flex-1 space-y-4">
-
           {% if promo.descricao %}
           <p class="text-texto-suave text-sm leading-relaxed">{{ promo.descricao }}</p>
           {% endif %}
 
-          {# preços #}
           {# preco_final = mesma conta do agendamento (utils.precos.aplicar_promocao, na view). #}
           {# A promo vale pela DATA DO ATENDIMENTO: agendar p/ depois do fim = preco cheio. #}
           {% if promo.preco_final is not None %}
-          <div class="flex items-baseline gap-3">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             {% if promo.preco_original and promo.preco_final < promo.preco_original %}
             <span class="text-texto-suave text-sm line-through">De {{ promo.preco_original|brl }}</span>
             {% endif %}
@@ -149,72 +116,42 @@
           </div>
           {% endif %}
 
-          {# validade #}
-          <div class="flex items-center gap-2 text-texto-suave text-sm">
-            <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
+          <p class="flex items-center gap-2 text-texto-suave text-sm">
+            <svg class="w-4 h-4 text-marca flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             Válido para atendimentos de {{ promo.data_inicio|date:"d/m/Y" }} até {{ promo.data_fim|date:"d/m/Y" }}
-          </div>
+          </p>
 
-          {# CTA #}
           {% if promo.procedimento %}
           <a {% agendar_link procedimento=promo.procedimento.pk %}
              class="mt-auto inline-flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
-            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-              <path d="M9 16l2 2 4-4"/>
-            </svg>
             Agendar com desconto
           </a>
           {% else %}
           <a {% agendar_link %}
              class="mt-auto inline-flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold text-sm hover:opacity-90 transition-opacity">
-            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-              <path d="M9 16l2 2 4-4"/>
-            </svg>
             Agendar agora
           </a>
           {% endif %}
-
         </div>
       </article>
       {% endfor %}
     </div>
 
     {% else %}
-    {# — empty state — #}
-    <div class="text-center py-16 space-y-4">
-      <div class="mx-auto w-20 h-20 rounded-full bg-fundo border border-borda flex items-center justify-center">
-        <svg class="w-10 h-10 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-          <line x1="7" y1="7" x2="7.01" y2="7"/>
-        </svg>
-      </div>
+    <div class="text-center py-12 space-y-4">
       <h3 class="text-texto text-xl font-bold">Nenhuma promoção ativa no momento</h3>
-      <p class="text-texto-suave max-w-md mx-auto">Fique de olho! Novas promoções serão publicadas em breve. Enquanto isso, conheça nossos tratamentos com preços acessíveis.</p>
-      <div class="flex gap-3 justify-center flex-wrap mt-2">
-        <a {% agendar_link %}
+      <p class="text-texto-suave max-w-md mx-auto">Novas promoções aparecem aqui assim que forem lançadas. Enquanto isso, conheça os tratamentos e os valores de cada um.</p>
+      <div class="flex gap-3 justify-center flex-wrap pt-2">
+        <a href="{% url 'aranha:especialidades' %}"
            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
-          Agendar avaliação
+          Ver tratamentos e valores
         </a>
         {% if WHATSAPP_NUMERO %}
-        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es."
+        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+as+promo%C3%A7%C3%B5es."
            target="_blank" rel="noopener"
-           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
-          <svg class="w-5 h-5 text-whatsapp" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-            <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
-          </svg>
-          Pedir desconto
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-fundo transition-colors">
+          {% include 'partials/_icone_whatsapp.html' with classe='w-5 h-5 text-whatsapp' %}
+          Perguntar no WhatsApp
         </a>
         {% endif %}
       </div>
@@ -224,82 +161,48 @@
   </div>
 </section>
 
-{# ═══════════════════════════════════════════════════════════ #}
-{# CTA WHATSAPP + DIFERENCIAIS                                 #}
-{# ═══════════════════════════════════════════════════════════ #}
+{# ═══ COMO FUNCIONA (texto generico, sem promessa que o sistema nao cumpre) ═══ #}
 <section id="promo-cta" class="py-16 md:py-24 bg-fundo">
   <div class="max-w-6xl mx-auto px-6">
 
-    {# bloco CTA #}
-    <div class="text-center max-w-2xl mx-auto mb-16 space-y-6">
-      <h2 class="text-3xl md:text-4xl font-bold text-texto">Quer um desconto personalizado?</h2>
+    <div class="text-center max-w-2xl mx-auto mb-14 space-y-6">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Quer montar um plano de cuidados?</h2>
       <p class="text-texto-suave text-lg leading-relaxed">
-        {% if WHATSAPP_NUMERO %}Fale conosco pelo WhatsApp e negocie condições exclusivas para o seu tratamento.{% else %}Na sua avaliação, a equipe monta com você o plano de cuidados ideal.{% endif %} Pacotes especiais e combos com preços diferenciados.
+        Na avaliação, a profissional monta com você o plano ideal. Pacotes de sessões têm valor fechado e validade definida.
       </p>
-      <div class="flex flex-wrap gap-4 justify-center">
-        {% if WHATSAPP_NUMERO %}
-        <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Ol%C3%A1%21+Gostaria+de+saber+sobre+promo%C3%A7%C3%B5es+exclusivas."
-           target="_blank" rel="noopener"
-           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
-          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-            <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
-          </svg>
-          Falar no WhatsApp
-        </a>
-        {% endif %}
+      <div class="flex flex-wrap gap-3 justify-center">
+        <c-cta-agendar texto="Agendar avaliação" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold no-underline hover:opacity-90 transition-opacity" />
         <a href="{% url 'aranha:servicos_faciais' %}"
            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
           Ver tratamentos
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
       </div>
     </div>
 
-    {# 3 diferenciais #}
-    <div class="grid sm:grid-cols-3 gap-6 border-t border-borda pt-12">
-
-      <div class="text-center space-y-3">
-        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
-          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="19" y1="5" x2="5" y2="19"/>
-            <circle cx="6.5" cy="6.5" r="2.5"/>
-            <circle cx="17.5" cy="17.5" r="2.5"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">Descontos reais</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Promoções genuínas com economia real nos nossos tratamentos.</p>
-      </div>
-
-      <div class="text-center space-y-3">
-        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
-          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="1" y="3" width="15" height="13" rx="2"/>
-            <path d="M16 8h4a2 2 0 012 2v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-2"/>
-            <circle cx="7.5" cy="18.5" r="2.5"/>
-            <circle cx="18.5" cy="18.5" r="2.5"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">Combos e pacotes</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Combine tratamentos com preços especiais e potencialize resultados.</p>
-      </div>
-
-      <div class="text-center space-y-3">
-        <div class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center">
-          <svg class="w-7 h-7 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="20 12 20 22 4 22 4 12"/>
-            <rect x="2" y="7" width="20" height="5"/>
-            <line x1="12" y1="22" x2="12" y2="7"/>
-            <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
-          </svg>
-        </div>
-        <h3 class="text-texto font-bold text-lg">Primeira avaliação</h3>
-        <p class="text-texto-suave text-sm leading-relaxed">Condições especiais para novos clientes na avaliação inicial.</p>
-      </div>
-
-    </div>
+    <ul class="grid sm:grid-cols-3 gap-6 border-t border-borda pt-12">
+      <li class="text-center space-y-3">
+        <span class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center text-marca" aria-hidden="true">
+          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <h3 class="text-texto font-bold text-lg">Preço que vale no agendamento</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">O valor mostrado aqui é o mesmo que o agendamento online aplica.</p>
+      </li>
+      <li class="text-center space-y-3">
+        <span class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center text-marca" aria-hidden="true">
+          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+        <h3 class="text-texto font-bold text-lg">Validade pela data do atendimento</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">A promoção vale para atendimentos marcados dentro do período indicado.</p>
+      </li>
+      <li class="text-center space-y-3">
+        <span class="mx-auto w-14 h-14 rounded-full bg-superficie border border-borda flex items-center justify-center text-marca" aria-hidden="true">
+          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+        </span>
+        <h3 class="text-texto font-bold text-lg">Pacotes de sessões</h3>
+        <p class="text-texto-suave text-sm leading-relaxed">Para tratamentos com várias sessões, combinados com você na clínica.</p>
+      </li>
+    </ul>
   </div>
 </section>
 

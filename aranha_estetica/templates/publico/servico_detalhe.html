@@ -1,5 +1,4 @@
 {% extends 'estrutura/base_v2.html' %}
-{% load static %}
 
 {% block titulo %}{{ procedimento.nome }} | {{ CLINIC_NAME }}{% endblock %}
 {% block meta_description %}{{ procedimento.descricao|default:procedimento.nome|truncatechars:155 }}{% endblock %}
@@ -55,89 +54,66 @@
 </nav>
 
 {# ═══ HERO ═══ #}
-<section class="py-16 md:py-24 bg-fundo">
+<section class="py-10 md:py-16 bg-fundo">
   <div class="max-w-6xl mx-auto px-6">
-    <div class="grid md:grid-cols-2 gap-12 items-center">
+    <div class="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
 
-      {# — Conteúdo textual — #}
       <div class="space-y-6">
-
-        {# Badge categoria #}
-        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
-          <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
-          </svg>
+        <p class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
           {{ procedimento.get_categoria_display }}
-        </div>
+        </p>
 
         <h1 class="text-4xl md:text-5xl font-bold text-texto leading-tight">{{ procedimento.nome }}</h1>
 
-        {# Metadados — duração e preço #}
-        <div class="flex flex-wrap gap-3">
-          <div class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-superficie border border-borda text-sm">
-            <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
+        {# Duracao e preco em selos separados; o nome da promocao num selo proprio (quebra de linha limpa) #}
+        <ul class="flex flex-wrap items-center gap-2.5 text-sm" aria-label="Duração e valor">
+          <li class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda">
+            <svg class="w-4 h-4 text-marca shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <strong class="text-texto">{{ procedimento.duracao_minutos }} minutos</strong>
-          </div>
-          <div class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-superficie border border-borda text-sm">
-            <svg class="w-4 h-4 text-marca flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
-            </svg>
-            <strong class="text-texto">
-              {% if preco %}A partir de {{ preco|brl }}{% else %}Valor a consultar{% endif %}
-            </strong>
-            {% if preco and preco_cheio %}
-            <s class="text-texto-suave"><span class="sr-only">Preço sem promoção: </span>{{ preco_cheio|brl }}</s>
-            <span class="text-marca font-medium">{{ promocao.nome }}</span>
-            {% endif %}
-          </div>
-        </div>
+          </li>
+          <li class="inline-flex flex-wrap items-baseline gap-x-2 px-4 py-2 rounded-full bg-superficie border border-borda">
+            <strong class="text-texto">{% if preco %}A partir de {{ preco|brl }}{% else %}Valor a consultar{% endif %}</strong>
+            {% if preco and preco_cheio %}<s class="text-texto-suave"><span class="sr-only">Preço sem promoção: </span>{{ preco_cheio|brl }}</s>{% endif %}
+          </li>
+          {% if preco and preco_cheio %}
+          <li class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-marca-forte text-sobre-marca text-xs font-bold">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            {{ promocao.nome }}{% if promocao.data_fim %} · até {{ promocao.data_fim|date:"d/m" }}{% endif %}
+          </li>
+          {% endif %}
+        </ul>
 
         {% if procedimento.descricao %}
         <p class="text-texto-suave text-lg leading-relaxed">{{ procedimento.descricao }}</p>
         {% endif %}
 
-        {# CTAs #}
-        <div class="flex flex-wrap gap-4 pt-2">
+        <div class="flex flex-wrap gap-3 pt-1">
           <a {% agendar_link procedimento=procedimento.pk %}
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
-            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              <path d="M9 16l2 2 4-4"/>
-            </svg>
             Agendar este tratamento
           </a>
           {% if WHATSAPP_NUMERO %}
           <a href="https://wa.me/{{ WHATSAPP_NUMERO }}?text=Olá!%20Gostaria%20de%20saber%20mais%20sobre%20{{ procedimento.nome|urlencode }}"
              target="_blank" rel="noopener"
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
-            <svg class="w-5 h-5 text-whatsapp" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-              <path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.659 1.438 5.168L2 22l4.984-1.407A9.945 9.945 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.95 7.95 0 01-4.055-1.109l-.291-.173-3.007.849.85-2.932-.19-.301A7.94 7.94 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/>
-            </svg>
+            {% include 'partials/_icone_whatsapp.html' with classe='w-5 h-5 text-whatsapp' %}
             Tirar dúvidas
           </a>
           {% endif %}
         </div>
       </div>
 
-      {# — Imagem — #}
-      <div class="group rounded-xl overflow-hidden aspect-[4/5] shadow-xl">
+      {# Foto propria do procedimento (painel) ou, sem ela, a foto ilustrativa da linha / arte da marca #}
+      <div class="group rounded-2xl overflow-hidden aspect-[4/3] md:aspect-[4/5] border border-borda shadow-xl shadow-black/5">
         {% if procedimento.imagem_destaque %}
-          <img src="{{ procedimento.imagem_destaque }}"
-               alt="{{ procedimento.nome }}"
-               width="600" height="750"
-               loading="lazy" decoding="async"
+          <img src="{{ procedimento.imagem_destaque }}" alt="{{ procedimento.nome }}" width="600" height="750"
+               fetchpriority="high" decoding="async"
                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
         {% elif procedimento.categoria == 'FACIAL' %}
-          {% foto 'facial-2' alt="Tratamento facial com luz de LED (foto ilustrativa)" sizes="(min-width: 1152px) 990px, (min-width: 768px) 94vw, 188vw" classe="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" %}
-        {% elif procedimento.categoria == 'CORPORAL' %}
-          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
-            <svg class="w-14 h-14 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><path d="M12 7.5v6m0 0l-3.5 5m3.5-5l3.5 5M7.5 11h9"/></svg>
-          </div>
+          {% foto 'facial-2' alt="Tratamento facial com luz de LED (foto ilustrativa)" sizes="(min-width: 1152px) 990px, (min-width: 768px) 94vw, 112vw" classe="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" prioridade=True %}
         {% else %}
-          {% foto 'atendimento-1' alt="Conversa de avaliação antes do tratamento (foto ilustrativa)" sizes="(min-width: 1152px) 990px, (min-width: 768px) 94vw, 188vw" classe="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" %}
+          {% include 'partials/_arte_marca.html' with icone='folha' rotulo=procedimento.get_categoria_display %}
         {% endif %}
       </div>
 
@@ -171,8 +147,12 @@
     <div class="flex flex-wrap justify-center gap-6">
       {% for prof in profissionais %}
       <div class="rounded-xl border border-borda bg-superficie p-6 text-center w-56 flex flex-col items-center gap-3">
-        <div class="w-20 h-20 rounded-full bg-marca-forte flex items-center justify-center text-sobre-marca font-bold text-2xl">
-          {{ prof.nome|slice:":1"|upper }}
+        <div class="w-20 h-20">
+          {% if prof.foto_url %}
+          <img src="{{ prof.foto_url }}" alt="Foto de {{ prof.nome }}" width="80" height="80" loading="lazy" decoding="async" class="w-full h-full rounded-full object-cover border border-borda">
+          {% else %}
+          <div class="monograma w-full text-2xl" aria-hidden="true">{{ prof.nome|iniciais }}</div>
+          {% endif %}
         </div>
         <div>
           <h3 class="text-texto font-semibold">{{ prof.nome }}</h3>
@@ -182,7 +162,7 @@
         </div>
         <a {% agendar_link profissional=prof.pk procedimento=procedimento.pk %}
            class="inline-flex items-center gap-1 px-4 py-2 rounded-md border border-borda text-texto text-sm font-medium hover:bg-fundo transition-colors w-full justify-center">
-          Agendar
+          Agendar com {{ prof.nome|primeiro_nome }}
         </a>
       </div>
       {% endfor %}
@@ -226,7 +206,7 @@
   <div class="max-w-3xl mx-auto px-6 text-center">
     <h2 class="text-3xl font-bold text-texto mb-4">Pronto para começar?</h2>
     <p class="text-texto-suave text-lg mb-8">
-      Agende sua sessão de {{ procedimento.nome }} e cuide da sua beleza com quem entende.
+      Agende sua sessão de {{ procedimento.nome }} em poucos passos.
     </p>
     <a {% agendar_link procedimento=procedimento.pk %}
        class="inline-flex items-center gap-2 px-8 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
