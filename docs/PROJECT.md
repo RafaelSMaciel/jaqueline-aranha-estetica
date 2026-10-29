@@ -1,7 +1,7 @@
 # Jaqueline Aranha Estética (Shiva Zen) — Documentação do Projeto
 
 > **Fonte viva textual do projeto.** Reflete o código do branch `dev`
-> (migrations `0001`–`0074`). Mudou model, rota, env var, job ou deploy? Atualize aqui
+> (migrations `0001`–`0078`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
 > pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documento do TCC (requisitos, UML,
@@ -59,14 +59,17 @@ atendimento é presencial.
 | Carteira / cashback | `Carteira`, `MovimentoCarteira` | Crédito da cliente (vale, indicação); livro-razão |
 | Comissão | `RegraComissao`, `MovimentoComissao` | Livro-razão da profissional: CRÉDITO (realizado; congela base e percentual), PAGAMENTO (baixa ou repasse em lote), ESTORNO (cancelado) |
 | Competência | `services/financeiro.competencia`, `?mes=AAAA-MM` | O mês do financeiro, da visão geral e do Excel: avulso pela data do atendimento, pacote pela venda menos o reembolso pelo cancelamento |
-| Lista de espera | `ListaEspera` | Quem quer vaga num dia; avisada quando um horário compatível libera |
+| Lista de espera | `ListaEspera`, `services/lista_espera` | Quem quer vaga num dia (turno opcional): inscrição anônima (nome + celular, sem cadastro) ou ligada à cliente com o celular verificado; avisada quando um horário compatível libera e continua na fila até a data passar ou ela agendar |
+| Cancelamento tardio | `agenda.cancelar_pela_cliente`, `JANELA_MINIMA_ALTERACAO` | A cliente cancela com menos de 24 h um horário já aprovado: o atendimento fica CANCELADO e soma 1 falta para o bloqueio online |
+| Área da cliente | `views/publico/portal`, `services/portal_cliente` | O "Meus agendamentos" por OTP: agendamentos, reagendar/cancelar, preferências, revogação de saúde, pedidos LGPD e "baixar meus dados" |
+| Política de privacidade | `conteudo/lgpd.py`, `VersaoTermo` LGPD | Texto único da política v1.0 = termo LGPD aceito no wizard = página `/politica-de-privacidade/` = declaração do DSAR |
 | Notificação | `Notificacao` | Toda mensagem ligada a um atendimento (lembrete, NPS, termo, e-mails); também a fila do e-mail |
 | Link de acesso | `LinkAcesso`, `services/links` | Link público das mensagens (confirmar, avaliar, termo, ficha, descadastro, feed ICS); no banco só o hash do token. Reagendar/cancelar não tem link: é pelo portal com OTP |
 | Ficha / prontuário / anotação | `RespostaAnamnese` (`resposta_formulario`) / `Prontuario` / `AnotacaoSessao` | Questionário da cliente / ficha clínica da equipe / nota de cada sessão — dado de saúde, cifrado |
 | Termo / aceite | `VersaoTermo` / `AceiteTermo` | Texto versionado (LGPD, saúde, procedimento) / prova do aceite (IP, user-agent, hash) |
 | Consentimento | `Consentimento`, `services/consentimentos` | Autorização por finalidade × canal (marketing/e-mail, lembrete/WhatsApp, pesquisa/WhatsApp); histórico append-only, o mais recente vale |
 | NPS / detrator / depoimento | `AvaliacaoNPS` | Nota 0–10 pós-atendimento; ≤ 6 alerta a clínica; comentário publicado só com autorização e aprovação |
-| Esquecimento / retenção | `sp_anonimizar_cliente`, `sp_aplicar_retencao_lgpd` | Anonimizar a pedido da titular / por prazo (`inventario_lgpd.py` diz o que acontece com cada coluna) |
+| Esquecimento / retenção | `sp_anonimizar_cliente`, `sp_aplicar_retencao_lgpd`, `sp_purgar_dados_expirados` | **Pseudonimizar** a pedido da titular / por prazo, e expurgar o registro de saúde aos 20 anos (`inventario_lgpd.py` diz o que acontece com cada coluna) |
 | Ator / trilhas | `ator.py`; `LogAuditoria`, `HistoricoAlteracao` | Quem agiu (usuário, IP, origem) / registro das ações e das alterações de dado |
 | Recusa de regra | `excecoes.RegraDeNegocio` (`HorarioIndisponivel`, `TransicaoInvalida`) | O "não" de um service, com a mensagem pronta para a tela |
 | Job | `jobs.py` (`JOB_MAP`, `JOB_AGENDA`), `rodar_jobs_devidos`, `/cron/run/<job>/`, `rodar_job` | Tarefa periódica: o serviço Cron do Railway roda os devidos a cada 15 min (horários na `JOB_AGENDA`) |
@@ -113,13 +116,16 @@ aranha_estetica/
 ├── db/              peças de banco usadas por migrations (Indice, PadronizarNomes) — congelado
 ├── migrations/sql/  texto SQL das rotinas por versão (v0056 triggers, v0057 leitura/views, v0058
 │                    procedures, v0059 trilhas append-only, v0065 faturamento por competência, v0066
-│                    comissão, v0072 links, v0074 anonimização) — congelado, importado só pela migration da versão
+│                    comissão, v0072 links, v0074 anonimização, v0077 retenção de saúde/pacote e
+│                    pseudonimização) — congelado, importado só pela migration da versão
 ├── urls/            uma lista de rotas por área (publico, conta, painel, profissional, infra), todas no
 │                    namespace `aranha` — espelha views/
-├── views/publico/   site (páginas institucionais), agendamento + agendamento_api (wizard e horários),
-│                    verificacao (OTP), portal (meus agendamentos: reagendar/cancelar pela sessão do OTP),
-│                    confirmacao (presença), agenda_profissional (agendar por profissional/embed),
-│                    formularios (anamnese/pesquisa), nps, termos (aceite), lgpd, lista_espera
+├── views/publico/   site (páginas institucionais, FAQ), agendamento + agendamento_api (wizard e horários),
+│                    verificacao (OTP), portal (meus agendamentos: reagendar/cancelar pela sessão do OTP,
+│                    preferências, revogação de saúde, pedidos LGPD, baixar meus dados), confirmacao
+│                    (presença), agenda_profissional (agendar por profissional/embed), formularios
+│                    (anamnese/pesquisa), nps, termos (aceite), lgpd (política, "Meus dados",
+│                    descadastro), lista_espera, contato
 ├── views/conta/     autenticacao (login, logout, recuperação de senha), dois_fatores (2FA TOTP)
 ├── views/painel/    um módulo por tela da equipe: visao_geral, agendamentos, aprovacao, calendario,
 │                    retornos, clientes, prontuario, anamneses, procedimentos, profissionais, excecoes,
@@ -134,37 +140,50 @@ aranha_estetica/
 │                    agendamento_online (o pedido pelo site), comunicacao (canais, fila de e-mail),
 │                    agendamento (avisos), disponibilidade (SlotService, horários agrupados, dias com
 │                    expediente), precos (vitrine), catalogo (preço base e habilitações), otp, lgpd,
-│                    termos, alertas, prontuario (vínculo clínico), comissao,
-│                    fidelidade, retorno, lista_espera, financeiro (competência), relatorios (Excel),
-│                    indicadores, pacotes, links, consentimentos, anamnese, push, lembretes (D-1 e sem
-│                    desfecho), nps (cálculo, envio, detrator), marketing (promoção e aniversário), feriados
+│                    termos, alertas (alertas e marcadores das listas em lote, leitura auditada),
+│                    prontuario (vínculo clínico), comissao, fidelidade, retorno, lista_espera
+│                    (inscrição e aviso de vaga), portal_cliente (sessão e pedidos LGPD da área da
+│                    cliente), financeiro (competência), relatorios (Excel), indicadores, pacotes,
+│                    links, consentimentos (inclusive o de saúde), anamnese, push, lembretes (D-1 e
+│                    sem desfecho), nps (cálculo, envio, detrator), marketing (promoção e aniversário),
+│                    feriados
 ├── utils/           branding, email, sms, whatsapp, telefone (forma canônica, E.164, máscara), precos,
-│                    saude, fichas, seguranca, dois_fatores, pii, captcha, datas, parse, busca (trigram no
-│                    PG), auditoria, recorrencia (RRULE do subconjunto), respostas (contrato JSON), banco
-│                    (GUCs app.* e CALL das procedures), cifragem, formatos
+│                    saude (alertas em lote e o marcador de consentimento revogado), fichas, seguranca,
+│                    dois_fatores, pii, captcha (Turnstile e `captcha_invalido`), datas (inclusive
+│                    `ler_instante_iso` do FullCalendar), parse, busca (trigram no PG), auditoria,
+│                    recorrencia (RRULE do subconjunto), respostas (contrato JSON), banco (GUCs app.* e
+│                    CALL das procedures), cifragem, formatos
+├── conteudo/        textos que também são regra, gerados de constantes (sem Django): lgpd.py (Política
+│                    de Privacidade v1.0 — texto, TRATAMENTOS, OPERADORES, PRAZOS_RETENCAO: fonte do
+│                    termo LGPD, da página e do DSAR) e faq.py (perguntas frequentes da home)
 ├── forms/           agendamento.py (AgendamentoPublicoForm: o POST do wizard → PedidoAgendamento),
-│                    cadastros.py (Usuario/UsuarioEdicao, Profissional, GradeSemanal, Procedimento,
-│                    Configuracao, Marca), cliente.py (ClientePainelForm), painel.py (BloqueioForm,
-│                    TermoForm, CampoPreco/parse_preco, avisar_erros), financeiro.py (pacote,
-│                    cancelar/prorrogar compra, regra de comissão, repasse), promocoes.py, nps.py
+│                    agenda.py (AgendamentoPainelForm do novo agendamento pela recepção,
+│                    ValorAtendimentoForm, AgendaExcecaoForm e TIPOS_PAINEL), cadastros.py
+│                    (Usuario/UsuarioEdicao, Profissional, GradeSemanal, Procedimento, Configuracao,
+│                    Marca), cliente.py (ClientePainelForm, ClienteRapidoForm), painel.py (BloqueioForm,
+│                    TermoForm, CampoPreco/parse_preco, EscolhaPorId, ProfissionalOuTodos,
+│                    avisar_erros), publico.py (ListaEsperaForm, ContatoForm: honeypot), financeiro.py
+│                    (pacote, cancelar/prorrogar compra, regra de comissão, repasse), promocoes.py, nps.py
 ├── management/commands/  seed, bootstrap_admin, migrate_atomico, setup_2fa, carregar_feriados, rodar_job,
 │                    rodar_jobs_devidos, gerar_chave_cifragem, rotacionar_chave_cifragem,
 │                    reaplicar_esquecimentos, consultas_lentas
-├── templatetags/    painel_tags (`MENU_PAINEL`: menu do painel), atendimento_tags, site_tags, formatos,
-│                    dict_extras
+├── templatetags/    painel_tags (`MENU_PAINEL`: menu do painel), site_tags (inclusive o filtro
+│                    `texto_termo` da política), formatos, dict_extras
 ├── templates/       estrutura/ (bases), cotton/ (componentes), publico/ (site; servicos/), agendamento/
 │                    (wizard, portal da cliente, links), conta/ (login, senha), painel/, profissional/
 │                    (`base.html` = casca do portal), partials/, email/, pwa/, erros
 │                    (400/403/403_csrf/404/429/500), axes_bloqueio.html, robots.txt
 ├── static/src/      fonte do Vite — css/tokens.css, css/app.css e uma entrada JS por tela (app.js,
-│                    wizard.js, painel-busca.js, webpush.js; nome com hash no build) — fora do collectstatic
+│                    wizard.js, painel-busca.js, painel-status.js — seletor de status e lote da agenda —,
+│                    painel-calendario.js, webpush.js; nome com hash no build) + lib/requisicao.js (POST
+│                    JSON com CSRF no contrato utils/respostas) — fora do collectstatic
 ├── static/dist/     build do Vite (gitignored; gerado no Docker/CI)
 ├── signals.py       só o cache do Branding (post_save/post_delete de Configuracao)
 ├── jobs.py / jobs_manutencao.py     jobs periódicos (`JOB_MAP`, `JOB_AGENDA` = horários, `executar`)
 ├── middleware.py    Enforce2FAMiddleware, SecurityHeadersMiddleware, ContentSecurityPolicyMiddleware,
 │                    ContextoBancoMiddleware (abre o Ator do request)
-├── checks.py        system checks de produção aranha.W001–W015 e erros E001–E004 (§14 f)
-├── excecoes.py      RegraDeNegocio (mensagem + codigo), HorarioIndisponivel, TransicaoInvalida
+├── checks.py        system checks de produção aranha.W001–W016 e erros E001–E004 (§14 f)
+├── excecoes.py      RegraDeNegocio (mensagem + codigo), HorarioIndisponivel, TransicaoInvalida, TermoPendente
 ├── ator.py          Ator (usuário, IP, origem) da borda em ContextVar → LogAuditoria + GUCs app.*
 ├── inventario_lgpd.py  tabela → classe (titular/equipe/sistema); coluna pessoal → anonimiza/apaga/purga/retém
 ├── context_processors.py · decorators.py · validators.py · constants.py · sitemaps.py · admin.py
@@ -199,9 +218,15 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   (3 seguidas suspendem o agendamento online); CANCELADO/REAGENDADO de um ativo avisa a lista
   de espera (savepoint, best-effort). Efeito que falha desfaz a transição inteira (status +
   livro-razão gravam juntos ou nada grava). `ao_criar` (chamado por `services.agenda.reservar`
-  e pelo "adicionar" do Django admin) manda o push à profissional no `on_commit`.
+  e pelo "adicionar" do Django admin) manda o push à profissional no `on_commit` e tira da lista
+  de espera as inscrições da cliente para aquele procedimento (savepoint, best-effort).
   `status = X; save()` não aplica regra nenhuma. `cancelar(..., pela_cliente=True)` só nos
-  fluxos da própria cliente (portal e link de confirmação) — fica na trilha (`[pela cliente]`).
+  fluxos da própria cliente (portal e link de confirmação, por `agenda.cancelar_pela_cliente`) —
+  fica na trilha (`[pela cliente]`). No mesmo módulo, os casos de uso da equipe:
+  `marcar_realizado` (painel e portal da profissional: termo de procedimento não aceito levanta
+  `TermoPendente`; com `aceitar_sem_termo` marca e grava "Realizado sem termo aceito") e
+  `registrar_valor_cobrado` (valor combinado, crédito de indicação abatido; em REALIZADO recalcula
+  a comissão pendente e libera o cashback; status final e retorno recusam).
 - **Aviso de cancelamento** (`services/agendamento.avisar_cancelamento`): e-mail à
   cliente quando a clínica cancela — painel, rejeição, Django admin e pedido PENDENTE que venceu
   sem aprovação. Cancelamento pela própria cliente não avisa.
@@ -220,8 +245,14 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   dá o motivo à equipe — conflito, bloqueio, folga, expediente — e o site vê a mensagem
   genérica), `reservar` (conflito com `select_for_update`, preço da data, INSERT em savepoint;
   corrida perdida para o EXCLUDE vira `HorarioIndisponivel`), `reagendar` (antigo REAGENDADO +
-  novo com preço/promoção e ficha) e `mover`. O que é só de uma porta fica nela (o pedido do
-  wizard, valor combinado do painel, e-mails do portal).
+  novo com preço/promoção e ficha) e `mover`. Moram aqui também `agendar_pela_recepcao` (painel: cliente nova gravada na mesma transação, preço do dia ou o
+  combinado — `preco_da_recepcao` —, AGENDADO, e-mail CONFIRMACAO à cliente e a trilha; outro
+  cadastro com o mesmo telefone/e-mail/CPF no meio vira `cliente_duplicada`) e
+  `cancelar_pela_cliente` (portal e link do lembrete, linha travada: com menos de
+  `JANELA_MINIMA_ALTERACAO` de um horário AGENDADO/CONFIRMADO é **cancelamento tardio** —
+  `Cliente.registrar_cancelamento_tardio` soma 1 falta sem virar FALTOU; recusas `nao_encontrado`,
+  `passado`, `nao_cancelavel`). O que é só de uma porta fica nela (o pedido do wizard, a validação
+  do formulário do painel em `forms/agenda`, e-mails do portal).
 - **Pedido online** (caso de uso, `services/agendamento_online.solicitar(PedidoAgendamento,
   request=)`): o `forms/agendamento.AgendamentoPublicoForm` lê o POST do wizard, valida formato,
   idade e o gate do OTP (o celular tem de ser o verificado **nesta** sessão) e entrega um
@@ -238,8 +269,27 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   (só quando o valor muda; o histórico fica) e tirar a habilitação de quem ainda tem atendimento
   futuro do procedimento é recusado (`habilitacao_em_uso`).
 - **Recusas** (`excecoes.py`): service diz "não" levantando `RegraDeNegocio(mensagem, codigo=)`
-  (ou `HorarioIndisponivel`/`TransicaoInvalida`); a view só mostra `exc.mensagem` (ou
-  `json_recusa(exc)`). `Atendimento.TransicaoInvalida` é a mesma classe.
+  (ou `HorarioIndisponivel`/`TransicaoInvalida`/`TermoPendente`, que leva os termos pendentes); a
+  view só mostra `exc.mensagem` (ou `json_recusa(exc)`). `Atendimento.TransicaoInvalida` é a
+  mesma classe; a FSM recusa REALIZADO/FALTOU antes do início (menos `TOLERANCIA_DESFECHO`, 30
+  min) com `desfecho_antes_do_inicio`.
+- **Agenda do painel** (`views/painel/agendamentos`, `aprovacao`, `calendario`, `visao_geral`):
+  views finas sobre os casos de uso acima e o `AgendamentoService` (aprovar/rejeitar e
+  `decidir_em_lote`, item a item, cada um na sua transação). Os marcadores de cada linha (alerta
+  de saúde, termo e ficha pendentes, pacote e crédito) saem em lote de
+  `services/alertas.marcar_atendimentos` e a tela grava "Leu alertas de saúde"
+  (`alertas.registrar_leitura_saude`, tabela `prontuario`, `{clientes, tela}`) quando mostra algum
+  alerta; o botão "Agendar retorno (até dd/mm)" vem de `retorno.devidos_na_lista` (1 consulta).
+  Exceções de agenda pelo `forms/agenda.AgendaExcecaoForm` (reenviar o mesmo dia/período
+  atualiza a vigente — `AgendaExcecao.objects.vigente_para`) e `AgendaExcecao.clean` com uma regra
+  por método.
+- **Área da cliente** (`views/publico/portal` + `services/portal_cliente`): sessão do OTP (do
+  portal ou aberta no fim do wizard sem novo SMS) presa ao telefone do cadastro, 1 h, com a hora
+  da verificação; cada atendimento só pelo id dentro dela (anti-IDOR). Preferências e revogação de
+  saúde em `services/consentimentos` (origem PORTAL); pedido de correção/exclusão =
+  `registrar_pedido` (trilha com o prazo de 15 dias + e-mail ao encarregado > `email_admin` >
+  `ADMIN_EMAIL` > e-mail da marca); "baixar meus dados" = o export sem saúde de
+  `services/lgpd.exportar_dados`, só com verificação de até 10 min.
 - **Respostas JSON** (`utils/respostas.py`, contrato único das APIs do site — inclusive as do
   wizard, `/ajax/dias-disponiveis/`, `/ajax/horarios-disponiveis/` e o OTP —, do painel e da infra):
   sucesso `{"ok": true, ...}`, erro `{"ok": false, "codigo": "<estável>", "mensagem": "<texto>"}`
@@ -271,7 +321,13 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   roda em segundo plano).
 - **Front**: `static/src/js/app.js` registra componentes Alpine CSP-safe (`temaToggle`,
   `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`,
-  `pacoteCriar`) + `data-confirm` global e a busca instantânea do painel. Componentes cotton:
+  `pacoteCriar`) + `data-confirm` global e a busca instantânea do painel. A agenda do painel tem
+  módulos próprios: `painel-status.js` (seletor de status de `partials/_select_status.html` — só
+  AGENDADO/CONFIRMADO, Realizado/Faltou só a partir do início — e a barra de aprovar/recusar em
+  lote; `termo_pendente` pede a confirmação e reenvia com `sem_termo`) e `painel-calendario.js`
+  (FullCalendar: recusa do arrasto desfaz o movimento e mostra a `mensagem`), ambos com
+  `lib/requisicao.js` (POST JSON com o CSRF da `<meta>`; resposta não-JSON vira `falha_http`).
+  Componentes cotton:
   `<c-botao>`, `<c-card>`, `<c-campo>`, `<c-cta-agendar>` (o "Agendar" do site: wizard ou, sem SMS, o
   WhatsApp — tag `{% agendar_link %}`, builtin, usada em todo link p/ o wizard), `<c-servico.passo>`,
   `<c-servico.cartao>`/`<c-servico.item>` (páginas de serviço) e o chrome do site (`cabecalho` com o menu de
@@ -327,7 +383,7 @@ python manage.py runserver              # terminal 2
 | `carregar_feriados [--ano N]` | Feriados nacionais (fixos + móveis via Páscoa, `services/feriados`), idempotente; sem `--ano` = ano atual e seguinte. |
 | `rodar_job <job> [--forcar] [--lista]` | Roda um job do §10 uma vez (o mesmo do `/cron/run/<job>/`; trilha `comando:<job>`; erro = exit 1). Job de mensagem que já rodou hoje não roda de novo (aviso, exit 0) — `--forcar` passa por cima, depois de uma falha. |
 | `rodar_jobs_devidos [--somente a,b] [--agora AAAA-MM-DDTHH:MM]` | Roda os jobs cujo horário da `JOB_AGENDA` caiu nos últimos 15 min (comando do serviço Cron, §13.2); um job que falha não impede os outros e o exit code no fim é 1. `--agora` simula o relógio (fuso da clínica). |
-| `reaplicar_esquecimentos [--listar --desde AAAA-MM-DD] [arquivo.json]` | Em volta de uma restauração de backup: lista (antes, no banco atual) e reaplica (depois, no restaurado) as anonimizações feitas depois do backup (§14 g). |
+| `reaplicar_esquecimentos [--listar --desde AAAA-MM-DD] [arquivo.json]` | Em volta de uma restauração de backup: lista (antes, no banco atual) e reaplica (depois, no restaurado) as pseudonimizações feitas depois do backup (§14 g). |
 | `gerar_chave_cifragem` | Imprime uma chave nova para `CHAVES_CIFRAGEM`. |
 | `consultas_lentas [--top N] [--ordem total\|media\|chamadas\|linhas] [--zerar]` | Top do `pg_stat_statements` (texto normalizado, sem valores): mede antes de criar índice; `--zerar` recomeça a contagem. Sem a extensão, explica como ligar (§14 h). Só Postgres. |
 | `rotacionar_chave_cifragem [--dry-run]` | Recifra tudo com a 1ª chave de `CHAVES_CIFRAGEM` (inclusive a trilha do prontuário), numa transação, com os triggers de usuário das tabelas desligados durante o UPDATE; auditado. Passo do meio da rotação (nova na frente → rodar → tirar a antiga). |
@@ -343,12 +399,12 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 ### 5.1 Resumo
 
 - **37 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
-- Migrations `0001`–`0074`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
+- Migrations `0001`–`0078`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
   O Postgres do ambiente de desenvolvimento no Railway (na `0026`) está em stand-by. Histórico em
   [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da `0048` em diante, o padrão
   SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md).
-- **Lógica no banco** (0056–0059, revista na 0065–0066, 0072 e 0074; só Postgres — §5.4): 47
-  triggers (`atualizado_em`, imutabilidade, validação, trilha `historico_alteracao`), 24 funções
+- **Lógica no banco** (0056–0059, revista na 0065–0066, 0072, 0074 e 0077; só Postgres — §5.4): 47
+  triggers (`atualizado_em`, imutabilidade, validação, trilha `historico_alteracao`), 25 funções
   `fn_*`, 9 views `vw_*` de relatório e 4 procedures `sp_*` que são a **fonte única** da escrita de
   retenção/LGPD. Exige as extensões `btree_gist`, `pg_trgm` e `unaccent` (o PG 18 do Railway tem).
 - **Padrão SQL em todas as tabelas** (0054/0055): nomes ASCII snake_case PT-BR no singular;
@@ -373,7 +429,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `assinatura_push` (AssinaturaPush) | Inscrições Web Push (VAPID) por usuário (`usuario_id`, `chave_p256dh`, `chave_auth`) |
 | | `log_auditoria` (LogAuditoria) | Trilha LGPD art. 37: autor (`usuario_autor_id`) + snapshot `usuario_autor_nome` ("Nome <email>"), ação, `tabela` + `registro_pk` (bigint), detalhes JSON (PII mascarada), IP. Append-only no PG (0059): só a purga com 180+ dias, a pseudonimização do esquecimento e o `SET NULL` do autor |
 | | `historico_alteracao` (HistoricoAlteracao) | **Trilha de dados** gravada por trigger (0056, só PG) em prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario e configuracao: operação, só as `colunas_alteradas` com antes/depois (`senha_hash` = `"[redigido]"`), autor/IP/origem da sessão (`web`, `cron:<job>`, `comando:<job>`, `migracao`), `transacao_ref`. Append-only; Django admin só leitura (leitura auditada). `cliente` fica fora de propósito (PII; o esquecimento obrigaria a expurgar a trilha) |
-| Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone canônico (`utils/telefone`, 10–11 dígitos) é a chave natural; e-mail, CPF, nascimento, CEP e endereço opcionais (ausente = `NULL`) — CPF/CEP/endereço só pela finalidade (nota fiscal e contrato de pacote); RG, profissão e foto não são coletados (saíram na 0074); consentimentos de comunicação na tabela `consentimento` (histórico, 0050); `qtd_faltas_consecutivas`/`eh_bloqueado_online`; soft delete (`deletado_em`); `cliente_indicador_id` (cashback); `nome` com collation `pt_br` |
+| Pessoas | `cliente` (Cliente) | Cliente da clínica. Telefone canônico (`utils/telefone`, 10–11 dígitos) é a chave natural; e-mail, CPF, nascimento, CEP e endereço opcionais (ausente = `NULL`) — CPF/CEP/endereço só pela finalidade (nota fiscal e contrato de pacote); RG, profissão e foto não são coletados (saíram na 0074); consentimentos de comunicação na tabela `consentimento` (histórico, 0050); `saude_revogada_em` (revogação do consentimento de dado de saúde; `NULL` = vigente ou nunca dado — a concessão é o aceite SAÚDE, e um aceite novo limpa a data; 0075); `qtd_faltas_consecutivas` (FALTOU e cancelamento tardio somam)/`eh_bloqueado_online`; soft delete (`deletado_em`); `cliente_indicador_id` (cashback); `nome` com collation `pt_br` |
 | | `profissional` (Profissional) | Quem atende. `antecedencia_minima_horas` (0–720, padrão 2), `antecedencia_maxima_dias` (1–365, padrão 60), vitrine (especialidade, foto, biografia). A agenda vai para o calendário dela só pelo feed ICS (`link_acesso` FEED_ICS; o Google Agenda saiu na 0071) |
 | Catálogo | `procedimento` (Procedimento) | Serviço: duração, `intervalo_minutos` (folga após, 0–120), categoria, retorno obrigatório (`tem_retorno_obrigatorio` + janela em dias + duração do retorno). Todo atendimento é presencial (modalidade e link de videoconferência saíram na 0073) |
 | | `habilitacao` (Habilitacao) | Profissional × procedimento (M2M through) |
@@ -383,16 +439,16 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `agenda_excecao` (AgendaExcecao) | Tudo que muda a grade numa data: **FOLGA** (intervalo `data_inicio..data_fim`; sem profissional = clínica inteira: feriado nacional/local, recesso), **HORARIO_DIFERENTE** (substitui a grade num dia) e **BLOQUEIO** (`data_hora_*`, pontual ou recorrente por RRULE no subconjunto DAILY/WEEKLY/MONTHLY + `data_fim_recorrencia`; sem profissional = "Todos"). `origem` MANUAL/FERIADO_NACIONAL/FERIADO_LOCAL/RECESSO (GCAL e `origem_ref` saíram na 0071; as importadas viraram MANUAL); `eh_ativo=false` = registrada e ignorada (ex.: feriado em que a clínica abre). 0048 unificou as 4 tabelas antigas |
 | | `atendimento` (Atendimento) | Agendamento/sessão. FSM de 7 estados, preço gravado (`valor_cobrado`, `valor_original`, `promocao`, `descricao_preco`), retorno (`eh_retorno` + `atendimento_origem_id`), `atendimento_reagendado_id` (o antigo que este substitui) |
 | | `notificacao` (Notificacao) | Mensagem por atendimento: tipo (LEMBRETE — D-1 por WhatsApp ou e-mail —, CONFIRMACAO, CANCELAMENTO, NPS, APROVACAO, TERMO; LEMBRETE_2H e PESQUISA, sem produtor, saíram na 0073), canal, status PENDENTE/ENVIADO/FALHOU; também a fila do e-mail (`tentativas`, `proxima_tentativa_em`, índice parcial `ix_notificacao_fila_email`, 0061); o link público (/confirmar/, /nps/, /termo/) vive em `link_acesso` |
-| | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, turno, `profissional_desejado_id` opcional, `email_contato`, `eh_notificado`) |
+| | `lista_espera` (ListaEspera) | Pedido de aviso de vaga (procedimento, data, `turno_desejado` MANHA/TARDE/NOITE ou `NULL` = qualquer, `profissional_desejado_id` opcional). **Anônima** (`nome_contato` + `telefone_contato`, sem cadastro) ou ligada à cliente (`cliente_id`, nulável) quando o celular foi verificado por OTP — só então aceita `email_contato` (CHECK); `ultimo_aviso_em` = último aviso entregue (a inscrição continua na fila; era `eh_notificado` até a 0076). Sai quando a data passa ou a cliente agenda |
 | Clínico | `prontuario` (Prontuario) | Ficha base 1:1 com a cliente: alergias, contraindicações, histórico, medicamentos, observações + `respostas` (JSONB `{key: valor}` do questionário do prontuário = formulário PRONTUARIO ativo, 0051; atributo Python `respostas_extras`) |
-| | `prontuario_versao` (ProntuarioVersao) | **Histórico append-only** da ficha: foto do estado anterior a cada edição, com autor (`usuario_autor_id` + `usuario_autor_nome`, 0046) |
-| | `anotacao_sessao` (AnotacaoSessao) | Nota clínica por atendimento; autor PROTECT + snapshot `usuario_autor_nome` |
+| | `prontuario_versao` (ProntuarioVersao) | **Histórico append-only** da ficha: foto do estado anterior a cada edição, com autor (`usuario_autor_id` + `usuario_autor_nome`, 0046); DELETE só no expurgo de saúde aos 20 anos (0077) |
+| | `anotacao_sessao` (AnotacaoSessao) | Nota clínica por atendimento; autor PROTECT + snapshot `usuario_autor_nome`; append-only, DELETE só no expurgo de saúde aos 20 anos (0077) |
 | | `formulario` (FormularioAnamnese) | Questionário único em `perguntas` (`[{key, tipo, label, obrigatorio, opcoes?, alerta_saude?}]`): ANAMNESE e PESQUISA (respondidas pela cliente) e PRONTUARIO (perguntas extras da ficha, preenchidas pela equipe — no máximo 1 ativo, sempre GLOBAL, nunca obrigatório; 0051). Escopo GLOBAL/CATEGORIA/PROCEDIMENTO (o MODALIDADE saiu na 0073) + `eh_obrigatorio`. Era `formulario_anamnese` até a 0054 |
 | | `resposta_formulario` (RespostaAnamnese) | Ficha respondida (`respostas`, `respondido_em`) por cliente/atendimento; link público do convite em `link_acesso` (FORMULARIO, 60 dias). Era `resposta_anamnese` até a 0054 |
-| LGPD | `versao_termo` (VersaoTermo) | Termo versionado (LGPD, SAUDE ou PROCEDIMENTO); 1 ativo por escopo; imutável depois do 1º aceite |
-| | `aceite_termo` (AceiteTermo) | Prova do aceite: cliente, versão, atendimento, `ip_origem`, user-agent, `conteudo_hash` (SHA-256 do texto, `char(64)`; `NULL` = aceite anterior à 0044), data. Imutável (trigger) |
+| LGPD | `versao_termo` (VersaoTermo) | Termo versionado (LGPD, SAUDE ou PROCEDIMENTO); 1 ativo por escopo; imutável depois do 1º aceite. A v1.0 LGPD é a Política de Privacidade completa (`conteudo/lgpd.TERMO_LGPD_CONTEUDO`; 0045 e `seed`, reescrita sem aceite pela 0078) e a página `/politica-de-privacidade/` mostra a versão vigente (`VersaoTermo.lgpd_vigente`) |
+| | `aceite_termo` (AceiteTermo) | Prova do aceite: cliente, versão, atendimento, `ip_origem`, user-agent, `conteudo_hash` (SHA-256 do texto, `char(64)`; `NULL` = aceite anterior à 0044), data. Imutável (trigger), salvo a minimização LGPD (IP → `NULL`, user-agent → `''`; 0077). Aceite SAÚDE novo reativa o consentimento de saúde revogado |
 | | `codigo_otp` (CodigoOtp) | Desafio OTP (`codigo_hash` HMAC-SHA256 com a SECRET_KEY, `char(64)`) por `identificador` (e-mail ou `sms+<dígitos>@shivazen.local`), propósito AGENDAMENTO/LOGIN_CLIENTE/DSAR, TTL, `qtd_tentativas` |
-| | `consentimento` (Consentimento) | **Histórico append-only** de concessão/revogação por finalidade × canal (MARKETING/EMAIL, PESQUISA_SATISFACAO/WHATSAPP, LEMBRETE_AGENDAMENTO/WHATSAPP): origem (AGENDAMENTO_ONLINE, DESCADASTRO, PAINEL, ESQUECIMENTO, MIGRACAO, ADMIN, WHATSAPP — o "PARAR" respondido no WhatsApp, 0069), texto exibido, IP, user-agent, autor, `registrado_em`. Estado atual = linha mais recente do par; sem linha = não concedido (0050) |
+| | `consentimento` (Consentimento) | **Histórico append-only** de concessão/revogação por finalidade × canal (MARKETING/EMAIL, PESQUISA_SATISFACAO/WHATSAPP, LEMBRETE_AGENDAMENTO/WHATSAPP): origem (AGENDAMENTO_ONLINE, DESCADASTRO, PAINEL, ESQUECIMENTO, MIGRACAO, ADMIN, WHATSAPP — o "PARAR" respondido no WhatsApp, 0069 —, PORTAL — "Minhas preferências" da área da cliente, 0075), texto exibido, IP, user-agent, autor, `registrado_em`. Estado atual = linha mais recente do par; sem linha = não concedido (0050). O consentimento de dado de saúde fica fora daqui (aceite SAÚDE + `cliente.saude_revogada_em`) |
 | | `link_acesso` (LinkAcesso) | Link público com token ("link mágico"): `finalidade` (CONFIRMAR_PRESENCA, NPS, TERMO, FORMULARIO, DESCADASTRO, FEED_ICS) + exatamente 1 alvo (notificação, ficha, cliente ou profissional; o legado GERENCIAR_AGENDAMENTO e o alvo atendimento saíram na 0072); só o **SHA-256** do token (`token_hash char(64)`, sem pepper: rotacionar a SECRET_KEY não derruba link enviado), `expira_em`, `usado_em`, `revogado_em`. O token em claro só existe na URL entregue (0049) |
 | NPS | `avaliacao_nps` (AvaliacaoNPS) | Nota 0–10 + comentário, `eh_publicacao_autorizada` (opt-in da cliente) e `eh_publicacao_aprovada` (moderação; CHECK: só com o opt-in), `eh_alerta_enviado` |
 | Pacotes | `pacote` / `pacote_item` | **Catálogo** (editável a qualquer momento): pacote (`valor_total`, validade em meses) e seus itens (procedimento × `qtd_sessoes`) — só vale p/ vendas futuras. `pacote_item` era `item_pacote` até a 0054 |
@@ -401,7 +457,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | | `consumo_sessao` (ConsumoSessao) | 1 sessão consumida por atendimento (OneToOne) de 1 item da compra (`compra_pacote_item`) |
 | Financeiro | `carteira` / `movimento_carteira` | Saldo da cliente (`valor_saldo`, CHECK ≥ 0) e ledger append-only (trigger; `valor` > 0, `valor_saldo_resultante` ≥ 0, autor `usuario_autor_id`) — programa de indicação: origem CASHBACK_INDICACAO/CASHBACK_ESTORNO, USO_AGENDAMENTO (crédito usado no valor do atendimento), CANCELAMENTO (devolução) e AJUSTE_MANUAL, sempre explícita (sem default; VALE_PRESENTE e OUTRO saíram na 0067). Reembolso de pacote é em dinheiro, nunca crédito |
 | | `regra_comissao` / `movimento_comissao` | Regra (`percentual` 0–100 XOR `valor_fixo`; usada não muda nem se exclui — só desativa: `tg_regra_comissao_validar`, 0066) e **livro-razão** de comissão (0053): CREDITO (no máximo 1 ativo — não estornado — por atendimento, 0063; `regra_comissao_id` + snapshot `valor_base_calculo`/`percentual_aplicado`, 0066), PAGAMENTO (baixa ou repasse em lote) e ESTORNO (referenciam o crédito, `usuario_autor`). Status PENDENTE/PAGA/ESTORNADA e saldo (pode ficar negativo) são derivados (`creditos_com_status`, `ComissaoService.saldos_por_profissional`) |
-| Infra | `configuracao` (Configuracao, `models/configuracao.py`) | Chave-valor com dois donos: a marca e os contatos (`utils/branding.BRANDING_FIELDS`, tela Identidade visual, validação própria) e as **regras operacionais** — registro tipado `CHAVES` (`email_admin`: e-mail válido ou vazio; `MAX_FALTAS_BLOQUEIO`: inteiro de 1 a 10, padrão 3), lido por `Configuracao.ler` (valor em branco ou recusado pelo registro → padrão, com aviso no log). A tela Regras operacionais lista e grava só o registro, sem chave livre; "Restaurar padrão" apaga a linha. As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) e o cursor do disparo de promoção na 0068 (vai na `promocao`) |
+| Infra | `configuracao` (Configuracao, `models/configuracao.py`) | Classe EQUIPE no inventário LGPD (guarda o contato do encarregado e o `email_admin`). Chave-valor com dois donos: a marca e os contatos (`utils/branding.BRANDING_FIELDS`, tela Identidade visual, validação própria) e as **regras operacionais** — registro tipado `CHAVES` (`email_admin`: e-mail válido ou vazio; `MAX_FALTAS_BLOQUEIO`: inteiro de 1 a 10, padrão 3), lido por `Configuracao.ler` (valor em branco ou recusado pelo registro → padrão, com aviso no log). A tela Regras operacionais lista e grava só o registro, sem chave livre; "Restaurar padrão" apaga a linha. As perguntas do prontuário saíram daqui na 0051 (formulário PRONTUARIO) e o cursor do disparo de promoção na 0068 (vai na `promocao`) |
 | | `execucao_job` (ExecucaoJob) | Uma linha por job de mensagem sem marca por destinatário (`aniversario`, `pacote_expirando`, `nps_24h`) e dia local: UNIQUE `job`+`dia` faz a 2ª chamada do dia receber 409 em vez de reenviar tudo (`jobs.executar`); `concluido_em` NULL = em andamento ou falhou, `resultado` = resumo ou tipo do erro. Sem dado pessoal (0070) |
 
 ### 5.3 Invariantes garantidas pelo banco
@@ -411,14 +467,15 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Profissional não atende 2 clientes ao mesmo tempo (status PENDENTE/AGENDADO/CONFIRMADO) | `ex_atendimento_sobreposicao` — EXCLUDE gist com `btree_gist`, DEFERRABLE (**só Postgres**) | 0035 / 0055 |
 | Telefone/e-mail/CPF únicos entre clientes ativos (sem caixa no e-mail); vazio não existe (ausente = `NULL`) | `uq_cliente_telefone_ativo`, `uq_cliente_email_ativo` (`UPPER(email)`: também é o índice do `email__iexact`), `uq_cliente_cpf_ativo`, `ck_cliente_email_nao_vazio` | 0034 / 0055 |
 | Formato de telefone (10–11 dígitos) e CPF (11) | `ck_cliente_telefone_formato`, `ck_cliente_cpf_formato` (**só Postgres**) | 0034 / 0055 |
-| 1 termo ativo por escopo; 1 preço por vigência; 1 espera pendente por cliente/procedimento/data | `uq_versao_termo_ativa_por_procedimento`/`_global`, `uq_preco_vigencia`/`uq_preco_base_vigencia`, `uq_lista_espera_pendente` | 0034 / 0055 |
+| 1 termo ativo por escopo; 1 preço por vigência | `uq_versao_termo_ativa_por_procedimento`/`_global`, `uq_preco_vigencia`/`uq_preco_base_vigencia` | 0034 / 0055 |
+| Lista de espera: 1 inscrição por pessoa (cliente ou celular de contato) + procedimento + dia; anônima tem nome e celular (10–11 dígitos); e-mail de contato só com cliente verificada | `uq_lista_espera_cliente`, `uq_lista_espera_telefone_contato`, `ck_lista_espera_cliente_ou_contato`, `ck_lista_espera_telefone_contato_formato`, `ck_lista_espera_email_contato_so_verificado` | 0076 |
 | Promoção: desconto 0–100, preço ≥ 0, desconto XOR preço, geral só percentual | `ck_promocao_*` | 0034 / 0047 / 0055 |
 | Carteira nunca negativa; ledger imutável com valor > 0, tipo/origem no domínio e saldo resultante ≥ 0 | `ck_carteira_valor_saldo_nao_negativo`, `ck_movimento_carteira_*`; trigger `tg_movimento_carteira_imutavel` (`fn_bloquear_mutacao`, **só PG**) | 0034 / 0038 / 0054 / 0055 |
 | Valor pago de pacote ≥ 0; nota NPS 0–10 (aprovar depoimento exige o opt-in); comissão 0–100%, valor fixo ≥ 0 | `ck_compra_pacote_valor_pago_nao_negativo`, `ck_avaliacao_nps_nota_0_10`, `ck_avaliacao_nps_aprovacao_exige_autorizacao`, `ck_regra_comissao_*` | 0039 / 0044 / 0055 |
 | No máximo 1 retorno vivo por atendimento de origem; valores do atendimento ≥ 0 | `uq_atendimento_retorno_por_origem`, `ck_atendimento_valores_nao_negativos` | 0043 / 0055 |
 | Notificação e OTP com tipo/canal/status/propósito no domínio; tentativas 0–10; hashes `sha256` hex | `ck_notificacao_{tipo,canal,status,resposta}`, `ck_codigo_otp_{canal,proposito,qtd_tentativas_0_10}`; `ck_codigo_otp_codigo_hash_formato`, `ck_aceite_termo_conteudo_hash_formato` (**só PG**) | 0055 |
 | JSON no formato certo (objeto/lista) | `ck_prontuario_respostas_objeto`, `ck_resposta_formulario_respostas_objeto`, `ck_formulario_perguntas_lista` (validados na 0055), `ck_log_auditoria_detalhes_objeto`, `ck_prontuario_versao_dados_objeto` (**só PG**) | 0043 / 0055 |
-| Prova de aceite imutável; termo aceito imutável; histórico da ficha imutável | triggers `tg_aceite_termo_imutavel`, `tg_versao_termo_imutavel`, `tg_prontuario_versao_imutavel` (**só PG**; SQLSTATE 23000 → `IntegrityError`) | 0046 / 0054 |
+| Prova de aceite imutável (só a minimização LGPD de IP/user-agent passa); termo aceito imutável; histórico da ficha imutável (DELETE só com a flag local `app.expurgo_autorizado` **e** 20 anos de idade) | triggers `tg_aceite_termo_imutavel`, `tg_versao_termo_imutavel`, `tg_prontuario_versao_imutavel` (**só PG**; SQLSTATE 23000 → `IntegrityError`) | 0046 / 0054 / 0077 |
 | Ordenação pt-BR de nomes | collation ICU `pt_br` em `cliente/profissional/procedimento.nome`, no estado do Django (`db_collation`; o SQLite dos testes tem um equivalente em `db/collation.py`) | 0038 / 0054 |
 | Um cashback por atendimento | `uq_movimento_carteira_cashback_por_atendimento` | 0025/0032 / 0055 |
 | Padrão de nomes: PK `pk_<t>`, FK `fk_<t>_<coluna>` com `ON DELETE` igual ao `on_delete` do model, UNIQUE de OneToOne `uq_`, sequência `<t>_id_seq`, nenhum índice `_like`, `COMMENT` em toda tabela | `PadronizarNomes()` + `tests/test_nomes_padrao.py` (**só PG**) | 0055 |
@@ -427,7 +484,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | RRULE só no subconjunto que o motor expande | `ck_agenda_excecao_regra_recorrencia_suportada` (regex, **só PG**; `clean()` normaliza) | 0048 |
 | 1 horário diferente ativo por profissional/dia; 1 feriado por origem/data | `uq_agenda_excecao_horario_diferente_dia`, `uq_agenda_excecao_feriado` | 0048 |
 | Link público: alvo coerente com a finalidade (1 FK: notificação, ficha, cliente ou profissional); 1 link por hash; hash = sha256 hex; depois de criado só `usado_em`/`revogado_em` mudam (uma vez cada) | `ck_link_acesso_finalidade`, `ck_link_acesso_alvo_por_finalidade`, `uq_link_acesso_token_hash`; `ck_link_acesso_token_hash_formato` e trigger `tg_link_acesso_imutavel` (**só PG**) | 0049 / 0072 |
-| Consentimento: só os 3 pares finalidade × canal que existem, origem no domínio (inclui WHATSAPP); histórico append-only (só a anonimização pode apagar IP/user-agent) | `ck_consentimento_finalidade`, `_canal`, `_finalidade_canal`, `_origem`; trigger `tg_consentimento_imutavel` (**só PG**) | 0050 / 0069 |
+| Consentimento: só os 3 pares finalidade × canal que existem, origem no domínio (inclui WHATSAPP e PORTAL); histórico append-only (só a pseudonimização pode apagar IP/user-agent) | `ck_consentimento_finalidade`, `_canal`, `_finalidade_canal`, `_origem`; trigger `tg_consentimento_imutavel` (**só PG**) | 0050 / 0069 / 0075 |
 | Questionário: tipo/escopo no domínio e coerentes (escopo PROCEDIMENTO/CATEGORIA com o alvo); PRONTUARIO sempre GLOBAL e não obrigatório; no máximo 1 PRONTUARIO ativo | `ck_formulario_tipo`, `ck_formulario_escopo`, `ck_formulario_escopo_coerente`, `ck_formulario_prontuario_global`, `uq_formulario_prontuario_ativo` | 0051 / 0073 |
 | Papel da equipe só ADMIN/PROFISSIONAL; tipo de notificação só os 6 com produtor | `ck_usuario_papel`, `ck_notificacao_tipo` | 0072 / 0073 |
 | Pacote vendido: 1 item por procedimento na compra, sessões > 0, valor ≥ 0; item imutável; o consumo é de um item **da mesma compra**, do **mesmo procedimento**, nunca de retorno e só com saldo | `uq_compra_pacote_item_compra_procedimento`, `ck_compra_pacote_item_*`; FK composta `fk_consumo_sessao_compra_pacote_item_compra`, triggers `tg_consumo_sessao_validar` e `tg_compra_pacote_item_imutavel` (**só PG**; o Python espelha no `save()`) | 0052 |
@@ -437,8 +494,8 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 | Movimento da carteira só com origem que tem fluxo, sempre explícita | `ck_movimento_carteira_origem` (sem VALE_PRESENTE/OUTRO, sem default) | 0067 |
 | Job de mensagem roda no máximo 1 vez por dia (local) | `uq_execucao_job_job_dia` | 0070 |
 | `atualizado_em` sempre atualizado, inclusive em `QuerySet.update()`, procedure e SQL manual (o valor que o ORM manda é respeitado) | `fn_definir_atualizado_em` + `tg_<t>_atualizado_em` nas 22 tabelas com a coluna (**só PG**; o teste de conformidade reprova tabela com a coluna e sem o trigger) | 0056 |
-| Nota de sessão é append-only (correção = nova nota) | `tg_anotacao_sessao_imutavel` (**só PG**; o Python recusa save/delete/update) | 0056 |
-| Toda escrita nas 11 tabelas sensíveis fica na trilha `historico_alteracao` (autor, IP, origem); a trilha é append-only — só o `SET NULL` do autor e a purga de retenção (flag local `app.expurgo_autorizado` **e** 180+ dias; prontuário 20 anos) passam | `fn_registrar_historico` + `tg_<t>_historico`; `fn_historico_alteracao_imutavel` + `tg_historico_alteracao_imutavel`; `ck_historico_alteracao_*` (**só PG**) | 0056 / 0059 |
+| Nota de sessão é append-only (correção = nova nota); DELETE só no expurgo de saúde (flag local **e** 20 anos) | `tg_anotacao_sessao_imutavel` → `fn_anotacao_sessao_imutavel` (**só PG**; o Python recusa save/delete/update) | 0056 / 0077 |
+| Toda escrita nas 11 tabelas sensíveis fica na trilha `historico_alteracao` (autor, IP, origem); a trilha é append-only — só o `SET NULL` do autor e a purga de retenção (flag local `app.expurgo_autorizado` **e** 180+ dias; a do prontuário sai com o expurgo de saúde aos 20 anos, e o prontuário expurgado não deixa cópia na trilha) passam | `fn_registrar_historico` + `tg_<t>_historico`; `fn_historico_alteracao_imutavel` + `tg_historico_alteracao_imutavel`; `ck_historico_alteracao_*` (**só PG**) | 0056 / 0059 / 0077 |
 | `log_auditoria` append-only: UPDATE só da pseudonimização (`acao` com `[ANONIMIZADO-<id>]`, `detalhes` NULL) e do `SET NULL` do autor; DELETE só com 180+ dias | `fn_log_auditoria_imutavel` + `tg_log_auditoria_imutavel` (**só PG**) | 0059 |
 
 Além disso: FKs `PROTECT` em tudo que é histórico clínico/financeiro (prontuário, anotação,
@@ -458,13 +515,13 @@ fallback das procedures). Texto SQL versionado em `aranha_estetica/migrations/sq
 |---|---|---|
 | `tg_<t>_atualizado_em` (22) | `fn_definir_atualizado_em`: preenche `atualizado_em` quando o UPDATE não mexeu nela | todo UPDATE |
 | `tg_<t>_historico` (11) | `fn_registrar_historico` (AFTER, por linha): grava `historico_alteracao` — só colunas alteradas; UPDATE só de `atualizado_em` não gera linha | prontuario, atendimento, compra_pacote, carteira, regra_comissao, preco, promocao, pacote, versao_termo, usuario (`senha_hash` redigida), configuracao |
-| `tg_*_imutavel` / `tg_*_validar` (13) | append-only (`movimento_*`, `anotacao_sessao`, `compra_pacote_item`, `aceite_termo`, `versao_termo` aceita, `prontuario_versao`, `consentimento`, `link_acesso`, `historico_alteracao`) e validação (`consumo_sessao`, `movimento_comissao` — crédito ativo único, 0063 —, `regra_comissao` usada, 0066) — SQLSTATE 23 → `IntegrityError` | — |
+| `tg_*_imutavel` / `tg_*_validar` (13) | append-only (`movimento_*`, `anotacao_sessao` e `prontuario_versao` — DELETE só no expurgo de saúde aos 20 anos, 0077 —, `compra_pacote_item`, `aceite_termo` — só a minimização de IP/user-agent —, `versao_termo` aceita, `consentimento`, `link_acesso`, `historico_alteracao`) e validação (`consumo_sessao`, `movimento_comissao` — crédito ativo único, 0063 —, `regra_comissao` usada, 0066) — SQLSTATE 23 → `IntegrityError` | — |
 | `fn_fuso_clinica()`, `fn_data_local(ts)`, `fn_sem_acento(txt)` | fuso explícito (`America/Sao_Paulo` = `TIME_ZONE`), data local, `lower(unaccent())` IMMUTABLE | views/funções; `ix_cliente_nome_trgm` (GIN trigram) e a busca de cliente (`utils/busca.filtrar_clientes`: "joao" acha "João") |
-| `fn_horarios_livres`, `fn_ocorrencias_recorrencia`, `fn_recorrencia_casa_dia`, `fn_saldo_pacote`, `fn_nps_periodo`, `fn_saldo_comissao`, `fn_tem_consentimento`, `fn_clientes_para_anonimizar` | **espelho de leitura** do Python (SlotService, `AgendaExcecao.ocorrencias`, `saldo_por_procedimento`, `utils/nps`, `ComissaoService`, `services/consentimentos`); `fn_clientes_para_anonimizar` é a regra da retenção (sem espelho: `LgpdService.candidatos_retencao` lê dela), travado por `tests/test_pg_paridade.py` | relatório/integração e as procedures — **o app continua no Python** (slots nunca vêm do SQL) |
+| `fn_horarios_livres`, `fn_ocorrencias_recorrencia`, `fn_recorrencia_casa_dia`, `fn_saldo_pacote`, `fn_nps_periodo`, `fn_saldo_comissao`, `fn_tem_consentimento`, `fn_clientes_para_anonimizar` | **espelho de leitura** do Python (SlotService, `AgendaExcecao.ocorrencias`, `saldo_por_procedimento`, `utils/nps`, `ComissaoService`, `services/consentimentos`); `fn_clientes_para_anonimizar` é a regra da retenção (sem espelho: `LgpdService.candidatos_retencao` lê dela; desde a 0077 retém só pela janela de saúde de 20 anos e até 5 anos depois do fim do pacote), travado por `tests/test_pg_paridade.py` | relatório/integração e as procedures — **o app continua no Python** (slots nunca vêm do SQL) |
 | `vw_agenda_dia`, `vw_faturamento_mensal`, `vw_nps_mensal`, `vw_comissao`, `vw_comissao_saldo`, `vw_cliente_resumo`, `vw_consentimento_atual`, `vw_pacote_saldo`, `vw_atendimento_sem_desfecho` | views de relatório (mesmas regras de `services/financeiro`, NPS e comissão). `vw_faturamento_mensal` é por **competência** (0065): avulsos no mês do atendimento, pacotes = vendas no mês da venda − reembolsos no mês do cancelamento (pode ser negativo; colunas `valor_vendas_pacotes`/`valor_reembolsos_pacotes` no fim); `vw_comissao` traz o snapshot do crédito (`valor_base_calculo`, `percentual_aplicado`; 0066) | BI/SQL ad hoc (`railway connect` → `SELECT * FROM vw_faturamento_mensal`); o app não lê views |
-| `sp_anonimizar_cliente(cliente, autor, ip)` | direito ao esquecimento (efeito completo testado em `test_pg_paridade`/`test_lgpd_esquecimento`); versão vigente da 0074 (sem RG/profissão/foto e sem o alvo atendimento do link, 0072) | `LgpdService.esquecer_cliente` (ação LGPD do admin) |
-| `sp_aplicar_retencao_lgpd(...)` | anonimiza os candidatos (COMMIT por cliente), apaga fichas de pedido não realizado e espera vencida | `job_lgpd_purgar_inativos` (`LgpdService.aplicar_retencao`) |
-| `sp_purgar_dados_expirados(...)` | OTP, texto de notificação, auditoria, `link_acesso` vencido/revogado, trilha antiga (cada etapa num sub-bloco) | `job_housekeeping` (etapa `banco`) |
+| `sp_anonimizar_cliente(cliente, autor, ip)` | direito ao esquecimento = **pseudonimização** (efeito completo testado em `test_pg_paridade`/`test_lgpd_esquecimento`); versão vigente da 0077: também zera código de indicação e quem indicou, tira IP/user-agent do aceite LGPD (e dos de SAÚDE/PROCEDIMENTO quando não há mais registro de saúde), apaga a inscrição anônima da lista de espera pelo celular e os detalhes das trilhas `LGPD: ...` da titular | `LgpdService.esquecer_cliente` (ação "Pseudonimizar" do admin) |
+| `sp_aplicar_retencao_lgpd(...)` (9 argumentos) | pseudonimiza os candidatos (`fn_clientes_para_anonimizar`; COMMIT por cliente), apaga fichas de pedido não realizado e espera vencida (inclusive anônima) | `job_lgpd_purgar_inativos` (`LgpdService.aplicar_retencao`) |
+| `sp_purgar_dados_expirados(...)` (12 argumentos) | OTP, texto de notificação, auditoria, `link_acesso` vencido/revogado, trilha antiga e, desde a 0077, a etapa **`saude`**: expurgo do registro de saúde (prontuário, versões, anotações, fichas e a trilha do prontuário) de quem teve o último evento de saúde há mais de `RETENCAO_ATENDIMENTO_SAUDE_DIAS`, com a minimização dos aceites SAÚDE/PROCEDIMENTO e o registro na `log_auditoria` (cada etapa num sub-bloco) | `job_housekeeping` (etapa `banco`) |
 | `sp_expirar_pacotes(hoje)` | compras ATIVO vencidas → EXPIRADO | `job_expirar_pacotes` |
 
 **Contexto da sessão (GUCs `app.*`)** lido pela trilha: `app.usuario_id`, `app.ip_origem`,
@@ -499,10 +556,10 @@ portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servido
 | Rota | Função |
 |---|---|
 | `/`, `/quem-somos/`, `/equipe/`, `/especialidades/`, `/galeria/`, `/depoimentos/`, `/promocoes/` | Páginas institucionais; depoimentos só com opt-in + aprovação; promoções com o mesmo preço do agendamento |
-| `/servicos/faciais/`, `/servicos/corporais/`, `/servicos/detalhe/<slug>/` | Catálogo |
-| `/contato/` | Formulário de contato (envia ao e-mail do Branding) |
-| `/termos-de-uso/`, `/politica-de-privacidade/` | Textos legais |
-| `/lista-espera/` (+ `/sucesso/`) | Pedido de aviso de vaga |
+| `/servicos/faciais/`, `/servicos/corporais/`, `/servicos/detalhe/<slug>/` | Catálogo (cartões dos procedimentos ativos por categoria, com o "Agendar" já no procedimento) |
+| `/contato/` | Formulário de contato (`views/publico/contato`, `forms/publico.ContatoForm`): vai ao e-mail de contato da Identidade visual (`CLINIC_EMAIL`; sem ele, o `DEFAULT_FROM_EMAIL` se não for "noreply"), com o e-mail da pessoa no reply-to; aceite da política obrigatório e **sem caixa de marketing**; captcha (Turnstile, quando configurado), honeypot, 5/min e 20/dia por IP e teto de 50 mensagens/dia no site todo (acima dele, ou com o e-mail fora do ar, a página mantém o texto e oferece o WhatsApp). Mapa = ilustração local + link "Abrir no Google Maps" (nada do Google carrega na página) |
+| `/termos-de-uso/`, `/politica-de-privacidade/` | Textos legais; a política é o texto da **VersaoTermo LGPD vigente** (filtro `texto_termo`, sanitizado), com versão e vigência, emoldurado pela identificação da clínica e o encarregado (Identidade visual); sem versão ativa, o texto padrão da v1.0 |
+| `/lista-espera/` (+ `/sucesso/`) | Pedido de aviso de vaga **sem criar cadastro** (`forms/publico.ListaEsperaForm` + `services/lista_espera.inscrever`): `?procedimento=&profissional=&data=` preenche (o "Avise-me se vagar" do wizard); captcha, honeypot e 20/dia por IP; sucesso igual em todos os casos |
 | `/sitemap.xml`, `/robots.txt`, `/manifest.json`, `/sw.js`, `/favicon.ico` | SEO/PWA |
 
 ### 6.2 Agendamento e auto-atendimento da cliente
@@ -513,14 +570,15 @@ portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servido
 | `/ajax/dias-disponiveis/` · `/ajax/horarios-disponiveis/` | Dias do mês e horários livres (SlotService) |
 | `POST /agendamento/otp/solicitar/` · `POST /agendamento/otp/verificar/` | OTP do celular (Turnstile quando configurado) |
 | `POST /agendamento/confirmar/` · `/agendamento/sucesso/` | Grava o atendimento (PENDENTE) |
-| `/meus-agendamentos/` (+ `otp/enviar/`, `otp/verificar/`, `sair/`) | Portal da cliente (login por celular ou e-mail; código sempre ao celular) |
+| `/meus-agendamentos/` (+ `otp/enviar/`, `otp/verificar/`, `POST sair/`) | Área da cliente (login por celular ou e-mail; código sempre ao celular; a sessão também abre no fim do wizard). Sair só por POST com CSRF |
+| `POST /meus-agendamentos/preferencias/` · `POST saude/revogar/` · `POST pedido/` · `POST meus-dados/` | Minhas preferências (3 pares, origem PORTAL; 20/h por IP) · revogar o consentimento de saúde (10/h) · pedido de correção ou exclusão (`tipo` + descrição; trilha + e-mail à clínica; 5/h) · baixar meus dados **sem a ficha de saúde** (exige código de até 10 min; 10/h) |
 | `/meus-agendamentos/<id>/reagendar/` (+ `<id>/horarios/`) | Reagendar pelo portal: id + sessão do OTP (só agendamento do telefone da sessão; até 24h antes) — o único caminho da cliente |
-| `POST /ajax/cancelar-agendamento/` | Cancelar pelo portal: `{"atendimento_id"}` + sessão do OTP |
-| `/confirmar/<token>/` | Confirmar presença / cancelar a partir do lembrete D-1 (WhatsApp ou e-mail) |
+| `POST /ajax/cancelar-agendamento/` | Cancelar pelo portal: `{"atendimento_id"}` + sessão do OTP (`agenda.cancelar_pela_cliente`); resposta `{ok, mensagem, tardio}` ou `{ok: false, codigo}` (`dados_invalidos`, `sem_atendimento`, `nao_encontrado` 404, `passado`, `nao_cancelavel`) — com menos de 24 h de horário aprovado é cancelamento tardio e conta falta |
+| `/confirmar/<token>/` | Confirmar presença / cancelar a partir do lembrete D-1 (WhatsApp ou e-mail); cancelar com menos de 24 h é cancelamento tardio (a página avisa antes) |
 | `/termo/<token>/` | Aceitar termo(s) do atendimento (vale até o fim do atendimento) |
 | `/nps/<token>/` (+ `obrigado/`) | NPS (link de 7 dias) + opt-in de depoimento; a página de obrigado oferece a pesquisa pós-atendimento, se houver |
 | `/anamnese/<token>/` · `/pesquisa/<token>/` (+ `/anamnese/obrigado/`, `/pesquisa/obrigado/`) | Ficha/pesquisa por link (60 dias; ficha de saúde exige consentimento art. 11). Produtores: "Link da ficha" na agenda do painel e convite da pesquisa no fim do NPS (D18) |
-| `/lgpd/meus-dados/` · `/lgpd/unsubscribe/<token>/` | DSAR com OTP, descadastro |
+| `/lgpd/meus-dados/` · `/lgpd/unsubscribe/<token>/` | "Meus dados": telefone → código (propósito DSAR, captcha, 10/h por IP e 5/h por telefone, latência mínima) → JSON **sem a ficha de saúde**; descadastro |
 | `/agenda/<slug>/feed.ics?token=` | Feed iCal do profissional (`views/infra/feed_ics`; link gerado no painel ou no portal do profissional; gerar = revogar o anterior; a URL só aparece na geração) |
 
 ### 6.3 Equipe
@@ -531,14 +589,15 @@ portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servido
 | `/painel/seguranca/2fa/` (+ `verificar/`, `challenge/`) | Cadastro e desafio TOTP |
 | `/profissional/` · `/profissional/atendimento/<pk>/{realizado,anotar,aprovar,rejeitar}/` · `POST /profissional/calendario/novo-link/` · `/profissional/comissoes/` | Portal do profissional (+ gerar o próprio link do feed ICS; "Minhas comissões" do mês, só leitura) |
 | `/painel/`, `/painel/overview/` | Dashboard |
-| `/painel/agendamentos/` (+ `novo/`, `bulk/`, `<pk>/aprovar/`, `<pk>/rejeitar/`, `<pk>/termo-link/`, `<pk>/ficha-link/`, `<pk>/valor/`, `<pk>/desfazer-realizacao/`), `/painel/atualizar-status/` | Agenda em lista, agendamento interno, aprovação, links do termo e da ficha, valor cobrado, desfazer realização indevida, mudança de status (409 `termo_pendente` sem o override) |
+| `/painel/agendamentos/` (+ `novo/`, `bulk/`, `<pk>/aprovar/`, `<pk>/rejeitar/`, `<pk>/termo-link/`, `<pk>/ficha-link/`, `<pk>/valor/`, `<pk>/desfazer-realizacao/`), `/painel/atualizar-status/` | Agenda em lista (marcadores em lote, "Agendar retorno" quando devido), agendamento interno (`novo/`: uma tela, POST com `acao` buscar/horarios/agendar → `agenda.agendar_pela_recepcao`; 60/min), aprovação um a um e em lote (item a item), links do termo e da ficha, valor cobrado, desfazer realização indevida. As escritas usam `@escrita_painel` (POST + 30/min por usuário) |
+| `POST /painel/atualizar-status/` | Seletor de status (JSON `{atendimento_id, status, sem_termo?}`, contrato `utils/respostas`): `200 {ok, status_anterior, status_novo}`; `400` `dados_invalidos`/`atendimento_invalido`/`status_invalido`, transição recusada (`transicao_invalida`, `status_nao_suportado`...); `404 nao_encontrado`; **`409 termo_pendente`** (com `termos`; o front pede a confirmação e reenvia com `sem_termo: true`, que fica na trilha); **`409 desfecho_antes_do_inicio`** (Realizado/Faltou antes do início); `500 erro_interno`. PENDENTE vai para o `AgendamentoService` (aprovar/recusar + e-mail) |
 | `/painel/retornos/`, `/painel/agendamentos/<pk>/retorno/` | Retornos a marcar (só horários livres dentro da janela) |
-| `/painel/calendario/` (+ `eventos/`, `mover/`) | Calendário FullCalendar com arrastar-e-soltar |
+| `/painel/calendario/` (+ `eventos/`, `mover/`) | Calendário FullCalendar com arrastar-e-soltar. `eventos/` = lista crua do FullCalendar (range inválido → `[]`). `POST mover/` (`{id, start, end}` ISO, `agenda.mover`): `200 {ok, nova_data}`; `400 dados_invalidos`/`fim_antes_do_inicio` e status que não se move (`transicao_invalida`); `404 nao_encontrado`; `409` recusa de horário com o motivo (conflito, bloqueio, folga, feriado, expediente — ex.: `horario_ocupado`) |
 | `/painel/clientes/`, `/painel/clientes/<pk>/` | Clientes e ficha do cliente (pacotes, alertas, histórico) |
 | `/painel/prontuario/` (+ `<cliente_id>/`, `<cliente_id>/salvar/`), `/painel/anotacao/<id>/salvar/` | Prontuário com histórico de versões e anotações |
 | `/painel/profissionais/` (+ `<pk>/ics/novo-token/`, `<prof_id>/excecoes/...`), `/painel/cadastrar-profissional/`, `/painel/editar-profissional/<pk>/` | Profissionais, grade semanal, exceções, gerar link do ICS (a lista mostra só "ativo desde"; a URL aparece uma vez, na geração). Desligamento — profissional desativada, login dela desativado ou vínculo do login trocado — revoga o feed ICS (auditado); reativar exige gerar um link novo |
 | `/painel/procedimentos/...`, `/painel/pacotes/...` (+ `vender/`, `compras/<pk>/cancelar/`, `compras/<pk>/prorrogar/`), `/painel/promocoes/...` (+ `<pk>/disparar/`) | Catálogo, pacotes (venda, cancelamento com reembolso, prorrogação da validade), promoções (disparo em lotes; reenvio só confirmado) |
-| `/painel/bloqueios/...`, `/painel/lista-espera/` (+ `<pk>/notificar/`) | Bloqueios de agenda e lista de espera |
+| `/painel/bloqueios/...`, `/painel/lista-espera/` (+ `<pk>/notificar/`) | Bloqueios de agenda e lista de espera (inscrições anônimas com nome e celular de contato; "Avisar" manda e-mail quando há destino e registra o aviso mesmo sem e-mail, auditado) |
 | `/painel/financeiro/?mes=AAAA-MM`, `/painel/exportar-relatorio/?mes=AAAA-MM` | Financeiro do mês (competência; padrão o mês corrente) e o Excel gerencial do mesmo mês (exportação auditada com o mês) |
 | `/painel/comissoes/` (+ `<pk>/pagar/`, `repasse/`, `repasse/<pk>/`, `regras/`, `regras/criar/`, `regras/<pk>/ativo/`, `regras/<pk>/excluir/`) | Comissões: baixa de um crédito, repasse em lote ("pagar pendentes até") e o recibo para imprimir (sem nome de cliente), regras de comissão (usada só desativa) |
 | `/painel/nps/` (+ `<pk>/publicacao/`) | NPS e moderação de depoimentos |
@@ -569,8 +628,8 @@ portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servido
 | **Botão WhatsApp** (`wa.me`) | Contato, fallback do agendamento, link do termo pela recepção | `WHATSAPP_NUMERO` (tela Branding > env) | Botões escondidos (aviso W004) |
 | **Web Push (VAPID)** | À profissional: novo agendamento, cliente cancelou/remarcou e o resumo diário de atendimentos sem desfecho | `WEBPUSH_VAPID_*` (contato do claim: `WEBPUSH_VAPID_CLAIMS_EMAIL` > `ADMIN_EMAIL` > e-mail da marca) | Botão de ativar escondido |
 | **Feed ICS** (sem integração) | A profissional assina a própria agenda (Google, Apple, Outlook) pelo link `link_acesso` FEED_ICS — único caminho da agenda para fora (o Google Agenda por OAuth saiu na 0071) | — | — |
-| **Google Maps** (embed) | Mapa do endereço na página de contato (o navegador de quem abre a página fala com o Google) | — | — |
-| **Cloudflare Turnstile** | Captcha no pedido de OTP (wizard e portal) | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Sem captcha (aviso W009 se o SMS for real) |
+| **Google Maps** (só link) | "Abrir no Google Maps" na página de contato, com o endereço da Identidade visual; a página mostra uma ilustração local e nada do Google carrega até a pessoa clicar (a CSP não tem `frame-src` do Google) | `CLINIC_ADDRESS` (Identidade visual > env) | Sem endereço, o bloco do mapa some |
+| **Cloudflare Turnstile** | Captcha no pedido de OTP (wizard, portal e "Meus dados"), no contato e na lista de espera (`utils/captcha.captcha_invalido`) | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Sem captcha (aviso W009 se o SMS for real); os formulários públicos ficam com honeypot e limites |
 | **Sentry** | Erros e transações amostradas; `send_default_pii=False`, sem variáveis locais nem corpo do request, `EventScrubber` recursivo (contato e dado de saúde) e filtros em erro, transação e breadcrumb que redigem tokens de link, e-mail/CPF/telefone e o DETAIL do Postgres (`utils/pii.opcoes_sentry`) | `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` (ambiente = `SENTRY_ENVIRONMENT` > `RAILWAY_ENVIRONMENT_NAME` > `DJANGO_ENV`) | Desligado |
 
 Mídia: o sistema não recebe upload (nenhum `FileField`/`ImageField`; sem S3/`AWS_*`). Upload futuro
@@ -588,7 +647,13 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   obrigatório para ADMIN e PROFISSIONAL em prod**, conferido a cada request e falhando fechado (erro
   de banco na consulta do 2FA leva ao desafio, nunca deixa passar só com a senha).
 - **Cliente:** sem senha; OTP de 6 dígitos por SMS preso ao telefone (HMAC-SHA256, 10 min, 5
-  tentativas, reenvio ≥ 60 s), propósitos isolados.
+  tentativas, reenvio ≥ 60 s), propósitos isolados. Anti-enumeração: o pedido de código do portal
+  e do "Meus dados" responde igual exista ou não o cadastro, em no mínimo
+  `OTP_LATENCIA_MINIMA_SEGUNDOS` (0,8 s, fixo no settings). Sessão do portal de 1 h presa ao
+  telefone; baixar os dados exige verificação de até 10 min; sair só por POST.
+- **Formulários públicos sem login** (contato, lista de espera): captcha quando configurado,
+  honeypot `website` (robô descartado em silêncio) e limite por IP; o contato tem ainda o teto
+  diário global (protege a cota de e-mail do reset de senha e dos avisos).
 - **Headers:** CSP com nonce por request (sem `unsafe-inline` em `script-src`/`style-src`, sem
   handlers inline; `style-src-attr 'unsafe-inline'` ainda permitido), jsdelivr liberado só nos
   caminhos das libs usadas, `frame-ancestors 'none'` (exceto o widget), HSTS 1 ano com preload,
@@ -624,22 +689,40 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
 
 ### 9.1 Bases legais (política de privacidade e termo LGPD v1.0)
 
+Fonte única: `conteudo/lgpd.TRATAMENTOS` (a seção 3 da política e a declaração do "baixar meus
+dados" saem dali). Resumo:
+
 | Tratamento | Base legal |
 |---|---|
-| Agendar, confirmar, lembrar (lembrete D-1 por e-mail a quem não autorizou o WhatsApp) e realizar o atendimento; CPF, CEP e endereço para nota fiscal e contrato de pacote | Execução de contrato (art. 7º, V) |
-| Ficha de avaliação e histórico de cuidados (dado de saúde) | Consentimento específico e tutela da saúde (art. 11, I e II "f") |
-| Registros de atendimento e de aceites | Obrigação legal e exercício de direitos (art. 7º, II e VI) |
-| Pesquisa de satisfação, segurança do site | Legítimo interesse (art. 7º, IX) |
-| Depoimentos no site, novidades e promoções | Consentimento (art. 7º, I), revogável |
+| Agendar, confirmar, remarcar, cancelar e realizar o atendimento, com os e-mails de confirmação, cancelamento e lembrete; nascimento (18 anos ou mais e segurança do procedimento); código por SMS; lista de espera e contato; programa de indicação | Execução de contrato e procedimentos preliminares (art. 7º, V); o SMS também prevenção a fraudes (art. 7º, IX) |
+| CPF, CEP e endereço só para nota fiscal e contrato de pacote | Obrigação legal e execução de contrato (art. 7º, II e V) |
+| Ficha de avaliação, prontuário e anotações (dado de saúde) | **Só consentimento específico e destacado (art. 11, I), revogável**; o registro feito fica pelo prazo de guarda (art. 7º VI, art. 11 II "d", art. 16) |
+| Lembrete e pesquisa de satisfação por WhatsApp; promoções, novidades e aniversário por e-mail; depoimento no site | Consentimento (art. 7º, I), revogável |
+| Nota e comentário da pesquisa (responder é opcional); segurança do site e prevenção de abusos | Legítimo interesse (art. 7º, IX) |
+| Registros dos atendimentos, dos termos aceitos e dos consentimentos | Obrigação legal e exercício regular de direitos (art. 7º, II e VI; art. 11, II, "d") |
+
+**Revisão jurídica antes do go-live:** o texto da política, as bases, os operadores e os prazos
+(`conteudo/lgpd.py`) foram escritos a partir do que o sistema faz; a dona (de preferência com um
+advogado) revisa antes do primeiro deploy de produção (§14 a, [`LGPD.md`](LGPD.md)).
 
 ### 9.2 Consentimentos e provas
 
-- **Política de Privacidade:** aceite obrigatório no wizard → `AceiteTermo` da versão LGPD
-  vigente com IP, user-agent e SHA-256 do texto. Sem termo LGPD ativo o aceite não é gravado
-  (garanta um — §14.e).
-- **Dado de saúde (art. 11):** ficha do wizard e ficha pública (`/anamnese/<token>/`) só são
-  gravadas com a caixa de consentimento destacada marcada; o texto (`TEXTO_CONSENTIMENTO_SAUDE`)
-  vai para a `LogAuditoria` com IP.
+- **Política de Privacidade = termo LGPD:** o texto de `conteudo/lgpd.TERMO_LGPD_CONTEUDO` é a
+  v1.0 (gravada pela `0045` e pelo `seed`; a `0078` reescreveu a v1.0 sem aceite) e a página
+  `/politica-de-privacidade/` mostra o texto da versão LGPD **vigente** (`VersaoTermo.lgpd_vigente`,
+  filtro `texto_termo`) — o mesmo cujo SHA-256 vai na prova. Aceite obrigatório no wizard →
+  `AceiteTermo` da versão vigente com IP, user-agent e SHA-256 do texto. Sem termo LGPD ativo o
+  pedido online é recusado (`sem_termo_lgpd`; garanta um — §14.e). Os prazos da tabela da política
+  têm de bater com `settings.RETENCAO_*` (`aranha.W016`).
+- **Dado de saúde (art. 11 I):** ficha do wizard e ficha pública (`/anamnese/<token>/`) só são
+  gravadas com a caixa de consentimento destacada marcada; o aceite do termo SAÚDE é a prova e o
+  texto (`TEXTO_CONSENTIMENTO_SAUDE`) vai para a `LogAuditoria` com IP. **Revogável**
+  (`services/consentimentos.revogar_saude`): pelo portal (origem PORTAL) ou pela ação do Django
+  admin "Registrar revogação do consentimento de saúde" (motivo obrigatório, origem ADMIN) —
+  grava `cliente.saude_revogada_em` e a trilha `LGPD: consentimento de saude revogado`; os alertas
+  passam a mostrar a revogação; o registro feito fica pelo prazo (§9.4). Aceite SAÚDE novo
+  reativa (`AceiteTermo.registrar` limpa a data). A ficha ainda em dia (12 meses) continua valendo
+  no wizard depois da revogação (pendência no [`ARCHITECTURE.md`](ARCHITECTURE.md) §6.2).
 - **Comunicação:** três opt-ins no wizard — promoções por e-mail (MARKETING/EMAIL), lembrete
   D-1 e aviso de vaga por WhatsApp (LEMBRETE_AGENDAMENTO/WHATSAPP) e pesquisa de satisfação por
   WhatsApp (PESQUISA_SATISFACAO/WHATSAPP) — nunca pré-marcados. Cada concessão/revogação é uma
@@ -648,6 +731,9 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   cadastro exibido) revoga; marcar de novo depois de um descadastro **volta a valer**
   (reconsentimento — o antigo `aceita_comunicacao` vetava para sempre e saiu na 0050). O WhatsApp
   de lembrete é opt-in (política da Meta): sem ele o lembrete D-1 vai por e-mail.
+- **Área da cliente** ("Minhas preferências", `consentimentos.registrar_do_portal`): os mesmos
+  três pares, com o estado vigente no checkbox; marcar concede (texto do agendamento), desmarcar
+  revoga; origem PORTAL, com IP e user-agent; par sem mudança não grava.
 - **Descadastro** (`/lgpd/unsubscribe/<token>/`): revoga marketing e pesquisa (origem
   DESCADASTRO, com IP/UA de quem confirmou), **mantém o lembrete D-1** (transacional). Cada
   e-mail de marketing leva o seu link (`link_acesso` DESCADASTRO; descartado se o envio falha).
@@ -655,35 +741,42 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   "descadastrar", sem acento/caixa): revoga lembrete e pesquisa por WhatsApp do titular daquele
   telefone (origem WHATSAPP; revogar tão fácil quanto consentir — art. 8º §5), auditado, e a
   cliente recebe a confirmação com o caminho de volta (texto livre, dentro da janela de 24 h).
+- **Contato e lista de espera** não pedem opt-in de marketing (o do contato saiu): o
+  consentimento de promoções só existe no agendamento, onde há prova.
 - **Cookies:** só essenciais (sessão, CSRF, tema). O aviso é informativo: "Entendi" grava
   `cookie_consent=essenciais` no próprio navegador; nada é registrado no servidor.
 - **Painel** (ficha do cliente, "Comunicação autorizada"): a equipe vê o estado por canal e
   **revoga** a pedido da cliente; registrar uma autorização exige a justificativa (o que foi
   autorizado e como), gravada como `texto` com o autor (origem PAINEL). Django admin: histórico só
-  leitura + ação "Revogar consentimentos de comunicação" (origem ADMIN).
+  leitura + ações "Revogar consentimentos de comunicação" (origem ADMIN) e "Registrar revogação do
+  consentimento de saúde".
 - **Depoimento:** só aparece no site com `autoriza_publicacao` (cliente) **e**
   `aprovado_publicacao` (equipe), nota ≥ 9 e comentário.
 - **Imutabilidade:** aceite e termo já aceito não mudam (model + trigger 0046); editar o texto
-  = publicar nova versão. Aceites anteriores à 0044 ficam com `conteudo_sha256` vazio.
+  = publicar nova versão. O aceite só perde IP/user-agent na minimização LGPD (0077). Aceites
+  anteriores à 0044 ficam com `conteudo_sha256` vazio.
 
 ### 9.3 Direitos do titular
 
 | Direito | Como |
 |---|---|
-| Confirmação, acesso, portabilidade | `/lgpd/meus-dados/`: telefone → OTP DSAR → download JSON (cadastro, consentimentos — estado e histórico —, atendimentos, fichas, prontuário + versões e questionário rotulado, aceites, NPS, lista de espera, pacotes, carteira). Resposta idêntica exista ou não o cadastro; auditado |
-| Correção | Pela equipe na ficha do cliente (`/painel/clientes/<pk>/`) |
-| Revogação de consentimento | Link de descadastro; "PARAR" no WhatsApp; desmarcar no wizard; equipe na ficha do cliente (revogar) |
-| Anonimização/eliminação | Ação LGPD no Django admin (`LgpdService.esquecer_cliente`) e job semanal (§9.4) |
+| Confirmação, acesso, portabilidade | **"Baixar meus dados"** no portal (código de até 10 min) ou `/lgpd/meus-dados/` (telefone → OTP DSAR): JSON por seção (`services/lgpd.SECOES_DSAR`) — cadastro, preferências (bloqueio, faltas, revogação de saúde), consentimentos (estado e histórico), atendimentos, NPS, aceites, pacotes, carteira, lista de espera (inclusive a anônima pelo mesmo celular), notificações — e `sobre_o_tratamento` (art. 19 II: finalidades e bases, operadores e prazos efetivos, da mesma fonte da política). **Sem a ficha de saúde** (prontuário, versões, anotações, fichas): o arquivo diz que ela sai por e-mail ou na clínica, a pedido; o export completo é `LgpdService.exportar_dados_cliente` (sem tela no painel). Resposta idêntica exista ou não o cadastro; auditado (`DSAR: exportacao de dados`) |
+| Correção / exclusão | Pedido no portal (`POST /meus-agendamentos/pedido/`): trilha `LGPD: pedido de correcao` ou `de exclusao` com o prazo (15 dias) + e-mail à clínica (encarregado > `email_admin` > `ADMIN_EMAIL` > e-mail da marca) com a descrição. A equipe corrige na ficha (`/painel/clientes/<pk>/`) ou pseudonimiza no Django admin |
+| Revogação de consentimento | Portal (preferências e saúde); link de descadastro; "PARAR" no WhatsApp; desmarcar no wizard; equipe na ficha do cliente (comunicação) ou no Django admin (comunicação e saúde) |
+| Pseudonimização ("esquecimento") | Ação "Pseudonimizar" no Django admin (`LgpdService.esquecer_cliente`, lote tudo ou nada) e job semanal (§9.4) |
+| Revisão de decisão automatizada (art. 20) | Pausa do online por faltas (o cancelamento tardio conta): o wizard dá o motivo e o caminho (WhatsApp); a recepção revisa |
 
-**Esquecimento** (`esquecer_cliente`): troca o nome por `[ANONIMIZADO-<pk>]` e zera CPF,
-e-mail, telefone, CEP, endereço e nascimento; revoga os consentimentos vigentes (origem
-ESQUECIMENTO — o histórico de datas/finalidades fica como prova de base legal, sem IP e
-user-agent); soft delete; apaga OTPs, lista de
-espera e texto das notificações; apaga fichas que não são de atendimento REALIZADO; tira o
-depoimento do site e apaga o comentário do NPS; **revoga todos os links públicos** do titular
-(descadastro, confirmação, NPS, termo, ficha); pseudonimiza o nome nos textos da
-`LogAuditoria` e do histórico do Django admin. Atendimentos, aceites, prontuário e pacotes
-ficam ligados a um titular não identificável.
+**Pseudonimização** (`esquecer_cliente` → `sp_anonimizar_cliente`, art. 13 §4): troca o nome por
+`[ANONIMIZADO-<pk>]` e zera CPF, e-mail, telefone, CEP, endereço, nascimento, **código de indicação
+e quem indicou**; revoga os consentimentos vigentes (origem ESQUECIMENTO — o histórico de
+datas/finalidades fica como prova de base legal, sem IP e user-agent); tira IP e user-agent do
+aceite LGPD (e dos de SAÚDE/PROCEDIMENTO quando não há mais registro de saúde); soft delete;
+apaga OTPs, a lista de espera (inclusive a inscrição anônima com o mesmo celular) e o texto das
+notificações; apaga fichas que não são de atendimento REALIZADO; tira o depoimento do site e apaga o
+comentário do NPS; **revoga todos os links públicos** do titular (descadastro, confirmação, NPS,
+termo, ficha); pseudonimiza o nome nos textos da `LogAuditoria` e do histórico do Django admin e
+apaga os detalhes das trilhas `LGPD: ...` da titular. Atendimentos, aceites, pacotes e o registro
+de saúde (até o expurgo aos 20 anos) ficam ligados a esse id — pseudonimização, não anonimização.
 
 ### 9.4 Retenção
 
@@ -692,20 +785,31 @@ contra os models, as procedures (`sp_anonimizar_cliente`, `sp_aplicar_retencao_l
 `sp_purgar_dados_expirados`) e o registro de operações do `docs/LGPD.md`: tabela ou coluna pessoal
 nova sem tratamento declarado reprova o CI.
 
+Os prazos **LGPD** (`RETENCAO_CLIENTE_INATIVO_DIAS`, `RETENCAO_CARENCIA_SOFT_DELETE_DIAS`,
+`RETENCAO_ATENDIMENTO_SAUDE_DIAS`, `RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS`,
+`RETENCAO_PACOTE_APOS_EXPIRAR_DIAS`) são **fixos** em `settings/base.py`, sem variável de
+ambiente: são os publicados na política (`conteudo/lgpd.PRAZOS_RETENCAO`), e mudar exige versão
+nova do termo LGPD — o check `aranha.W016` acusa o settings diferente do texto da versão vigente.
+`services/lgpd.prazos_retencao` os passa às procedures. OTP, texto das notificações e auditoria
+também estão publicados na política, mas seguem por env (`RETENCAO_OTP_HORAS`,
+`RETENCAO_NOTIFICACAO_DIAS`, `RETENCAO_LOG_AUDITORIA_DIAS` — mudar sem versão nova do termo gera o
+W016); links e axes não aparecem no texto.
+
 | Dado | Prazo | Mecanismo |
 |---|---|---|
 | Código OTP | 24 h (`RETENCAO_OTP_HORAS`) | `housekeeping` apaga |
 | Sessões expiradas | — | `housekeeping` (`clearsessions`) |
 | Texto das notificações | 12 meses (`RETENCAO_NOTIFICACAO_DIAS`) | `housekeeping` limpa `mensagem` |
-| Log de auditoria | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`, mínimo 180 dias — W013) | `housekeeping` apaga (o trigger só aceita apagar linha com 180+ dias) |
-| Trilha de dados (`historico_alteracao`) | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`); **prontuário: 20 anos** (não purga) | `housekeeping` apaga (flag local `app.expurgo_autorizado` + 180 dias; fora disso o trigger barra DELETE) |
+| Log de auditoria (com o IP) | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`, mínimo 180 dias — W013) | `housekeeping` apaga (o trigger só aceita apagar linha com 180+ dias) |
+| Trilha de dados (`historico_alteracao`) | 5 anos (`RETENCAO_LOG_AUDITORIA_DIAS`); a do **prontuário** sai com o expurgo de saúde | `housekeeping` apaga (flag local `app.expurgo_autorizado` + 180 dias; fora disso o trigger barra DELETE) |
 | Link público vencido ou revogado | 90 dias depois de vencer/ser revogado (`RETENCAO_LINK_ACESSO_DIAS`); feed ICS sem validade fica | `housekeeping` apaga |
 | Logs do django-axes | 90 dias (`RETENCAO_AXES_LOG_DIAS`) | `housekeeping` apaga |
-| Cliente sem atendimento | 5 anos (`LGPD_RETENCAO_CLIENTE_DIAS`) | `lgpd_purgar` anonimiza — **exceto** quem tem prontuário com conteúdo, pacote comprado ou atendimento REALIZADO nos últimos 20 anos |
-| Cliente excluído (soft delete) | 30 dias | `lgpd_purgar` anonimiza (mesmas exceções) |
-| Ficha de pedido não realizado (CANCELADO, PENDENTE vencido, convite não respondido) | 90 dias | `lgpd_purgar` apaga |
-| Lista de espera com data passada | — | `lgpd_purgar` apaga |
-| Atendimento realizado, prontuário e versões, aceites | ≥ 20 anos (registro de saúde) | nunca apagados; triggers impedem DELETE de aceite/versão |
+| **Registro de saúde** (prontuário, versões, anotações, fichas e a trilha do prontuário) | **20 anos depois do último evento de saúde** da cliente: último REALIZADO, edição/versão do prontuário, anotação ou ficha (`RETENCAO_ATENDIMENTO_SAUDE_DIAS`) | `housekeeping`, etapa **`saude`** do `sp_purgar_dados_expirados` (0077): apaga e minimiza IP/user-agent dos aceites SAÚDE/PROCEDIMENTO, registra a quantidade na `log_auditoria`; os triggers só aceitam com a flag **e** 20 anos (prazo menor no settings = etapa falha, nada sai antes) |
+| Cliente sem atendimento | 5 anos (`RETENCAO_CLIENTE_INATIVO_DIAS`) | `lgpd_purgar` **pseudonimiza** — **exceto** enquanto houver registro de saúde dentro da janela de 20 anos (REALIZADO, versão do prontuário ou prontuário com conteúdo editado no período) ou pacote a menos de 5 anos do fim (`RETENCAO_PACOTE_APOS_EXPIRAR_DIAS`: cancelamento, validade ou, sem validade, a compra). Aceite de termo não retém |
+| Cliente excluído (soft delete) | 30 dias (`RETENCAO_CARENCIA_SOFT_DELETE_DIAS`) | `lgpd_purgar` pseudonimiza (mesmas exceções) |
+| Ficha de pedido não realizado (CANCELADO, PENDENTE vencido, convite não respondido ou vazio de horário passado) | 90 dias (`RETENCAO_FICHA_SEM_ATENDIMENTO_DIAS`) | `lgpd_purgar` apaga (a respondida de FALTOU/REAGENDADO fica) |
+| Lista de espera | até a data desejada passar ou a cliente agendar o procedimento | `lgpd_purgar` apaga a vencida (inclusive anônima); `services/atendimento.ao_criar` apaga ao agendar |
+| Aceites de termo | nunca apagados (prova) | IP/user-agent minimizados na pseudonimização (LGPD) e no expurgo de saúde (SAÚDE/PROCEDIMENTO) |
 
 **Cifragem em repouso** (0060, `utils/cifragem` + `db/campos.TextoCifrado`/`JsonCifrado`): os 5
 campos clínicos e as respostas do prontuário, as versões do prontuário, as anotações de sessão e as
@@ -775,8 +879,8 @@ curl -fsS -X POST -H "X-Cron-Token: $CRON_TOKEN" https://<dominio>/cron/run/<job
 | `aniversario` | 09:00 | `0 9 * * *` | E-mail de felicitação (sem desconto) com consentimento de marketing; 29/02 comemora em 28/02 (1×/dia) |
 | `nps_24h` | 10:00 | `0 10 * * *` | WhatsApp de NPS para REALIZADO entre 24 h e 7 dias, **nunca retorno**, no máximo 1 pesquisa por cliente a cada 90 dias (`NPS_INTERVALO_DIAS`), com consentimento; até 3 tentativas (1×/dia) |
 | `detrator_alerta` | 10:30 | `30 10 * * *` | E-mail de NPS ≤ 6 para `email_admin` > `ADMIN_EMAIL` > `CLINIC_EMAIL` |
-| `lgpd_purgar` | dom 03:00 | `0 3 * * 0` | Anonimização por retenção (confirmada cliente a cliente), fichas de pedidos não realizados, lista de espera vencida (`sp_aplicar_retencao_lgpd`) |
-| `housekeeping` | 04:00 | `0 4 * * *` | Sessões, OTP > 24h, texto de notificação > 12 meses, auditoria e trilha `historico_alteracao` > 5 anos (prontuário fica), link público vencido/revogado > 90 dias (`sp_purgar_dados_expirados`), axes > 90 dias (etapas independentes; falha de uma → 500 no fim) |
+| `lgpd_purgar` | dom 03:00 | `0 3 * * 0` | Pseudonimização por retenção (confirmada cliente a cliente; saúde na janela de 20 anos e pacote a menos de 5 anos do fim retêm), fichas de pedidos não realizados, lista de espera vencida (`sp_aplicar_retencao_lgpd`) |
+| `housekeeping` | 04:00 | `0 4 * * *` | Sessões, OTP > 24h, texto de notificação > 12 meses, auditoria e trilha `historico_alteracao` > 5 anos (a do prontuário sai com a saúde), link público vencido/revogado > 90 dias, **registro de saúde 20 anos depois do último evento** (etapa `saude`) — `sp_purgar_dados_expirados` —, axes > 90 dias (etapas independentes; falha de uma → 500 no fim) |
 | `feriados` | dia 1, 04:30 | `30 4 1 * *` | Feriados nacionais do ano atual e do seguinte (`services/feriados.carregar`) |
 
 O que um job muda nas tabelas com trilha sai em `historico_alteracao` com origem `cron:<job>`
@@ -824,7 +928,6 @@ settings (`clinica/settings`) leem a env. Em produção:
 | `ADMIN_2FA_OBRIGATORIO` | Sem a env: ligado em prod. `false` = válvula de emergência (W008) |
 | `PROFISSIONAL_2FA_OBRIGATORIO` | Sem a env: ligado em prod (o PROFISSIONAL lê prontuário e alertas de saúde). `false` = válvula de emergência (W012) |
 | `EMBED_FRAME_ANCESTORS` | Origens que podem embutir `/embed/agendar/` (vazio = qualquer `https:`) |
-| `LGPD_RETENCAO_CLIENTE_DIAS` | Retenção de cliente inativo (padrão 1825) |
 | `REDIS_URL` | Opcional: cache/sessão compartilhados (obrigatório se `WEB_CONCURRENCY` > 1) |
 | `CRON_MONITOR_URL` | Monitor dos jobs (healthchecks.io: `https://hc-ping.com/<ping key>`): cada job avisa `<url>/<job>` ou `<url>/<job>/fail` |
 
@@ -843,8 +946,10 @@ settings (`clinica/settings`) leem a env. Em produção:
 `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (SMTP, só no plano Pro) ·
 `AXES_FAILURE_LIMIT` (5), `AXES_COOLOFF_TIME_HOURS` (1), `PASSWORD_RESET_TIMEOUT_SECONDS`
 (3600) · `RETENCAO_OTP_HORAS`, `RETENCAO_NOTIFICACAO_DIAS`,
-`RETENCAO_LOG_AUDITORIA_DIAS` (também a trilha `historico_alteracao`), `RETENCAO_LINK_ACESSO_DIAS`
-(90), `RETENCAO_AXES_LOG_DIAS` · `DJANGO_LOG_LEVEL` ·
+`RETENCAO_LOG_AUDITORIA_DIAS` (também a trilha `historico_alteracao`; os três estão publicados na
+política — mudar sem versão nova do termo gera o W016), `RETENCAO_LINK_ACESSO_DIAS`
+(90), `RETENCAO_AXES_LOG_DIAS` (os prazos LGPD — cliente inativa, carência, saúde, ficha, pacote —
+**não** são env: ficam fixos no settings, §9.4) · `DJANGO_LOG_LEVEL` ·
 `EMAIL_TIMEOUT` (10; vale também para as chamadas HTTP do anymail) · `MAILGUN_SENDER_DOMAIN`
 (Mailgun; padrão = domínio do remetente) · `DB_STATEMENT_TIMEOUT_MS` (30000; teto por statement na
 conexão Postgres, abaixo do `WEB_TIMEOUT`; `0` desliga; o `migrate_atomico` roda sem teto),
@@ -860,19 +965,24 @@ Só no ambiente de testes publicado (`DJANGO_ENV=staging`, §13.1): `DESTINATARI
 **Legada — remover do Railway:** `STATIC_ROOT` (era `/tmp`; `settings/prod.py` ignora e usa
 `/app/staticfiles`, preenchido no build). O código não lê mais `GOOGLE_OAUTH_*` (Google Agenda
 removido), `AWS_*` (sem upload), `TWO_FACTOR_REMEMBER_COOKIE_AGE`, `ZENVIA_API_KEY` (use
-`ZENVIA_API_TOKEN` + `ZENVIA_FROM`) nem `SECRET_KEY` (use `DJANGO_SECRET_KEY`).
+`ZENVIA_API_TOKEN` + `ZENVIA_FROM`), `SECRET_KEY` (use `DJANGO_SECRET_KEY`) nem
+`LGPD_RETENCAO_CLIENTE_DIAS` (o prazo é o publicado na política: `RETENCAO_CLIENTE_INATIVO_DIAS`
+fixo no settings).
+
+Fixos no settings, sem env (mudar = código + versão nova do termo, quando for prazo LGPD): os
+`RETENCAO_*` LGPD do §9.4 e `OTP_LATENCIA_MINIMA_SEGUNDOS` (0,8 s; 0 em `settings/test.py`).
 
 ---
 
 ## 12. Testes e CI
 
-- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~1.850
-  testes fora a tag `migracoes`, em 112 arquivos, alguns em pastas por área — `tests/conta/`,
+- `python manage.py test aranha_estetica` — suíte Django (SQLite `.cache/db_test.sqlite3`, ~1.950
+  testes fora a tag `migracoes`, em 122 arquivos, alguns em pastas por área — `tests/conta/`,
   `infra/`, `jobs/`, `painel/`, `publico/`, `servicos/`, `utils/` — roda **tudo**, inclusive as data
   migrations). `manage.py test` sempre
   carrega `clinica/settings/test.py` (única detecção de teste, em `settings/__init__.py`; é o runner
   único — pytest/pytest-django/conftest saíram, e `test_deploy_config.RunnerUnicoTests` reprova a
-  volta): hash de senha MD5, SMS em modo log, avisos `aranha.W001`–`W015` silenciados (testados à
+  volta): hash de senha MD5, SMS em modo log, avisos `aranha.W001`–`W016` silenciados (testados à
   parte em `test_deploy_config.py` e `tests/infra/test_deploy.py`), django-vite em `dev_mode` (não
   precisa do build; `TESTE_VITE_BUILD=1` usa o bundle).
 - **Atalho do dia a dia**: `python manage.py test aranha_estetica --exclude-tag migracoes` (~40 s)
@@ -1028,8 +1138,8 @@ compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que vence
 > **Estado em 2026-10-27:** ainda não há produção. O projeto do Railway que existia (web + Postgres
 > na `0026`) era só **ambiente de desenvolvimento**; está em **stand-by** (trial expirado) e não
 > precisa de upgrade nem de backup. O primeiro deploy de produção cria um **banco novo**: o
-> `migrate_atomico` aplica `0001`→`0074` numa transação e o `seed --force` carrega o catálogo. O
-> roteiro de atualização de um banco já existente (`0026` → `0074`) fica no §14 a.1, para o caso
+> `migrate_atomico` aplica `0001`→`0078` numa transação e o `seed --force` carrega o catálogo. O
+> roteiro de atualização de um banco já existente (`0026` → `0078`) fica no §14 a.1, para o caso
 > de esse banco um dia ser reaproveitado.
 
 ### a) Pré-deploy
@@ -1060,9 +1170,18 @@ compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que vence
    competindo com o `railway.json` (config-as-code: builder DOCKERFILE, pre-deploy, healthcheck
    `/healthz/`) e crie o serviço Cron (§13.2) com as mesmas variáveis.
 4. **Backup** configurado antes do primeiro cliente real (§14 h).
-5. PR ou fast-forward `dev` → `main` (dispara o deploy; a proteção exige o CI verde no commit).
+5. ⚠️ **Revisão jurídica da Política de Privacidade — obrigatória antes do go-live.** O texto v1.0
+   em `aranha_estetica/conteudo/lgpd.py` (seções, `TRATAMENTOS`, `OPERADORES`, `PRAZOS_RETENCAO`)
+   foi escrito a partir do que o sistema faz, não por advogado: **a dona da clínica (de preferência
+   com um advogado) revisa e aprova**, e as correções entram no arquivo **antes** deste deploy — é
+   o texto que a `0045` grava como termo LGPD no banco novo, que a página
+   `/politica-de-privacidade/` mostra e cujo SHA-256 vai na prova de cada aceite. Depois do primeiro
+   aceite a versão fica imutável (correção = versão nova em Painel > Termos). Prazo alterado na
+   tabela tem de mudar junto em `settings.RETENCAO_*` (senão `aranha.W016`). Registre quem revisou e
+   quando no [`LGPD.md`](LGPD.md).
+6. PR ou fast-forward `dev` → `main` (dispara o deploy; a proteção exige o CI verde no commit).
 
-### a.1) Só para atualizar um banco existente (`0026` → `0074`)
+### a.1) Só para atualizar um banco existente (`0026` → `0078`)
 
 1. **Backup** (é o único rollback): `scripts/backup/backup_postgres.sh` (§14 h). Nunca grave o dump
    em claro dentro do repositório (o `.gitignore`/`.dockerignore` ignoram `*.dump`, mas um
@@ -1219,6 +1338,33 @@ compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que vence
      ```
    - A `0074` não aborta: tira `rg`, `profissao` e `url_foto` da `cliente` (o valor some com a
      coluna — exporte antes se a dona quiser guardar algo) e recria `sp_anonimizar_cliente` sem elas.
+   - A `0075` não aborta: acrescenta a origem PORTAL ao CHECK do consentimento e a coluna
+     `cliente.saude_revogada_em` (vazia); sem DML.
+   - `0076` (lista de espera sem cadastro) — converte `eh_notificado` em `ultimo_aviso_em` (avisada =
+     `atualizado_em`), troca o UNIQUE "pendente" por um por pessoa + procedimento + dia e **aborta**
+     se a mesma cliente tem duas inscrições no mesmo procedimento e dia (o UNIQUE novo não tem mais
+     a condição "não notificado"; a mensagem lista os ids) → apague as duplicadas (fica a mais
+     recente). Pré-checagem (nomes atuais, no ensaio antes da 0076):
+     ```sql
+     SELECT cliente_id, procedimento_id, data_desejada, array_agg(id ORDER BY id)
+       FROM lista_espera GROUP BY 1, 2, 3 HAVING count(*) > 1;
+     ```
+   - A `0077` (retenção de saúde e pacote, pseudonimização completa) não mexe em dado: só Postgres,
+     recria `fn_clientes_para_anonimizar`, `sp_aplicar_retencao_lgpd` e `sp_purgar_dados_expirados`
+     com assinatura nova (DROP + CREATE), `sp_anonimizar_cliente`, os triggers de imutabilidade do
+     aceite, da versão do prontuário e da anotação (`fn_anotacao_sessao_imutavel` nova) e
+     `fn_registrar_historico`. O primeiro `housekeeping` depois dela já roda a etapa `saude` (num
+     banco com registro de 20+ anos, expurga — confira o resumo do job).
+   - `0078` (política v1.0 completa) — reescreve o texto da v1.0 LGPD com a política de
+     `conteudo/lgpd.py` (num banco novo a `0045` já gravou esse texto e ela não muda nada) e
+     **aborta** se essa v1.0 já tem aceite com texto diferente (o texto aceito é prova; a mensagem
+     lista os ids). Nesse caso a política nova precisa entrar como versão nova — o roteiro não
+     prevê isso (ver o resultado do ensaio antes de seguir). Pré-checagem:
+     ```sql
+     SELECT t.id, count(a.id) AS aceites FROM versao_termo t
+       JOIN aceite_termo a ON a.versao_termo_id = t.id
+      WHERE t.tipo = 'LGPD' AND t.procedimento_id IS NULL AND t.versao = '1.0' GROUP BY t.id;
+     ```
    - A `0034` não aborta: normaliza telefone/CPF/e-mail, tira duplicatas (o cliente com mais
      atendimentos fica com o valor; os outros ficam ativos com o campo nulo) e registra cada caso
      na `LogAuditoria` (`migration 0034: ...`, com `telefone_original`) para mesclagem manual;
@@ -1226,7 +1372,7 @@ compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que vence
 ### b) O que o deploy faz
 
 1. Build da imagem (§13) — falha de front, collectstatic ou check derruba o build, nada muda.
-2. Pre-deploy: `migrate_atomico` (`0001`→`0074` no banco novo, ou `0027`→`0074` no §14 a.1, numa
+2. Pre-deploy: `migrate_atomico` (`0001`→`0078` no banco novo, ou `0027`→`0078` no §14 a.1, numa
    transação; `lock_timeout` 5 s — se o deploy antigo segurar lock, falha e é só refazer) e `bootstrap_admin` (cria/reativa o ADMIN).
    Leia o log do pre-deploy: avisos `aranha.W0xx`, `0042: ATENCAO ...` e
    `bootstrap_admin: ERRO — painel sem administrador ativo` indicam env faltando (os checks
@@ -1244,9 +1390,9 @@ compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que vence
 curl -fsS https://<dominio>/healthz/                  # {"status": "alive"}
 curl -fsS https://<dominio>/health/                   # db/cache/front = true
 railway ssh   # shell no container:
-python manage.py check --database default             # lista W001–W015 / E001–E004 pendentes
+python manage.py check --database default             # lista W001–W016 / E001–E004 pendentes
 python manage.py sendtestemail voce@exemplo.com       # e-mail real pelo provedor (§14 i)
-python manage.py showmigrations aranha_estetica | tail -3   # [X] 0074_cliente_dados_sem_finalidade
+python manage.py showmigrations aranha_estetica | tail -3   # [X] 0078_termo_lgpd_v1_completo
 python manage.py rodar_jobs_devidos --somente emails  # o mesmo comando do serviço Cron
 ```
 
@@ -1288,9 +1434,11 @@ uma falha no dia).
 3. Rode `python manage.py axes_reset` (limpa bloqueios de login herdados do deploy antigo).
 4. **Painel > Identidade visual** (Branding): telefone, WhatsApp (DDI+DDD+número), e-mail de contato, endereço e
    horário reais — a tela vence a env; campo vazio esconde o item no site.
-5. **Painel > Termos**: revise o **termo LGPD v1.0** criado pela `0045` (resumo da política de
-   privacidade). Depois do primeiro aceite ele fica imutável — correções viram nova versão. Crie
-   os termos de PROCEDIMENTO necessários.
+5. **Painel > Termos**: confira que o **termo LGPD v1.0** ativo (gravado pela `0045`: a
+   Política de Privacidade completa de `conteudo/lgpd.py`) é o texto **já revisado** no passo a.5
+   e que `/politica-de-privacidade/` mostra a versão e a vigência com a razão social, o CNPJ e o
+   encarregado da Identidade visual (passo 4). Depois do primeiro aceite ele fica imutável —
+   correções viram nova versão. Crie os termos de PROCEDIMENTO necessários.
 6. Confira Regras operacionais (`email_admin` do alerta de detrator, faltas para pausar o online), profissionais (expediente,
    `max_advance_dias`), procedimentos/preços e a `LogAuditoria` com `migration 0034:` (duplicatas
    a mesclar e telefones inválidos a corrigir).
@@ -1303,7 +1451,7 @@ Sem acesso ao painel (2FA perdido, lockout): `railway ssh` → `python manage.py
 ### f) System checks (`aranha.W0xx` / `aranha.E00x`)
 
 Aparecem no log de todo `manage.py` fora de DEBUG (inclusive no pre-deploy). Os que consultam o
-banco (W004/W007 via Branding, W006, W010, W015) só rodam com `check --database default` ou no
+banco (W004/W007 via Branding, W006, W010, W015, W016) só rodam com `check --database default` ou no
 `migrate` (antes das migrations). Os **erros** E001–E003 só valem nos perfis publicados
 (prod/staging) e **barram o `migrate_atomico` do pre-deploy** (o deploy anterior segue no ar); o
 E004 vale em qualquer perfil.
@@ -1325,6 +1473,7 @@ E004 vale em qualquer perfil.
 | `W013` | `RETENCAO_LOG_AUDITORIA_DIAS` abaixo de 180 — o Postgres recusa a purga da trilha | 180 ou mais (padrão 1825; Marco Civil: 6 meses) |
 | `W014` | Só no dev (`DEBUG=True`): Python ou pacote local diferente do CI/imagem (3.12 + `requirements.lock`) | venv 3.12 + `pip install -r requirements-dev.txt -c requirements.lock` ([`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md)) |
 | `W015` | Postgres fora do major 18 (CI, paridades e procedures só são validados na 18) | Serviço com a imagem `ghcr.io/railwayapp-templates/postgres-ssl:18` (nunca `:latest`) |
+| `W016` | Prazo de `settings.RETENCAO_*` (LGPD) diferente do publicado no termo LGPD **vigente** — a cliente aceitou o prazo do texto, a procedure aplicaria o do settings | Volte o settings ao prazo publicado ou publique versão nova do termo LGPD (Painel > Termos) com a tabela de prazos de `conteudo/lgpd.py` atualizada |
 | `E001` (**erro**) | Perfil publicado sem `CHAVES_CIFRAGEM` válida | `CHAVES_CIFRAGEM=<manage.py gerar_chave_cifragem>` + cópia offline |
 | `E002` (**erro**) | Perfil publicado sem Postgres (`DATABASE_URL` ausente: cairia no SQLite, sem procedures/triggers e apagado a cada deploy) | `DATABASE_URL=${{Postgres.DATABASE_URL}}` no serviço |
 | `E003` (**erro**) | Segredo fraco ou de exemplo: `DJANGO_SECRET_KEY` com menos de 50 caracteres (ou < 5 distintos, `django-insecure-`, valor de exemplo); `CRON_TOKEN`/`WHATSAPP_VERIFY_TOKEN` definidos com menos de 32 | Gerar com `get_random_secret_key()` / `secrets.token_urlsafe(32)` e atualizar também quem envia o header |
@@ -1339,7 +1488,7 @@ não recuperam dados (renomeações, dedup da 0034, contas demo desativadas, ter
 Não use `migrate aranha_estetica <anterior>`.
 
 1. Railway → Deployments → *Redeploy* do último deployment bom.
-2. No banco atual (se ele ainda abre), liste quem foi anonimizado depois do backup:
+2. No banco atual (se ele ainda abre), liste quem foi pseudonimizado depois do backup:
    `python manage.py reaplicar_esquecimentos --listar --desde <data do backup> > esquecidos.json`.
 3. Teste o backup num banco descartável (`scripts/backup/testar_restauracao.sh`) e restaure:
    decifre com a chave privada num arquivo temporário (`age -d -i chave.txt -o /tmp/r.dump
@@ -1362,7 +1511,7 @@ Não use `migrate aranha_estetica <anterior>`.
   '<colunas a redigir>')`).
 - **Regra mudou no Python** (slots, saldo de pacote, NPS, comissão, consentimento): o
   `tests/test_pg_paridade.py` reprova no CI Postgres até a função de leitura ser atualizada —
-  módulo novo em `migrations/sql/` + migration com `CREATE OR REPLACE`. **Retenção, anonimização,
+  módulo novo em `migrations/sql/` + migration com `CREATE OR REPLACE`. **Retenção, pseudonimização,
   limpeza e expiração de pacotes** só existem nas procedures: mudar a regra = migration nova com a
   procedure + ajuste do teste de efeito (`test_lgpd_esquecimento`, `test_pg_paridade`).
 - **Quem mudou o quê**: `historico_alteracao` (Django admin, só leitura e auditado, ou SQL) —
@@ -1466,7 +1615,9 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
   `Alpine.data()` no `app.js`, tokens de cor do `tokens.css` (nunca cor crua). Lib nova no CDN =
   atualizar `JSDELIVR_PATHS` + SRI.
 - Copy do site em tom de estética/bem-estar (cliente, atendimento, avaliação — nunca
-  "paciente/consulta médica").
+  "paciente/consulta médica"). Texto que também é regra (política de privacidade, FAQ) mora em
+  `conteudo/` e sai das mesmas constantes/settings que o sistema aplica — nunca número escrito à mão
+  no template.
 - E-mail (`templates/email/`): layout em tabela; faixa com gradiente leva `bgcolor` + `background-color`
   de reserva (o Outlook ignora gradiente) e botão vai num `<td bgcolor>` com `mso-padding-alt` (o Outlook
   ignora padding em `<a>`); texto do botão escuro (`#23200f`). `test_email_texto.EmailNoOutlookTests` cobra.
@@ -1497,6 +1648,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-28 | Revisão, fases 2 e 5: `settings/test.py` único (hash MD5: suíte de ~4 min para ~40 s; `--keepdb`), ruff com regra de fuso + pre-commit, catraca de cobertura (87 %), wizard no Chromium no CI (achou o link pré-selecionado parado na etapa 1), data migrations em paralelo (25 → 10 min), CI com pins por SHA/digest, Dependabot e `pip-audit` bloqueante, `aranha.W014` (ambiente fora do lock), [`DESENVOLVIMENTO.md`](DESENVOLVIMENTO.md); banco: alertas de saúde em lote (painel 38 → 20 consultas, prontuários 28 → 8 com 10 clientes), filtros por dia como intervalo (14 `__date`), `statement_timeout`/`application_name` na conexão, `consultas_lentas` (pg_stat_statements) e roteiro de staging |
 | 2026-10-28 | Pacotes da revisão funcional (0062–0074): financeiro por competência mensal, rateio ponderado do pacote, prorrogar/cancelar compra, regras de comissão no painel, snapshot e repasse em lote, "Minhas comissões" (0065–0067); jobs com agenda única (`JOB_AGENDA`) e serviço Cron do Railway, lembrete D-1 por e-mail, push de sem desfecho, NPS 1×/90 dias, promoção de disparo único, "PARAR" no WhatsApp, trava diária `execucao_job` (0068–0070); remoções — Google Agenda, papel RECEPCAO, link legado de reagendar, modalidade/videoconferência, tipos de notificação sem produtor, RG/profissão/foto, gravação do aviso de cookies, pytest (0071–0074); borda — checks E002–E004/W015, segredos fortes, `.env.example` testado, configuração só nos settings (TID251), `utils/telefone` e `utils/respostas`, redação de logs, imagem endurecida, axes por IP, 2FA falha fechado, gitleaks/npm audit e cobertura combinada no CI |
 | 2026-10-29 | Pedido online como caso de uso (`services/agendamento_online` + `forms/agendamento`, view fina; teto de 3 horários pelo site, ficha válida por 12 meses, pedido sempre da titular, vitrine em `services/precos`, "Avise-me se vagar"); equipe, catálogo e configurações com Django Forms (`forms/cadastros`), `services/catalogo`, regras operacionais em registro tipado (`models/configuracao`) e feed ICS revogado no desligamento |
+| 2026-10-29 | LGPD e área da cliente (0075–0078): Política de Privacidade como fonte única (`conteudo/lgpd.py` = termo LGPD = página = declaração do DSAR, prazos fixos e `aranha.W016`), consentimento de saúde revogável, expurgo do registro de saúde aos 20 anos do último evento e pacote retido 5 anos, pseudonimização completa, export do site sem a ficha de saúde, "Meus agendamentos" com preferências, revogação, pedidos LGPD e sessão aberta no fim do wizard, cancelamento tardio conta falta, lista de espera sem cadastro (turno, aviso que mantém na fila), contato com captcha/honeypot/teto diário e mapa sem Google, FAQ das constantes; agenda do painel por casos de uso (`agendar_pela_recepcao`, `marcar_realizado`, `registrar_valor_cobrado`, lote item a item), Forms em `forms/agenda`, seletor de status sem PENDENTE nem finais e Realizado/Faltou só após o início, JS em módulos do Vite e leitura de alerta de saúde auditada |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-29
