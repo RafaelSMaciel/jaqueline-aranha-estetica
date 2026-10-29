@@ -7,7 +7,7 @@ title Serviços — fichas, prontuário, termos e LGPD
 class "services.anamnese" as anamnese <<módulo>> {
   + validar_respostas(schema, dados)
   + convidar(formulario, atendimento)
-  + valida_desde(em)
+  + valida_desde(em, saude_revogada_em)
   + fichas_em_dia(cliente, em)
   + fichas_pendentes(atendimento)
   + convite_pesquisa(atendimento)
