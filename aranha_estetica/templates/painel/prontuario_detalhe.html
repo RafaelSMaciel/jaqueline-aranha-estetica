@@ -30,7 +30,7 @@ x-ref dialogo/texto, data-csrf na raiz e data-atendimento-id no botao que abre.
 {# ── Dados da cliente ── #}
 <c-card>
   <dl class="dados">
-    <div><dt>Telefone</dt><dd>{{ cliente.telefone|default:"Não informado" }}</dd></div>
+    <div><dt>Telefone</dt><dd>{{ cliente.telefone|telefone|default:"Não informado" }}</dd></div>
     <div><dt>E-mail</dt><dd>{{ cliente.email|default:"Não informado" }}</dd></div>
     <div><dt>Data de nascimento</dt><dd>{{ cliente.data_nascimento|date:"d/m/Y"|default:"Não informado" }}</dd></div>
   </dl>
