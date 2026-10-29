@@ -121,7 +121,7 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
             <span class="avatar h-9 w-9 text-xs status-{{ agend.status }}" aria-hidden="true">{{ agend.cliente.nome|iniciais }}</span>
             <div class="min-w-0">
               <a href="{% url 'aranha:admin_cliente_detalhe' agend.cliente_id %}" class="font-bold text-texto no-underline hover:text-marca">{{ agend.cliente.nome }}</a>
-              {% if agend.cliente.telefone %}<span class="block text-legenda text-texto-suave tabular-nums">{{ agend.cliente.telefone }}</span>{% endif %}
+              {% if agend.cliente.telefone %}<span class="block text-legenda text-texto-suave tabular-nums">{{ agend.cliente.telefone|telefone }}</span>{% endif %}
             </div>
           </div>
           {% include 'partials/_alerta_saude.html' with alertas=agend.alertas_saude %}

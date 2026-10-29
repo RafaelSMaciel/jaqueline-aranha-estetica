@@ -33,13 +33,13 @@ SlotService; "Agendar" valida tudo de novo no servidor.
           {% if cliente %}
           <label class="opcao w-full rounded-lg border border-borda-campo px-3 py-2.5 has-checked:border-marca-forte has-checked:bg-marca-suave">
             <input type="radio" name="cliente_id" value="{{ cliente.pk }}" checked>
-            <span class="min-w-0 break-words"><strong>{{ cliente.nome }}</strong>{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}{% if cliente.email %} · {{ cliente.email }}{% endif %}</span>
+            <span class="min-w-0 break-words"><strong>{{ cliente.nome }}</strong>{% if cliente.telefone %} · {{ cliente.telefone|telefone }}{% endif %}{% if cliente.email %} · {{ cliente.email }}{% endif %}</span>
           </label>
           {% endif %}
           {% for c in resultados %}{% if not cliente or c.pk != cliente.pk %}
           <label class="opcao w-full rounded-lg border border-borda-campo px-3 py-2.5 hover:bg-fundo-realce has-checked:border-marca-forte has-checked:bg-marca-suave">
             <input type="radio" name="cliente_id" value="{{ c.pk }}">
-            <span class="min-w-0 break-words"><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}{% if c.email %} · {{ c.email }}{% endif %}</span>
+            <span class="min-w-0 break-words"><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone|telefone }}{% endif %}{% if c.email %} · {{ c.email }}{% endif %}</span>
           </label>
           {% endif %}{% empty %}
           {% if buscou and q and not inativas %}<p class="text-sm text-texto-suave">Nenhuma cliente encontrada para “{{ q }}”. Cadastre abaixo.</p>{% endif %}
@@ -47,7 +47,7 @@ SlotService; "Agendar" valida tudo de novo no servidor.
           {# Cadastro inativo: nao agenda nem recadastra (telefone unico) — reativa na ficha #}
           {% for c in inativas %}{% if not cliente_inativa or c.pk != cliente_inativa.pk %}
           <p class="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-borda-campo px-3 py-2.5 text-texto-suave">
-            <span class="min-w-0 break-words"><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone }}{% endif %}</span>
+            <span class="min-w-0 break-words"><strong>{{ c.nome }}</strong>{% if c.telefone %} · {{ c.telefone|telefone }}{% endif %}</span>
             <c-selo>Inativa</c-selo>
             <a href="{% url 'aranha:admin_cliente_detalhe' c.pk %}" class="btn btn-link text-sm">Reativar na ficha</a>
           </p>

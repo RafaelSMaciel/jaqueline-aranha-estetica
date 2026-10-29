@@ -4,7 +4,7 @@
 {% block titulo %}{{ cliente.nome }} — {{ CLINIC_NAME }}{% endblock %}
 {% block page_voltar %}<a href="{% url 'aranha:painel_clientes' %}" class="voltar-pagina"><c-icone nome="voltar" class="" />Clientes</a>{% endblock %}
 {% block page_title %}{{ cliente.nome }}{% endblock %}
-{% block page_subtitle %}Ficha da cliente · cadastrada em {{ cliente.criado_em|date:"d/m/Y" }}{% if cliente.telefone %} · {{ cliente.telefone }}{% endif %}{% endblock %}
+{% block page_subtitle %}Ficha da cliente · cadastrada em {{ cliente.criado_em|date:"d/m/Y" }}{% if cliente.telefone %} · {{ cliente.telefone|telefone }}{% endif %}{% endblock %}
 
 {% block page_actions %}
 <c-botao href="{% url 'aranha:prontuario_detalhe' cliente.pk %}" variante="secundario" icone="prontuario">Prontuário</c-botao>

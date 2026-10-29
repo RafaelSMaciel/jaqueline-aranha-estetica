@@ -89,3 +89,18 @@ class MascararTests(SimpleTestCase):
                                 ('123', '***'), ('', ''), (None, '')):
             with self.subTest(valor=valor):
                 self.assertEqual(telefone.mascarar(valor), esperado)
+
+
+class FormatarTests(SimpleTestCase):
+    def test_tabela(self):
+        for valor, esperado in (('17999990001', '(17) 99999-0001'), ('1733330000', '(17) 3333-0000'),
+                                ('+55 17 99999-0001', '(17) 99999-0001'), ('+1 555 0100', '+1 555 0100'),
+                                ('', ''), (None, '')):
+            with self.subTest(valor=valor):
+                self.assertEqual(telefone.formatar(valor), esperado)
+
+    def test_filtro_do_template(self):
+        from django.template import engines
+
+        html = engines['django'].from_string('{{ t|telefone }}').render({'t': '17999990001'})
+        self.assertEqual(html, '(17) 99999-0001')
