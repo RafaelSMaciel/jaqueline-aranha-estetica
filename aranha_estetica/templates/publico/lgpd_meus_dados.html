@@ -10,10 +10,15 @@
 <div class="mx-auto max-w-xl px-6 py-12">
 
   <h1 class="text-2xl font-bold text-texto mb-4">Solicitar meus dados</h1>
-  <p class="text-texto-suave leading-relaxed mb-6">
-    Conforme a Lei Geral de Proteção de Dados (LGPD), você tem direito a acessar os dados
-    pessoais que mantemos sobre você. Informe seu telefone cadastrado para receber um
-    código de verificação.
+  <p class="text-texto-suave leading-relaxed mb-3">
+    Pela Lei Geral de Proteção de Dados (LGPD), você pode acessar os dados pessoais que guardamos
+    sobre você. Informe o celular cadastrado para receber um código por SMS e baixar o arquivo.
+  </p>
+  <p class="text-texto-suave leading-relaxed mb-6 text-sm">
+    Por segurança, a ficha de saúde não sai pelo site: ela vai ao e-mail cadastrado ou é entregue
+    mediante pedido na clínica. Para mudar suas preferências de comunicação, revogar consentimentos
+    ou pedir correção e exclusão, use a área
+    <a href="{% url 'aranha:meus_agendamentos' %}" class="text-marca underline">Meus agendamentos</a>.
   </p>
 
   {% if messages %}
@@ -33,7 +38,7 @@
 
     <div>
       <label class="block text-sm font-medium text-texto mb-1" for="id_telefone">
-        Telefone cadastrado (com DDD)
+        Celular cadastrado (com DDD)
       </label>
       <input
         id="id_telefone"
@@ -61,6 +66,11 @@
           autofocus
         >
       </div>
+    {% endif %}
+
+    {% if not aguardando_codigo and turnstile_enabled %}
+      <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="auto"></div>
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ csp_nonce }}"></script>
     {% endif %}
 
     <button
