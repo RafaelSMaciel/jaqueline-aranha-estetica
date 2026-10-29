@@ -18,6 +18,9 @@ TOLERANCIA_DESFECHO = timedelta(minutes=30)
 # Cliente ja atendida, sem falta em aberto, com menos que isto de horarios futuros: o pedido
 # nasce AGENDADO (sem fila de aprovacao). Primeira vez ou acima do limite: PENDENTE.
 LIMITE_AUTOAPROVACAO = 2
+# Teto de horarios futuros ativos (pendente/agendado/confirmado) p/ um novo pedido pelo site: cobre o
+# pacote semanal sem abrir espaco p/ sequestro de agenda. Acima disso a recepcao marca pelo painel.
+MAX_ATIVOS_ONLINE = 3
 # Pedido sem decisao e cancelado ate esta folga antes do inicio (job limpeza_status, de hora em
 # hora): a vaga volta p/ a lista de espera e a cliente sabe a tempo de escolher outro horario.
 PRAZO_DECISAO_PENDENTE = timedelta(hours=1)

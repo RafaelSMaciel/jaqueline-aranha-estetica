@@ -193,6 +193,25 @@ class OtpAgendamentoEndpointTests(TestCase):
         self.assertEqual(resp.json()['prefill']['nome'], 'Joana')
         self.assertEqual(resp.json()['prefill']['email'], 'joana@example.com')
 
+    def test_verificacao_diz_quais_fichas_estao_em_dia_no_horario(self):
+        """D14: ficha de 11 meses antes do horario escolhido esta em dia; a vencida nao aparece."""
+        from aranha_estetica.models import FormularioAnamnese, RespostaAnamnese
+
+        cli = criar_cliente(nome='Rita', telefone='17999990001')
+        em_dia = FormularioAnamnese.objects.create(nome='Geral', tipo='ANAMNESE', escopo='GLOBAL', obrigatorio=True,
+                                                   schema_json=[{'key': 'a', 'tipo': 'text', 'label': 'A'}])
+        vencida = FormularioAnamnese.objects.create(nome='Antiga', tipo='ANAMNESE', escopo='GLOBAL', obrigatorio=True,
+                                                    schema_json=[{'key': 'b', 'tipo': 'text', 'label': 'B'}])
+        inicio = timezone.localtime() + timedelta(days=20)
+        RespostaAnamnese.objects.create(formulario=em_dia, cliente=cli, respostas_json={'a': 'x'},
+                                        respondida_em=inicio - timedelta(days=335))
+        RespostaAnamnese.objects.create(formulario=vencida, cliente=cli, respostas_json={'b': 'x'},
+                                        respondida_em=inicio - timedelta(days=400))
+        self.client.post(self.url_sol, {'telefone': '17999990001'})
+        resp = self.client.post(self.url_ver, {'telefone': '17999990001', 'codigo': self.codigos['17999990001'],
+                                               'inicio': inicio.isoformat()})
+        self.assertEqual(list(resp.json()['fichas_em_dia']), [str(em_dia.pk)])
+
     def test_prefill_traz_estado_dos_opt_ins(self):
         # gap1-03: o wizard mostra os checkboxes como estao no cadastro
         criar_cliente(nome='Rita', telefone='17999990001', consent_whatsapp_confirmacao=True)
@@ -212,19 +231,27 @@ class OtpAgendamentoEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertNotIn('otp_agendamento_telefone', self.client.session)
 
+    def test_codigo_errado_responde_incorreto_com_tentativas_restantes(self):
+        self.client.post(self.url_sol, {'telefone': '17900000001'})
+        errado = '111111' if self.codigos['17900000001'] != '111111' else '222222'
+        corpo = self.client.post(self.url_ver, {'telefone': '17900000001', 'codigo': errado}).json()
+        self.assertEqual((corpo['ok'], corpo['codigo']), (False, 'incorreto'))
+        self.assertIsInstance(corpo['restantes'], int)
+        self.assertIn(f"Tentativas restantes: {corpo['restantes']}", corpo['mensagem'])
+
     def test_telefone_invalido_nao_envia_sms(self):
         for tel in ('999', '+1 415 555 0100 99', '(00) 99999-0000'):
             with self.subTest(tel=tel):
                 resp = self.client.post(self.url_sol, {'telefone': tel})
                 self.assertEqual(resp.status_code, 400)
-                self.assertEqual(resp.json()['erro'], 'telefone_invalido')
+                self.assertEqual(resp.json()['codigo'], 'telefone_invalido')
         self.assertEqual(self.codigos, {})
 
     @override_settings(SMS_DEV_LOG_ONLY=False, DEBUG=False, ZENVIA_API_TOKEN='', ZENVIA_FROM='')
     def test_sms_indisponivel_responde_sms_falha(self):
         resp = self.client.post(self.url_sol, {'telefone': '17900000001'})
         self.assertEqual(resp.status_code, 503)
-        self.assertEqual(resp.json()['erro'], 'sms_falha')
+        self.assertEqual(resp.json()['codigo'], 'sms_falha')
 
 
 @override_settings(RATELIMIT_ENABLE=False, SMS_DEV_LOG_ONLY=True)
@@ -319,7 +346,7 @@ class OtpQuotaNaoQueimaCodigoTests(TestCase):
         self._esgotar_quota_do_telefone()
         resp = self.client.post(reverse('aranha:solicitar_otp_agendamento'), {'telefone': self.TEL})
         self.assertEqual(resp.status_code, 429)
-        self.assertEqual(resp.json()['erro'], 'limite_sms')
+        self.assertEqual(resp.json()['codigo'], 'limite_sms')
         self.assertFalse(CodigoOtp.objects.exists())
 
     def test_portal_continua_neutro_com_quota_esgotada(self):
@@ -365,7 +392,7 @@ class OtpSoParaCelularTests(TestCase):
     def test_wizard_recusa_fixo(self):
         resp = self.client.post(reverse('aranha:solicitar_otp_agendamento'), {'telefone': '(17) 3322-1100'})
         self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.json()['erro'], 'telefone_invalido')
+        self.assertEqual(resp.json()['codigo'], 'telefone_invalido')
         self.assertEqual(self.codigos, {})
         self.assertFalse(CodigoOtp.objects.exists())
 

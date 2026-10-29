@@ -15,13 +15,13 @@ from ...models import (
     AvaliacaoNPS,
     Procedimento,
     Profissional,
-    Promocao,
 )
 from ...utils import datas
 from ...utils.branding import get_branding
 from ...utils.email import email_configurado
 from ...utils.pii import mask_email, nome_publico
-from ...utils.precos import _promocao_aplicavel, aplicar_promocao, preco_base_map, promocao_vigente
+from ...services.precos import candidatas_de, precos_de_vitrine, promocoes_vigentes
+from ...utils.precos import melhor_promocao
 
 logger = logging.getLogger(__name__)
 
@@ -271,88 +271,28 @@ def agenda_contato(request):
 
 # ─── Promocoes / precos de vitrine ───
 
-def _promocao_do_agendamento(procedimento, dia, valor_cheio):
-    """Promocao que o agendamento aplicaria no dia sobre esse valor.
-
-    Mesma chamada de utils.precos.preco_com_promocao (valor_base = preco cobrado):
-    o % incide sobre o preco do profissional quando o procedimento nao tem base.
-    """
-    return promocao_vigente(procedimento, dia, valor_base=valor_cheio)
-
-
-def _preco_final(promo, valor_cheio, dia):
-    """Valor a pagar com a promo — so quando e a promo que o agendamento aplica.
-
-    Promo geral nao tem preco unico (vale p/ o catalogo): sem 'por R$'. Promo de
-    procedimento so mostra preco se promocao_vigente (a mesma do booking) a
-    escolhe sobre esse valor — senao a vitrine anunciaria um valor que o
-    Atendimento nao grava (CDC art. 30/35).
-    """
-    if promo.procedimento_id is None or valor_cheio is None:
-        return None
-    if _promocao_do_agendamento(promo.procedimento, dia, valor_cheio) != promo:
-        return None
-    final = aplicar_promocao(valor_cheio, promo)
-    return float(final) if final is not None else None
-
-
-def _precos_vitrine(procedimentos) -> dict:
-    """{pk: (valor_final, promocao|None, valor_cheio)} de HOJE p/ o 'A partir de'.
-
-    valor_cheio = preco_base_map (base; sem base, o menor por profissional). A
-    promocao e a que o agendamento aplicaria (utils.precos.promocao_vigente), p/ o
-    valor da vitrine bater com o gravado no Atendimento.
-    """
-    procedimentos = list(procedimentos)
-    if not procedimentos:
-        return {}
-    ids = [p.pk for p in procedimentos]
-    cheios = preco_base_map(ids)
-    hoje = datas.hoje()
-    vigentes = Promocao.objects.filter(ativa=True, data_inicio__lte=hoje, data_fim__gte=hoje)
-    ha_geral = vigentes.filter(procedimento__isnull=True).exists()
-    com_promo = set(vigentes.filter(procedimento_id__in=ids).values_list('procedimento_id', flat=True))
-
-    out = {}
-    for proc in procedimentos:
-        cheio = cheios.get(proc.pk)
-        if cheio is None:
-            continue
-        promo = _promocao_do_agendamento(proc, hoje, cheio) if (ha_geral or proc.pk in com_promo) else None
-        out[proc.pk] = (aplicar_promocao(cheio, promo), promo, cheio)
-    return out
-
-
 def promocoes(request):
-    """Lista de promoções ativas e vigentes (data no fuso local)."""
-    promos = []
-    try:
-        hoje = datas.hoje()
-        promos = list(Promocao.objects.filter(
-            ativa=True,
-            data_inicio__lte=hoje,
-            data_fim__gte=hoje
-        ).select_related('procedimento').order_by('-data_inicio'))
-        # So o que o agendamento honra: promo geral de preco fixo e ignorada no booking.
-        promos = [p for p in promos if _promocao_aplicavel(p)]
+    """Promocoes ativas no dia (fuso local) que o agendamento honra, com o preco que ele grava.
 
-        # Enriquecer com preço original/final — preços resolvidos em lote (1 query)
-        proc_ids = [promo.procedimento_id for promo in promos if promo.procedimento_id]
-        precos = preco_base_map(proc_ids)
-        visiveis = []
-        for promo in promos:
-            valor = precos.get(promo.procedimento_id) if promo.procedimento_id else None
-            if promo.procedimento_id and _promocao_do_agendamento(promo.procedimento, hoje, valor) is None:
-                continue  # o agendamento nao aplicaria desconto nenhum: nao anunciar
-            promo.preco_original = float(valor) if valor is not None else None
-            promo.preco_final = _preco_final(promo, valor, hoje)
-            visiveis.append(promo)
-        promos = visiveis
-    except (OperationalError, ProgrammingError):
-        logger.warning('Tabela de promoções não encontrada — exibindo página sem promoções.')
-
-    context = {'promocoes': promos}
-    return render(request, 'publico/promocoes.html', context)
+    Promo de procedimento so aparece se o agendamento aplicaria algum desconto naquele
+    procedimento, e so mostra "por R$" quando e ela a escolhida (services/precos: a mesma conta
+    da vitrine e do booking — CDC art. 30/35). Promo geral (percentual) nao tem preco unico.
+    """
+    hoje = datas.hoje()
+    vigentes = promocoes_vigentes(hoje)
+    vitrine = precos_de_vitrine({p.procedimento for p in vigentes if p.procedimento_id}, hoje)
+    visiveis = []
+    for promo in sorted(vigentes, key=lambda p: p.data_inicio, reverse=True):
+        preco = vitrine.get(promo.procedimento_id) if promo.procedimento_id else None
+        if promo.procedimento_id:
+            # sem preco: so a promocao de preco fixo do proprio procedimento vale no agendamento
+            escolhida = preco.promocao if preco else melhor_promocao(candidatas_de(promo.procedimento_id, vigentes), None)
+            if escolhida is None:
+                continue   # o agendamento nao aplicaria desconto nenhum: nao anunciar
+        promo.preco_original = float(preco.cheio) if preco else None
+        promo.preco_final = float(preco.final) if preco and preco.promocao == promo else None
+        visiveis.append(promo)
+    return render(request, 'publico/promocoes.html', {'promocoes': visiveis})
 
 
 def equipe(request):
@@ -377,35 +317,28 @@ def especialidades(request):
         ('OUTRO', 'Outros Serviços'),
     ]
 
+    procedimentos = list(Procedimento.objects.filter(ativo=True).order_by('nome'))
+    # Mesma vitrine do wizard (services/precos): preco base do dia + promocao que o booking aplica
+    vitrine = precos_de_vitrine(procedimentos)
+
+    def _item(p):
+        preco = vitrine.get(p.pk)
+        promocao = preco.promocao if preco else None
+        return {
+            'id': p.pk,
+            'nome': p.nome,
+            'descricao': p.descricao or '',
+            'duracao_minutos': p.duracao_minutos,
+            'preco': float(preco.final) if preco else 0,
+            'preco_cheio': float(preco.cheio) if promocao else None,
+            'promocao': promocao.nome if promocao else '',
+        }
+
     grupos = []
-    try:
-        procedimentos = list(Procedimento.objects.filter(ativo=True).order_by('nome'))
-
-        # Mesmo resolvedor do booking: preco base primeiro + promocao vigente hoje.
-        vitrine = _precos_vitrine(procedimentos)
-
-        def _item(p):
-            final, promo, cheio = vitrine.get(p.pk, (None, None, None))
-            return {
-                'id': p.pk,
-                'nome': p.nome,
-                'descricao': p.descricao or '',
-                'duracao_minutos': p.duracao_minutos,
-                'preco': float(final) if final is not None else 0,
-                'preco_cheio': float(cheio) if promo is not None and cheio != final else None,
-                'promocao': promo.nome if promo is not None and cheio != final else '',
-            }
-
-        for cat_key, cat_label in categorias:
-            itens = [_item(p) for p in procedimentos if p.categoria == cat_key]
-            if itens:
-                grupos.append({
-                    'key': cat_key,
-                    'label': cat_label,
-                    'itens': itens,
-                })
-    except (OperationalError, ProgrammingError):
-        logger.warning('Tabelas de procedimentos nao encontradas.')
+    for cat_key, cat_label in categorias:
+        itens = [_item(p) for p in procedimentos if p.categoria == cat_key]
+        if itens:
+            grupos.append({'key': cat_key, 'label': cat_label, 'itens': itens})
 
     return render(request, 'publico/especialidades.html', {'grupos': grupos})
 
@@ -454,10 +387,8 @@ def servico_detalhe(request, slug):
     """Pagina de detalhe individual de um procedimento pelo slug."""
     procedimento = get_object_or_404(Procedimento, slug=slug, ativo=True)
 
-    # Mesmo resolvedor de /especialidades/ e do booking (base primeiro + promocao de hoje).
-    final, promo, cheio = _precos_vitrine([procedimento]).get(procedimento.pk, (None, None, None))
-    preco = float(final) if final is not None else None
-    em_promocao = promo is not None and cheio != final
+    # Mesma vitrine de /especialidades/ e do wizard (services/precos)
+    vitrine = precos_de_vitrine([procedimento]).get(procedimento.pk)
 
     # Profissionais que executam esse procedimento
     profissionais = list(
@@ -474,9 +405,9 @@ def servico_detalhe(request, slug):
 
     context = {
         'procedimento': procedimento,
-        'preco': preco,
-        'preco_cheio': float(cheio) if em_promocao else None,
-        'promocao': promo if em_promocao else None,
+        'preco': float(vitrine.final) if vitrine else None,
+        'preco_cheio': float(vitrine.cheio) if vitrine and vitrine.em_promocao else None,
+        'promocao': vitrine.promocao if vitrine else None,
         'profissionais': profissionais,
         'relacionados': relacionados,
     }

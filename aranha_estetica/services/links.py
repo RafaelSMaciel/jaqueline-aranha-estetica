@@ -26,6 +26,7 @@ from django.utils import timezone
 
 from ..constants import VALIDADE_LINK_FORMULARIO
 from ..models import LinkAcesso
+from ..utils.auditoria import registrar_log
 
 TAMANHO_MAXIMO_TOKEN = 128
 
@@ -118,6 +119,17 @@ def gerar_link_feed_ics(profissional) -> str:
     with transaction.atomic():
         revogar(FEED_ICS, profissional)
         return emitir(FEED_ICS, profissional)
+
+
+def revogar_feed_ics(profissional, *, motivo: str, request=None) -> int:
+    """Desligamento (login desativado, vinculo do login trocado, profissional desativada): revoga o feed
+    ICS vigente e audita. O calendario de quem saiu para de receber nomes de clientes; reativar exige
+    gerar um link novo (painel > Profissionais). Devolve quantos links foram revogados (0 = nao havia)."""
+    revogados = revogar(FEED_ICS, profissional)
+    if revogados:
+        registrar_log(None, f'Revogou o link do feed ICS ({motivo})', 'profissional',
+                      getattr(profissional, 'pk', profissional), detalhes={'motivo': motivo}, request=request)
+    return revogados
 
 
 # ─── URLs absolutas (o token so vive nelas) ────────────────────────────────

@@ -23,20 +23,21 @@
       {% csrf_token %}
 
       <div class="mb-4">
-        <c-campo nome="nome" label="Nome completo *" tipo="text"
+        <c-campo nome="nome" label="Nome completo *" tipo="text" erro="{{ erros.nome }}"
                  value="{% firstof form_data.nome usuario.nome %}"
                  required></c-campo>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
-          <c-campo nome="email" label="E-mail *" tipo="email"
+          <c-campo nome="email" label="E-mail *" tipo="email" erro="{{ erros.email }}"
                    value="{% firstof form_data.email usuario.email %}"
                    required></c-campo>
         </div>
         <div>
           <label for="papel" class="block text-sm font-medium text-texto mb-1">Papel</label>
           <select id="papel" name="papel"
+                  {% if erros.papel %}aria-invalid="true" aria-describedby="papel-erro"{% endif %}
                   class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
             {% for valor, rotulo in papeis %}
               <option value="{{ valor }}"
@@ -45,6 +46,7 @@
               </option>
             {% endfor %}
           </select>
+          {% if erros.papel %}<span id="papel-erro" class="text-erro text-sm">{{ erros.papel }}</span>{% endif %}
           <p class="text-xs text-texto-suave mt-1">Administrador: painel completo · Profissional: portal com a própria agenda</p>
         </div>
       </div>
@@ -52,6 +54,7 @@
       <div class="mb-4">
         <label for="profissional_id" class="block text-sm font-medium text-texto mb-1">Profissional vinculado</label>
         <select id="profissional_id" name="profissional_id"
+                {% if erros.profissional_id %}aria-invalid="true" aria-describedby="profissional_id-erro"{% endif %}
                 class="w-full rounded-md border border-borda bg-superficie px-3 py-2 text-texto text-sm">
           <option value="">— nenhum —</option>
           {% for pr in profissionais %}
@@ -61,18 +64,19 @@
             </option>
           {% endfor %}
         </select>
+        {% if erros.profissional_id %}<span id="profissional_id-erro" class="text-erro text-sm">{{ erros.profissional_id }}</span>{% endif %}
         <p class="text-xs text-texto-suave mt-1">Obrigatório para o papel Profissional: é a agenda que a pessoa verá no portal.</p>
       </div>
 
       {% if modo == 'criar' %}
       <div class="mb-4">
         {% if email_configurado %}
-        <c-campo nome="senha" label="Senha inicial (opcional)" tipo="password"
+        <c-campo nome="senha" label="Senha inicial (opcional)" tipo="password" erro="{{ erros.senha }}"
                  autocomplete="new-password"
                  placeholder="Deixe vazio para enviar um link por e-mail"></c-campo>
         <p class="text-xs text-texto-suave mt-1">Se vazio, enviamos por e-mail um link para a pessoa definir a própria senha.</p>
         {% else %}
-        <c-campo nome="senha" label="Senha inicial *" tipo="password"
+        <c-campo nome="senha" label="Senha inicial *" tipo="password" erro="{{ erros.senha }}"
                  autocomplete="new-password" required></c-campo>
         <p class="text-xs text-texto-suave mt-1">O envio de e-mail não está configurado: defina a senha e informe-a à pessoa.</p>
         {% endif %}
@@ -81,10 +85,11 @@
       <div class="mb-4">
         <label class="inline-flex items-center gap-2 text-sm text-texto cursor-pointer">
           <input type="checkbox" name="ativo" value="1"
-                 {% if usuario.ativo %}checked{% endif %}
+                 {% if form_data %}{% if form_data.ativo %}checked{% endif %}{% elif usuario.ativo %}checked{% endif %}
                  class="rounded border-borda">
           Ativo (pode entrar no sistema)
         </label>
+        {% if usuario.profissional_id %}<p class="text-xs text-texto-suave mt-1">Desativar o acesso também desativa o link do calendário (feed ICS) de {{ usuario.profissional.nome }}.</p>{% endif %}
       </div>
       {% endif %}
 
