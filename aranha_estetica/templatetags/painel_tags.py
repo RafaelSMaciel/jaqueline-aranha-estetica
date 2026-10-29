@@ -43,7 +43,7 @@ MENU_PAINEL = (
         ('aranha:admin_lista_espera', 'Lista de espera', 'espera', ('*espera',)),
         ('aranha:admin_termos', 'Termos', 'termos', ('*termo',)),
         ('aranha:admin_usuarios', 'Usuários', 'usuarios', ('*usuario',)),
-        ('aranha:admin_configuracoes', 'Configurações', 'configuracoes', ('*configura',)),
+        ('aranha:admin_configuracoes', 'Regras operacionais', 'configuracoes', ('*configura',)),
         ('aranha:admin_branding', 'Identidade visual', 'marca', ('admin_branding',)),
         ('aranha:admin_auditoria', 'Auditoria', 'auditoria', ('admin_auditoria',)),
         ('aranha:admin_2fa_setup', 'Segurança / 2FA', 'seguranca', ('*admin_2fa',)),

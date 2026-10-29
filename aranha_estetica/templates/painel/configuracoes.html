@@ -1,104 +1,68 @@
 {% extends 'painel/base_v2.html' %}
 
-{% block titulo %}Configurações — {{ CLINIC_NAME }}{% endblock %}
-{% block page_title %}Configurações{% endblock %}
-{% block page_subtitle %}Parâmetros do sistema (chave · valor){% endblock %}
+{% block titulo %}Regras operacionais — {{ CLINIC_NAME }}{% endblock %}
+{% block page_title %}Regras operacionais{% endblock %}
+{% block page_subtitle %}Limites e avisos que o sistema segue no dia a dia{% endblock %}
 
 {% block admin_content %}
 
 <div class="flex items-start gap-2 px-4 py-3 rounded-xl bg-fundo text-texto-suave text-[0.8rem] mb-4 border-l-[3px] border-marca">
-  <span>Parâmetros avançados lidos pelo sistema. Nome, contatos e cor da clínica ficam em
-  <a href="{% url 'aranha:admin_branding' %}" class="font-bold text-marca">Branding</a>.</span>
+  <span>Cada regra tem um padrão: deixe como está ou ajuste ao jeito da clínica. Nome, contatos e cor da clínica ficam em
+  <a href="{% url 'aranha:admin_branding' %}" class="font-bold text-marca">Identidade visual</a>.</span>
 </div>
 
-{# ── Criar nova configuração ── #}
-<div class="bg-superficie rounded-2xl shadow-sm p-4 mb-4">
-  <div class="flex items-center gap-1.5 text-[0.8rem] font-bold text-texto-suave mb-3">
-    <svg class="w-4 h-4 text-marca" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-    </svg>
-    Nova configuração
-  </div>
-  <form method="post" action="{% url 'aranha:admin_criar_configuracao' %}">
+{% for r in regras %}
+<section class="bg-superficie rounded-2xl shadow-sm p-5 mb-3" aria-labelledby="regra-{{ r.chave }}-titulo">
+  <h2 id="regra-{{ r.chave }}-titulo" class="font-bold text-[0.95rem] text-texto">{{ r.rotulo }}</h2>
+  <p id="regra-{{ r.chave }}-ajuda" class="text-[0.8rem] text-texto-suave mt-1 mb-3">{{ r.descricao }}</p>
+
+  {% if r.gravado_invalido and not r.erro %}
+  <p class="text-[0.8rem] text-aviso bg-aviso-fundo rounded-lg px-3 py-2 mb-3">
+    O valor gravado ({{ r.linha.valor }}) não vale para esta regra: o sistema está usando o padrão. Salve um valor válido.
+  </p>
+  {% endif %}
+
+  <form method="post"
+        action="{% if r.linha %}{% url 'aranha:admin_editar_configuracao' r.linha.pk %}{% else %}{% url 'aranha:admin_criar_configuracao' %}{% endif %}"
+        class="flex flex-wrap items-end gap-2">
     {% csrf_token %}
-    <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_2fr_auto] gap-2">
-      {# placeholder nao e rotulo (some ao digitar): nome acessivel explicito #}
-      <input type="text" name="chave" placeholder="chave_exemplo" aria-label="Chave" required
+    {% if not r.linha %}<input type="hidden" name="chave" value="{{ r.chave }}">{% endif %}
+    <div class="flex flex-col gap-1 flex-1 min-w-[14rem]">
+      <label for="regra-{{ r.chave }}" class="text-[0.75rem] font-bold text-texto-suave">
+        {% if r.email %}E-mail{% else %}Número (de {{ r.minimo }} a {{ r.maximo }}){% endif %}
+      </label>
+      {% if r.email %}
+      <input type="email" name="valor" id="regra-{{ r.chave }}" value="{{ r.valor }}" autocomplete="off"
+             placeholder="Em branco: e-mail de contato da clínica"
+             aria-describedby="regra-{{ r.chave }}-ajuda{% if r.erro %} regra-{{ r.chave }}-erro{% endif %}"
+             {% if r.erro %}aria-invalid="true"{% endif %}
              class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      <input type="text" name="valor" placeholder="valor" aria-label="Valor"
+      {% else %}
+      <input type="number" name="valor" id="regra-{{ r.chave }}" value="{{ r.valor|default:r.padrao }}"
+             min="{{ r.minimo }}" max="{{ r.maximo }}" step="1" inputmode="numeric" required
+             aria-describedby="regra-{{ r.chave }}-ajuda{% if r.erro %} regra-{{ r.chave }}-erro{% endif %}"
+             {% if r.erro %}aria-invalid="true"{% endif %}
              class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      <input type="text" name="descricao" placeholder="Descrição (opcional)" aria-label="Descrição (opcional)"
-             class="px-3 py-2 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-      <button type="submit"
-              class="px-4 py-2 rounded-lg bg-[#1a1a2e] text-white text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">Criar</button>
+      {% endif %}
+      {% if r.erro %}<span id="regra-{{ r.chave }}-erro" class="text-erro text-sm">{{ r.erro }}</span>{% endif %}
     </div>
-  </form>
-</div>
-
-{% if sugestoes %}
-<div class="flex items-center gap-1.5 text-[0.8rem] font-extrabold uppercase tracking-wider text-texto-suave mt-4 mb-2">
-  <svg class="w-4 h-4 text-aviso" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M9 21h6m-5-3h4m1-8a5 5 0 10-6 0c.5.5 1 1.5 1 2.5h4c0-1 .5-2 1-2.5z"/>
-  </svg>
-  Sugestões de configurações ({{ sugestoes|length }})
-</div>
-{% for s in sugestoes %}
-<div class="bg-aviso-fundo border border-dashed border-aviso rounded-xl px-4 py-3 mb-1.5">
-  <div class="font-mono text-[0.8rem] font-extrabold text-aviso mb-0.5">{{ s.chave }}</div>
-  <div class="text-[0.72rem] text-texto-suave mb-2">{{ s.descricao }}</div>
-  <form method="post" action="{% url 'aranha:admin_criar_configuracao' %}" class="flex gap-2 items-center">
-    {% csrf_token %}
-    <input type="hidden" name="chave" value="{{ s.chave }}">
-    <input type="hidden" name="descricao" value="{{ s.descricao }}">
-    <input type="text" name="valor" value="{{ s.valor }}" aria-label="Valor de {{ s.chave }}"
-           class="flex-1 px-3 py-1.5 rounded-lg border border-aviso bg-superficie text-[0.85rem] text-texto">
     <button type="submit"
-            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-aviso text-superficie text-[0.75rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-      </svg>
-      Adicionar
+            class="px-4 py-2 rounded-lg bg-marca-forte text-sobre-marca text-[0.85rem] font-bold border-none cursor-pointer hover:opacity-90 transition-opacity">
+      Salvar
     </button>
+    {% if r.linha %}
+    <button type="submit" formaction="{% url 'aranha:admin_excluir_configuracao' r.linha.pk %}" formnovalidate
+            data-confirm="Voltar &quot;{{ r.rotulo }}&quot; ao padrão?"
+            class="px-4 py-2 rounded-lg border border-borda bg-superficie text-texto text-[0.85rem] font-bold cursor-pointer hover:bg-fundo transition-colors">
+      Restaurar padrão
+    </button>
+    {% endif %}
   </form>
-</div>
-{% endfor %}
-{% endif %}
-
-<div class="flex items-center gap-1.5 text-[0.8rem] font-extrabold uppercase tracking-wider text-texto-suave mt-4 mb-2">
-  <svg class="w-4 h-4 text-texto-suave" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-    <circle cx="12" cy="12" r="3"/>
-  </svg>
-  Configurações ativas ({{ configs|length }})
-</div>
-
-{% for c in configs %}
-<div class="bg-superficie rounded-xl shadow-sm p-4 mb-1.5">
-  <div class="font-mono text-[0.8rem] font-extrabold text-marca mb-0.5">{{ c.chave }}</div>
-  {% if c.descricao %}<div class="text-[0.72rem] text-texto-suave mb-2">{{ c.descricao }}</div>{% endif %}
-  <form method="post" action="{% url 'aranha:admin_editar_configuracao' c.pk %}" class="grid grid-cols-[1fr_auto_auto] gap-1.5 items-center">
-    {% csrf_token %}
-    <input type="text" name="valor" value="{{ c.valor|default:'' }}" aria-label="Valor de {{ c.chave }}"
-           class="px-3 py-1.5 rounded-lg border border-borda bg-fundo text-[0.85rem] text-texto transition">
-    <button type="submit" title="Salvar" aria-label="Salvar"
-            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-sucesso-forte text-sobre-sucesso border-none cursor-pointer hover:opacity-90 transition-opacity">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-      </svg>
-    </button>
-    <button type="submit" formaction="{% url 'aranha:admin_excluir_configuracao' c.pk %}"
-            data-confirm="Excluir {{ c.chave }}?" title="Excluir"
-            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-erro-fundo text-erro border-none cursor-pointer hover:bg-erro-fundo transition-colors">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-      </svg>
-    </button>
-  </form>
-</div>
-{% empty %}
-<div class="text-center py-8 text-texto-suave text-[0.85rem]">
-  Nenhuma configuração cadastrada. Use as sugestões acima ou crie uma nova.
-</div>
+  <p class="text-[0.72rem] text-texto-suave mt-2">
+    {% if r.email %}Padrão: em branco.{% else %}Padrão: {{ r.padrao }}.{% endif %}
+    {% if not r.linha %}Sem ajuste: vale o padrão.{% endif %}
+  </p>
+</section>
 {% endfor %}
 
 {% endblock %}

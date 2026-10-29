@@ -1,12 +1,15 @@
-"""CRUD de usuarios da equipe (administradores e profissionais com login)."""
+"""CRUD de usuarios da equipe (administradores e profissionais com login).
+
+A validacao e o Form (forms/cadastros.UsuarioForm/UsuarioEdicaoForm: e-mail unico, vinculo do
+profissional, ultimo admin e auto-rebaixamento no clean); a view so persiste, audita e, no
+desligamento (login desativado ou vinculo trocado), revoga o feed ICS do profissional que saiu.
+"""
 import logging
 import secrets
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
-from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -14,16 +17,19 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 
-from ...decorators import staff_required
+from ...decorators import LIMITE_ESCRITA_EQUIPE, escrita_painel, staff_required
+from ...forms.cadastros import UsuarioEdicaoForm, UsuarioForm
+from ...forms.painel import avisar_erros, erros_por_campo
 from ...models import Profissional, Usuario
+from ...services import links
 from ...utils.auditoria import registrar_log
 from ...utils.branding import get_branding
 from ...utils.email import email_configurado
-from ...utils.parse import id_int
 
 logger = logging.getLogger(__name__)
+
 
 def _profissionais_para(usuario=None):
     """Profissionais ativos + o ja vinculado (mesmo inativo), p/ nao desvincular ao salvar."""
@@ -33,39 +39,29 @@ def _profissionais_para(usuario=None):
     return Profissional.objects.filter(filtro).order_by('nome')
 
 
-def _render_form(request, modo, usuario=None, form_data=None):
+def _render_form(request, modo, usuario=None, form_data=None, erros=None):
     return render(request, 'painel/usuario_form.html', {
         'usuario': usuario,
         'modo': modo,
         'papeis': Usuario.PAPEL_CHOICES,
         'profissionais': _profissionais_para(usuario),
         'form_data': form_data if form_data is not None else {},
+        'erros': erros or {},
         'email_configurado': email_configurado(),
     })
 
 
-def _ler_profissional_id(raw):
-    """(id|None, erro|None) a partir do POST."""
-    raw = (raw or '').strip()
-    if not raw:
-        return None, None
-    # id_int: isdigit() aceitava '²' e o int() dava 500
-    pk = id_int(raw)
-    if pk is None or not Profissional.objects.filter(pk=pk).exists():
-        return None, 'Profissional inválido.'
-    return pk, None
+def _recusar(request, form, modo, usuario=None):
+    """Envio recusado: a tela volta com o digitado, o aviso no topo e o erro em cada campo."""
+    avisar_erros(request, form)
+    return _render_form(request, modo, usuario, form_data=request.POST, erros=erros_por_campo(form))
 
 
-def _erro_vinculo(papel, profissional_id, usuario=None):
-    if papel == Usuario.PAPEL_PROFISSIONAL and not profissional_id:
-        return 'Usuário com papel Profissional precisa de um profissional vinculado.'
-    if profissional_id:
-        outros = Usuario.objects.filter(profissional_id=profissional_id)
-        if usuario is not None:
-            outros = outros.exclude(pk=usuario.pk)
-        if outros.exists():
-            return 'Esse profissional já está vinculado a outro usuário.'
-    return None
+def _revogar_feed(request, profissional, motivo):
+    """Feed ICS do profissional que perdeu o login (decisao 30): o calendario de quem saiu para."""
+    if profissional is not None and links.revogar_feed_ics(profissional, motivo=motivo, request=request):
+        messages.info(request, f'O link do calendário de {profissional.nome} foi desativado. '
+                               'Para voltar a usar, gere um link novo em Profissionais.')
 
 
 def _link_definir_senha(usuario):
@@ -106,138 +102,90 @@ def admin_usuarios(request):
 
 
 @staff_required
+@ratelimit(key='user', rate=LIMITE_ESCRITA_EQUIPE, method='POST', block=True)
 def admin_criar_usuario(request):
     """Cria um usuario da equipe (administrador ou profissional com login)."""
-    if request.method == 'POST':
-        nome = request.POST.get('nome', '').strip()
-        email = request.POST.get('email', '').strip().lower()
-        papel = request.POST.get('papel') or Usuario.PAPEL_PROFISSIONAL
-        senha = request.POST.get('senha', '')
-        profissional_id, erro = _ler_profissional_id(request.POST.get('profissional_id'))
+    if request.method != 'POST':
+        return _render_form(request, 'criar')
 
-        if not erro and (not nome or not email):
-            erro = 'Nome e e-mail são obrigatórios.'
-        if not erro and papel not in dict(Usuario.PAPEL_CHOICES):
-            erro = 'Papel inválido.'
-        if not erro and Usuario.objects.filter(email__iexact=email).exists():
-            erro = 'Já existe usuário com esse e-mail.'
-        if not erro:
-            erro = _erro_vinculo(papel, profissional_id)
-        if not erro and not senha and not email_configurado():
-            # Sem provedor o link nao chega: a conta ficaria inutilizavel
-            erro = 'O envio de e-mail não está configurado: defina uma senha inicial.'
-        if not erro and senha:
-            try:
-                validate_password(senha, Usuario(email=email, nome=nome))
-            except ValidationError as exc:
-                erro = ' '.join(exc.messages)
+    form = UsuarioForm(request.POST)
+    if not form.is_valid():
+        return _recusar(request, form, 'criar')
+    d = form.cleaned_data
+    usuario = Usuario.objects.create_user(
+        email=d['email'],
+        # Sem senha informada: aleatoria (usavel p/ "Esqueci minha senha"),
+        # a pessoa define a propria pelo link do e-mail.
+        password=d['senha'] or secrets.token_urlsafe(24),
+        nome=d['nome'],
+        papel=d['papel'],
+        profissional=d['profissional'],
+        ativo=True,
+    )
+    registrar_log(
+        request.user, f'Criou usuario: {usuario.email}',
+        'usuario', usuario.pk,
+        detalhes={'papel': usuario.papel, 'profissional_id': usuario.profissional_id}, request=request,
+    )
 
-        if erro:
-            messages.error(request, erro)
-            return _render_form(request, 'criar', form_data=request.POST)
-
-        usuario = Usuario.objects.create_user(
-            email=email,
-            # Sem senha informada: aleatoria (usavel p/ "Esqueci minha senha"),
-            # a pessoa define a propria pelo link do e-mail.
-            password=senha or secrets.token_urlsafe(24),
-            nome=nome,
-            papel=papel,
-            profissional_id=profissional_id,
-            ativo=True,
+    if d['senha']:
+        messages.success(
+            request, f'Usuário {usuario.nome} criado. Informe a senha inicial à pessoa.'
         )
-        registrar_log(
-            request.user, f'Criou usuario: {usuario.email}',
-            'usuario', usuario.pk,
-            detalhes={'papel': papel, 'profissional_id': profissional_id}, request=request,
+    elif _enviar_email_boas_vindas(usuario):
+        messages.success(
+            request,
+            f'Usuário {usuario.nome} criado. Link para definir a senha enviado por e-mail.',
         )
-
-        if senha:
-            messages.success(
-                request, f'Usuário {usuario.nome} criado. Informe a senha inicial à pessoa.'
-            )
-        elif _enviar_email_boas_vindas(usuario):
-            messages.success(
-                request,
-                f'Usuário {usuario.nome} criado. Link para definir a senha enviado por e-mail.',
-            )
-        else:
-            messages.warning(
-                request,
-                f'Usuário {usuario.nome} criado, mas o e-mail com o link não pôde ser enviado. '
-                'Use "Enviar reset de senha" mais tarde.',
-            )
-        return redirect('aranha:admin_usuarios')
-
-    return _render_form(request, 'criar')
+    else:
+        messages.warning(
+            request,
+            f'Usuário {usuario.nome} criado, mas o e-mail com o link não pôde ser enviado. '
+            'Use "Enviar reset de senha" mais tarde.',
+        )
+    return redirect('aranha:admin_usuarios')
 
 
 @staff_required
+@ratelimit(key='user', rate=LIMITE_ESCRITA_EQUIPE, method='POST', block=True)
 def admin_editar_usuario(request, pk):
     """Edita dados do usuario (nome, email, papel, profissional vinculado, ativo)."""
-    usuario = get_object_or_404(Usuario, pk=pk)
+    usuario = get_object_or_404(Usuario.objects.select_related('profissional'), pk=pk)
+    if request.method != 'POST':
+        return _render_form(request, 'editar', usuario)
 
-    if request.method == 'POST':
-        nome = request.POST.get('nome', '').strip()
-        novo_email = request.POST.get('email', '').strip().lower()
-        novo_papel = request.POST.get('papel') or usuario.papel
-        novo_ativo = request.POST.get('ativo') == '1'
-        profissional_id, erro = _ler_profissional_id(request.POST.get('profissional_id'))
-
-        eh_admin_ativo = usuario.papel == Usuario.PAPEL_ADMIN and usuario.ativo
-        perde_admin = eh_admin_ativo and (novo_papel != Usuario.PAPEL_ADMIN or not novo_ativo)
-
-        if not erro and (not nome or not novo_email):
-            erro = 'Nome e e-mail são obrigatórios.'
-        if not erro and novo_papel not in dict(Usuario.PAPEL_CHOICES):
-            erro = 'Papel inválido.'
-        if not erro and Usuario.objects.filter(
-            email__iexact=novo_email
-        ).exclude(pk=usuario.pk).exists():
-            erro = 'E-mail já em uso por outro usuário.'
-        if not erro and usuario.pk == request.user.pk and (
-            novo_papel != usuario.papel or not novo_ativo
-        ):
-            # Evita lockout: ninguem rebaixa nem desativa a propria conta
-            erro = 'Você não pode alterar o próprio papel nem desativar a própria conta.'
-        if not erro and perde_admin and not Usuario.objects.filter(
-            papel=Usuario.PAPEL_ADMIN, ativo=True
-        ).exclude(pk=usuario.pk).exists():
-            erro = 'É preciso manter ao menos um administrador ativo.'
-        if not erro:
-            erro = _erro_vinculo(novo_papel, profissional_id, usuario)
-
-        if erro:
-            messages.error(request, erro)
-            return _render_form(request, 'editar', usuario, form_data=request.POST)
-
-        email_anterior = usuario.email
-        papel_anterior = usuario.papel
-        usuario.nome = nome
-        usuario.email = novo_email
-        usuario.papel = novo_papel
-        usuario.profissional_id = profissional_id
-        usuario.ativo = novo_ativo
-        usuario.save()
-        detalhes = {'papel': novo_papel, 'ativo': novo_ativo, 'profissional_id': profissional_id}
-        # Trocar o e-mail de outra pessoa + "enviar reset" = assumir a conta:
-        # a trilha guarda o de antes (e a mudanca de papel) p/ reconstruir.
-        if email_anterior != novo_email:
-            detalhes['email_anterior'] = email_anterior
-        if papel_anterior != novo_papel:
-            detalhes['papel_anterior'] = papel_anterior
-        registrar_log(
-            request.user, f'Editou usuario: {usuario.email}', 'usuario', usuario.pk,
-            detalhes=detalhes, request=request,
-        )
-        messages.success(request, 'Usuário atualizado.')
-        return redirect('aranha:admin_usuarios')
-
-    return _render_form(request, 'editar', usuario)
+    form = UsuarioEdicaoForm(request.POST, instance=usuario, request_user=request.user)
+    if not form.is_valid():
+        return _recusar(request, form, 'editar', usuario)
+    d = form.cleaned_data
+    email_anterior, papel_anterior = usuario.email, usuario.papel
+    profissional_anterior, ativo_anterior = usuario.profissional, usuario.ativo
+    usuario.nome = d['nome']
+    usuario.email = d['email']
+    usuario.papel = d['papel']
+    usuario.profissional = d['profissional']
+    usuario.ativo = d['ativo']
+    usuario.save()
+    detalhes = {'papel': usuario.papel, 'ativo': usuario.ativo, 'profissional_id': usuario.profissional_id}
+    # Trocar o e-mail de outra pessoa + "enviar reset" = assumir a conta:
+    # a trilha guarda o de antes (e a mudanca de papel) p/ reconstruir.
+    if email_anterior != usuario.email:
+        detalhes['email_anterior'] = email_anterior
+    if papel_anterior != usuario.papel:
+        detalhes['papel_anterior'] = papel_anterior
+    registrar_log(
+        request.user, f'Editou usuario: {usuario.email}', 'usuario', usuario.pk,
+        detalhes=detalhes, request=request,
+    )
+    if profissional_anterior is not None and profissional_anterior.pk != usuario.profissional_id:
+        _revogar_feed(request, profissional_anterior, 'vínculo do login trocado')
+    elif ativo_anterior and not usuario.ativo:
+        _revogar_feed(request, profissional_anterior, 'login desativado')
+    messages.success(request, 'Usuário atualizado.')
+    return redirect('aranha:admin_usuarios')
 
 
-@staff_required
-@require_POST
+@escrita_painel
 def admin_resetar_senha_usuario(request, pk):
     """Envia email de reset de senha ao usuario."""
     usuario = get_object_or_404(Usuario, pk=pk)
@@ -272,11 +220,11 @@ def admin_resetar_senha_usuario(request, pk):
     return redirect('aranha:admin_usuarios')
 
 
-@staff_required
-@require_POST
+@escrita_painel
 def admin_desativar_usuario(request, pk):
-    """Desativa (soft delete) o usuario — nao permite login."""
-    usuario = get_object_or_404(Usuario, pk=pk)
+    """Desativa (soft delete) o usuario — nao permite login. Desativar revoga o feed ICS do
+    profissional vinculado; reativar nao devolve o link antigo (gera-se outro)."""
+    usuario = get_object_or_404(Usuario.objects.select_related('profissional'), pk=pk)
     if usuario.pk == request.user.pk:
         messages.error(request, 'Você não pode desativar sua própria conta.')
         return redirect('aranha:admin_usuarios')
@@ -284,6 +232,8 @@ def admin_desativar_usuario(request, pk):
     usuario.save(update_fields=['ativo'])
     acao = 'Ativou' if usuario.ativo else 'Desativou'
     registrar_log(request.user, f'{acao} usuario: {usuario.email}', 'usuario', usuario.pk, request=request)
+    if not usuario.ativo:
+        _revogar_feed(request, usuario.profissional, 'login desativado')
     messages.success(request, f'{acao} {usuario.nome}.')
     return redirect('aranha:admin_usuarios')
 

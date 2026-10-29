@@ -1,4 +1,9 @@
-"""Views de CRUD de profissionais — cadastro e edicao."""
+"""Views de CRUD de profissionais — cadastro e edicao.
+
+A validacao e o Form (forms/cadastros: ProfissionalForm para os dados e os procedimentos que realiza,
+GradeSemanalForm para a grade); a view aplica a recusa por atendimento orfao (057912d), grava tudo
+numa transacao e, ao desativar, revoga o feed ICS (decisao 30).
+"""
 import logging
 
 from django.contrib import messages
@@ -7,8 +12,13 @@ from django.db import DatabaseError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django_ratelimit.decorators import ratelimit
 
-from ...decorators import staff_required
+from ...decorators import LIMITE_ESCRITA_EQUIPE, escrita_painel, staff_required
+from ...forms.cadastros import (
+    DIA_NUMERO, DIAS_SEMANA, HORA_FIM_PADRAO, HORA_INICIO_PADRAO, GradeSemanalForm, ProfissionalForm,
+)
+from ...forms.painel import avisar_erros, erros_por_campo
 from ...models import (
     AgendaHorario,
     Atendimento,
@@ -16,86 +26,11 @@ from ...models import (
     Profissional,
     Habilitacao,
 )
+from ...services import links
 from ...utils.auditoria import registrar_log
-from ...utils.parse import id_int
 from ..comum import responder_link_ics
-from ...utils.datas import ler_hora
 
 logger = logging.getLogger(__name__)
-
-# Ordem de exibicao (seg..dom) e mapeamento p/ AgendaHorario.dia_semana
-# (ISO 8601: 1=segunda ... 7=domingo = date.isoweekday()).
-DIAS_SEMANA = [
-    ('segunda', 'Segunda-feira'),
-    ('terca', 'Terça-feira'),
-    ('quarta', 'Quarta-feira'),
-    ('quinta', 'Quinta-feira'),
-    ('sexta', 'Sexta-feira'),
-    ('sabado', 'Sábado'),
-    ('domingo', 'Domingo'),
-]
-DIA_NUMERO = {
-    'segunda': 1, 'terca': 2, 'quarta': 3, 'quinta': 4,
-    'sexta': 5, 'sabado': 6, 'domingo': 7,
-}
-
-HORA_INICIO_PADRAO = '09:00'
-HORA_FIM_PADRAO = '18:00'
-
-
-def _ativo_do_post(request):
-    """Checkbox 'ativo' envia value="1" (templates); 'on' = checkbox sem value."""
-    return request.POST.get('ativo') in ('1', 'on')
-
-
-def _parse_hora(valor):
-    """'HH:MM' ou 'HH:MM:SS' (input type=time) -> time; None se vazio/invalido."""
-    try:
-        return ler_hora((valor or '').strip())
-    except ValueError:
-        return None
-
-
-def _ler_janelas(post):
-    """Le as janelas semanais do POST.
-
-    Retorna (janelas, erros): janelas = {dia_key: (hora_inicio, hora_fim)} so p/
-    dias marcados e validos. Dia marcado sem horas ou com fim <= inicio vira
-    erro (nunca e descartado em silencio).
-    """
-    janelas, erros = {}, []
-    for key, nome in DIAS_SEMANA:
-        if post.get(f'trabalha_{key}') not in ('on', '1'):
-            continue
-        hi = _parse_hora(post.get(f'hora_inicio_{key}'))
-        hf = _parse_hora(post.get(f'hora_fim_{key}'))
-        if not hi or not hf:
-            erros.append(f'{nome}: informe a hora de início e a de fim.')
-        elif hf <= hi:
-            erros.append(f'{nome}: a hora de fim deve ser depois da hora de início.')
-        else:
-            janelas[key] = (hi, hf)
-    return janelas, erros
-
-
-def _ids_procedimentos(post):
-    # id_int: isdigit() aceitava '²' e o int() dava 500
-    return {pk for pk in map(id_int, post.getlist('procedimentos')) if pk is not None}
-
-
-def _dias_do_post(post):
-    """Linhas do form reconstruidas a partir do POST (re-render apos erro)."""
-    return [
-        {
-            'key': key,
-            'nome': nome,
-            'marcado': post.get(f'trabalha_{key}') in ('on', '1'),
-            'hora_inicio': post.get(f'hora_inicio_{key}') or HORA_INICIO_PADRAO,
-            'hora_fim': post.get(f'hora_fim_{key}') or HORA_FIM_PADRAO,
-            'janelas_extras': 0,
-        }
-        for key, nome in DIAS_SEMANA
-    ]
 
 
 def _dias_do_profissional(profissional):
@@ -125,75 +60,58 @@ def _dias_do_profissional(profissional):
     return dias
 
 
+def _campos(form):
+    """O que a tela mostra nos campos: o enviado (re-render apos erro) ou o inicial."""
+    if form.is_bound:
+        return {
+            'form_nome': form.data.get('nome', ''), 'form_especialidade': form.data.get('especialidade', ''),
+            'form_ativo': bool(form.cleaned_data.get('ativo')), 'erros': erros_por_campo(form),
+        }
+    return {'form_nome': form['nome'].value() or '', 'form_especialidade': form['especialidade'].value() or '',
+            'form_ativo': bool(form['ativo'].value()), 'erros': {}}
+
+
 @staff_required
+@ratelimit(key='user', rate=LIMITE_ESCRITA_EQUIPE, method='POST', block=True)
 def profissional_cadastro(request):
     procedimentos = Procedimento.objects.filter(ativo=True).order_by('nome')
 
-    if request.method == 'POST':
-        nome = request.POST.get('nome', '').strip()
-        especialidade = request.POST.get('especialidade', '').strip()
-        ativo = _ativo_do_post(request)
-        janelas, erros = _ler_janelas(request.POST)
-        if not nome:
-            erros.insert(0, 'O nome do profissional é obrigatório.')
-
-        if erros:
-            for erro in erros:
-                messages.error(request, erro)
-            return render(request, 'painel/cadastro_profissional.html', {
-                'procedimentos': procedimentos,
-                'dias': _dias_do_post(request.POST),
-                'form_nome': nome,
-                'form_especialidade': especialidade,
-                'form_ativo': ativo,
-                'procedimentos_marcados': _ids_procedimentos(request.POST),
-            })
-
-        try:
-            # Atomico: cadastro + grade semanal + habilitacoes sao tudo-ou-nada
-            with transaction.atomic():
-                profissional = Profissional.objects.create(
-                    nome=nome,
-                    especialidade=especialidade,
-                    ativo=ativo,
-                )
-                AgendaHorario.objects.bulk_create([
-                    AgendaHorario(
-                        profissional=profissional,
-                        dia_semana=DIA_NUMERO[key],
-                        hora_inicio=hi,
-                        hora_fim=hf,
+    if request.method != 'POST':
+        form, grade = ProfissionalForm(initial={'ativo': True}), GradeSemanalForm()
+    else:
+        form, grade = ProfissionalForm(request.POST), GradeSemanalForm(request.POST)
+        if not (form.is_valid() & grade.is_valid()):   # & : os dois forms validam (todos os avisos)
+            avisar_erros(request, form)
+            avisar_erros(request, grade)
+        else:
+            try:
+                # Atomico: cadastro + grade semanal + habilitacoes sao tudo-ou-nada
+                with transaction.atomic():
+                    profissional = form.save()
+                    AgendaHorario.objects.bulk_create([
+                        AgendaHorario(profissional=profissional, dia_semana=DIA_NUMERO[key], hora_inicio=hi,
+                                      hora_fim=hf)
+                        for key, (hi, hf) in grade.janelas.items()
+                    ])
+                    Habilitacao.objects.bulk_create(
+                        [Habilitacao(profissional=profissional, procedimento_id=pid)
+                         for pid in form.cleaned_data['procedimentos']],
+                        ignore_conflicts=True,
                     )
-                    for key, (hi, hf) in janelas.items()
-                ])
-                Habilitacao.objects.bulk_create(
-                    [
-                        Habilitacao(profissional=profissional, procedimento=proc)
-                        for proc in procedimentos.filter(pk__in=_ids_procedimentos(request.POST))
-                    ],
-                    ignore_conflicts=True,
-                )
-            registrar_log(request.user, f'Cadastrou profissional: {nome}', 'profissional', profissional.pk, request=request)
-            messages.success(request, f'Profissional {nome} cadastrado com sucesso!')
-            return redirect('aranha:painel_profissionais')
-        except (DatabaseError, ValidationError) as e:
-            logger.error(f'Erro ao cadastrar profissional: {e}', exc_info=True)
-            messages.error(request, 'Erro ao cadastrar profissional. Verifique os dados e tente novamente.')
+                registrar_log(request.user, f'Cadastrou profissional: {profissional.nome}', 'profissional',
+                              profissional.pk, request=request)
+                messages.success(request, f'Profissional {profissional.nome} cadastrado com sucesso!')
+                return redirect('aranha:painel_profissionais')
+            except (DatabaseError, ValidationError):
+                logger.exception('profissional_cadastro_falhou', extra={'usuario_id': request.user.pk})
+                messages.error(request, 'Erro ao cadastrar profissional. Verifique os dados e tente novamente.')
 
-    post = request.POST if request.method == 'POST' else None
-    context = {
+    return render(request, 'painel/cadastro_profissional.html', {
         'procedimentos': procedimentos,
-        'dias': _dias_do_post(post) if post is not None else [
-            {'key': k, 'nome': n, 'marcado': False, 'hora_inicio': HORA_INICIO_PADRAO,
-             'hora_fim': HORA_FIM_PADRAO, 'janelas_extras': 0}
-            for k, n in DIAS_SEMANA
-        ],
-        'form_nome': post.get('nome', '') if post is not None else '',
-        'form_especialidade': post.get('especialidade', '') if post is not None else '',
-        'form_ativo': _ativo_do_post(request) if post is not None else True,
-        'procedimentos_marcados': _ids_procedimentos(post) if post is not None else set(),
-    }
-    return render(request, 'painel/cadastro_profissional.html', context)
+        'dias': grade.linhas(),
+        'procedimentos_marcados': form.cleaned_data.get('procedimentos', set()) if form.is_bound else set(),
+        **_campos(form),
+    })
 
 
 def _salvar_janelas(profissional, janelas):
@@ -248,17 +166,18 @@ def _salvar_habilitacoes(profissional, selecionados):
     )
 
 
-def _atendimentos_que_ficariam_orfaos(profissional, ativo, janelas, procedimentos):
+def _atendimentos_que_ficariam_orfaos(profissional, ativo, janelas, procedimentos, *, ativo_antes):
     """Atendimentos futuros que a edicao deixaria sem quem atenda: desativar, desmarcar o dia,
     mudar a janela do dia p/ fora do horario marcado ou tirar a habilitacao do procedimento.
     A edicao e recusada listando-os (reagendar/cancelar antes): antes os horarios ficavam na
-    agenda, o lembrete D-1 confirmava presenca e a profissional nem via a lista."""
+    agenda, o lembrete D-1 confirmava presenca e a profissional nem via a lista.
+    ativo_antes: o gravado (o ModelForm ja copiou o enviado p/ a instancia)."""
     futuros = list(Atendimento.objects.filter(
         profissional=profissional, status__in=Atendimento.STATUS_ATIVOS, data_hora_inicio__gte=timezone.now(),
     ).select_related('cliente', 'procedimento').order_by('data_hora_inicio'))
     if not futuros:
         return []
-    if profissional.ativo and not ativo:
+    if ativo_antes and not ativo:
         return futuros
     janela_por_dia = {DIA_NUMERO[k]: v for k, v in janelas.items()}
     primeira_atual = {}
@@ -279,7 +198,18 @@ def _atendimentos_que_ficariam_orfaos(profissional, ativo, janelas, procedimento
     return orfaos
 
 
+def _recusa_orfaos(orfaos):
+    """Texto da recusa (057912d): os 5 primeiros e o total."""
+    lista = '; '.join(
+        f"{timezone.localtime(a.data_hora_inicio):%d/%m %H:%M} {a.procedimento.nome} ({a.cliente.nome})"
+        for a in orfaos[:5])
+    mais = f' e mais {len(orfaos) - 5}' if len(orfaos) > 5 else ''
+    return (f'{len(orfaos)} atendimento(s) futuro(s) ficariam sem quem atenda: {lista}{mais}. '
+            'Reagende ou cancele antes (Painel > Agendamentos).')
+
+
 @staff_required
+@ratelimit(key='user', rate=LIMITE_ESCRITA_EQUIPE, method='POST', block=True)
 def profissional_editar(request, pk=None):
     """Editar profissional existente"""
     if not pk:
@@ -288,78 +218,69 @@ def profissional_editar(request, pk=None):
     profissional = get_object_or_404(Profissional, pk=pk)
     procedimentos = Procedimento.objects.filter(ativo=True).order_by('nome')
 
-    if request.method == 'POST':
-        nome = request.POST.get('nome', profissional.nome).strip()
-        especialidade = request.POST.get('especialidade', profissional.especialidade or '').strip()
-        janelas, erros = _ler_janelas(request.POST)
-        if not nome:
-            erros.insert(0, 'O nome do profissional é obrigatório.')
-        if not erros:
-            orfaos = _atendimentos_que_ficariam_orfaos(
-                profissional, _ativo_do_post(request), janelas, _ids_procedimentos(request.POST))
-            if orfaos:
-                lista = '; '.join(
-                    f"{timezone.localtime(a.data_hora_inicio):%d/%m %H:%M} {a.procedimento.nome} ({a.cliente.nome})"
-                    for a in orfaos[:5])
-                mais = f' e mais {len(orfaos) - 5}' if len(orfaos) > 5 else ''
-                erros.append(f'{len(orfaos)} atendimento(s) futuro(s) ficariam sem quem atenda: {lista}{mais}. '
-                             'Reagende ou cancele antes (Painel > Agendamentos).')
+    if request.method != 'POST':
+        return render(request, 'painel/editar_profissional.html', {
+            'profissional': profissional,
+            'procedimentos': procedimentos,
+            'procedimentos_atuais': list(
+                Habilitacao.objects.filter(profissional=profissional).values_list('procedimento_id', flat=True)),
+            'dias': _dias_do_profissional(profissional),
+            **_campos(ProfissionalForm(instance=profissional)),
+        })
 
-        if erros:
-            # Nada e gravado/apagado: re-renderiza com o que foi digitado.
-            for erro in erros:
-                messages.error(request, erro)
-            return render(request, 'painel/editar_profissional.html', {
-                'profissional': profissional,
-                'procedimentos': procedimentos,
-                'procedimentos_atuais': list(_ids_procedimentos(request.POST)),
-                'dias': _dias_do_post(request.POST),
-                'form_nome': nome,
-                'form_especialidade': especialidade,
-                'form_ativo': _ativo_do_post(request),
-            })
+    dados = request.POST.copy()
+    dados.setdefault('nome', profissional.nome)                       # campo ausente = mantem
+    dados.setdefault('especialidade', profissional.especialidade or '')
+    ativo_antes = profissional.ativo
+    form, grade = ProfissionalForm(dados, instance=profissional), GradeSemanalForm(dados)
+    orfaos = []
+    if not (form.is_valid() & grade.is_valid()):   # & : os dois forms validam (todos os avisos)
+        avisar_erros(request, form)
+        avisar_erros(request, grade)
+    else:
+        d = form.cleaned_data
+        orfaos = _atendimentos_que_ficariam_orfaos(
+            profissional, d['ativo'], grade.janelas, d['procedimentos'], ativo_antes=ativo_antes)
+        if orfaos:
+            messages.error(request, _recusa_orfaos(orfaos))
+        else:
+            try:
+                with transaction.atomic():
+                    form.save()
+                    _salvar_janelas(profissional, grade.janelas)
+                    _salvar_habilitacoes(profissional, d['procedimentos'])
+                registrar_log(request.user, f'Editou profissional: {profissional.nome}', 'profissional',
+                              profissional.pk, request=request)
+                if ativo_antes and not profissional.ativo and links.revogar_feed_ics(
+                        profissional, motivo='profissional desativado', request=request):
+                    messages.info(request, 'O link do calendário (feed ICS) foi desativado. '
+                                           'Ao reativar o profissional, gere um link novo.')
+                messages.success(request, f'Profissional {profissional.nome} atualizado com sucesso!')
+                return redirect('aranha:painel_profissionais')
+            except (DatabaseError, ValidationError):
+                logger.exception('profissional_edicao_falhou', extra={'profissional_id': profissional.pk})
+                messages.error(request, 'Erro ao atualizar profissional. Verifique os dados e tente novamente.')
 
-        try:
-            with transaction.atomic():
-                profissional.nome = nome
-                profissional.especialidade = especialidade
-                profissional.ativo = _ativo_do_post(request)
-                profissional.save()
-                _salvar_janelas(profissional, janelas)
-                _salvar_habilitacoes(profissional, _ids_procedimentos(request.POST))
-            registrar_log(request.user, f'Editou profissional: {profissional.nome}', 'profissional', profissional.pk, request=request)
-            messages.success(request, f'Profissional {profissional.nome} atualizado com sucesso!')
-            return redirect('aranha:painel_profissionais')
-        except (DatabaseError, ValidationError) as e:
-            logger.error(f'Erro ao atualizar profissional: {e}', exc_info=True)
-            messages.error(request, 'Erro ao atualizar profissional. Verifique os dados e tente novamente.')
-            profissional.refresh_from_db()
-
-    procedimentos_atuais = Habilitacao.objects.filter(
-        profissional=profissional
-    ).values_list('procedimento_id', flat=True)
-
-    context = {
+    # Nada e gravado/apagado: re-renderiza com o que foi digitado (a instancia volta ao gravado).
+    profissional.refresh_from_db()
+    return render(request, 'painel/editar_profissional.html', {
         'profissional': profissional,
         'procedimentos': procedimentos,
-        'procedimentos_atuais': list(procedimentos_atuais),
-        'dias': _dias_do_profissional(profissional),
-        'form_nome': profissional.nome,
-        'form_especialidade': profissional.especialidade or '',
-        'form_ativo': profissional.ativo,
-    }
-    return render(request, 'painel/editar_profissional.html', context)
+        'procedimentos_atuais': list(form.cleaned_data.get('procedimentos', set())),
+        'dias': grade.linhas(),
+        # recusa por atendimento orfao: atalho p/ a agenda do profissional (reagendar/cancelar)
+        'orfaos_url': f"{reverse('aranha:painel_agendamentos')}?profissional={profissional.pk}" if orfaos else '',
+        **_campos(form),
+    })
 
 
-@staff_required
+@escrita_painel
 def profissional_rotacionar_ics(request, pk):
     """Gera o link do feed ICS (o link antigo para de funcionar).
 
     Primeira geracao ou rotacao quando o link vazar (o token vai na URL do
     feed e fica em historico/logs de quem o recebeu).
     """
-    if request.method != 'POST':
-        return redirect('aranha:painel_profissionais')
     profissional = get_object_or_404(Profissional, pk=pk)
     return responder_link_ics(
         request, profissional, template='painel/ics_link.html',
