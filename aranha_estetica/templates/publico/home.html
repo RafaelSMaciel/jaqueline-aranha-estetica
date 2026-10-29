@@ -1,7 +1,7 @@
 {% extends 'estrutura/base_v2.html' %}
 {% load static %}
 
-{% block titulo %}{{ CLINIC_NAME }} — Clínica de Estética{% endblock %}
+{% block titulo %}{{ CLINIC_NAME }} — Clínica de estética{% endblock %}
 {% block meta_description %}{{ CLINIC_NAME }}: estética facial e corporal em São José do Rio Preto. Botox, preenchimentos, bioestimuladores, limpeza de pele, drenagem e massagens. Agende online.{% endblock %}
 
 {% block schema_extra %}
@@ -24,72 +24,47 @@
 
 {% block conteudo %}
 
-{# ═══════════════════════════════════════════════════════════ #}
-{# HERO — LCP: fetchpriority=high, sem lazy                    #}
-{# ═══════════════════════════════════════════════════════════ #}
-<section id="hero" class="py-12 md:py-16 bg-fundo">
+{# ═══ HERO — LCP: a foto tem fetchpriority=high e nao e lazy ═══ #}
+<section id="hero" class="py-10 md:py-16 bg-fundo">
   <div class="max-w-6xl mx-auto px-6">
-    <div class="grid md:grid-cols-2 gap-10 lg:gap-12 items-center">
+    <div class="grid md:grid-cols-2 gap-8 md:gap-10 lg:gap-12 items-center">
 
-      {# — conteúdo textual — #}
       <div class="space-y-6">
-        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
-          <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/>
-          </svg>
-          Biomédica Especialista em Estética
-        </div>
+        <p class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-superficie border border-borda text-marca text-sm font-medium">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+          Biomédica especialista em estética
+        </p>
 
         <h1 class="text-4xl md:text-5xl font-bold text-texto leading-tight">
-          Excelência em <span class="text-marca">estética</span> com cuidado e bem-estar
+          Excelência em <span class="text-marca">estética</span> com cuidado e <span class="whitespace-nowrap">bem-estar</span>
         </h1>
 
         <p class="text-texto-suave text-lg leading-relaxed">
-          Tratamentos faciais e corporais personalizados, com tecnologia avançada e atendimento humanizado para realçar a sua autoestima.
+          Tratamentos faciais e corporais personalizados, com atendimento acolhedor do primeiro contato ao retorno.
         </p>
 
-        <div class="flex flex-wrap gap-8">
-          <div>
-            <p class="text-3xl font-bold text-marca">5+</p>
-            <p class="text-texto-suave text-sm mt-1">Anos de Experiência</p>
-          </div>
-          <div class="border-l border-borda pl-8">
-            <p class="text-3xl font-bold text-marca">500+</p>
-            <p class="text-texto-suave text-sm mt-1">Clientes Atendidos</p>
-          </div>
-          <div class="border-l border-borda pl-8">
-            <p class="text-3xl font-bold text-marca">20+</p>
-            <p class="text-texto-suave text-sm mt-1">Protocolos Estéticos</p>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap gap-4">
-          <a {% agendar_link %}
-             class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
-            Agendar Avaliação
-          </a>
+        <div class="flex flex-wrap gap-3">
+          <c-cta-agendar texto="Agendar avaliação" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold no-underline hover:opacity-90 transition-opacity" />
           <a href="{% url 'aranha:quem_somos' %}"
              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto hover:bg-superficie transition-colors">
-            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
-            </svg>
-            Conheça Nossa História
+            Conheça a clínica
           </a>
         </div>
+
+        {# Numeros com dado real (services/prova_social): numero sem dado nao aparece #}
+        {% include 'partials/_numeros_site.html' with numeros=numeros %}
       </div>
 
-      {# — visual com floating cards — #}
       <div class="relative">
-        <div class="relative rounded-2xl overflow-hidden aspect-[4/5] ring-1 ring-marca/10 shadow-xl shadow-black/5">
+        <div class="relative rounded-2xl overflow-hidden aspect-[4/3] md:aspect-[4/5] ring-1 ring-marca/10 shadow-xl shadow-black/5">
           {% foto 'facial-3' alt="Cliente relaxando durante uma máscara facial" sizes="(min-width: 1152px) 990px, (min-width: 768px) 94vw, 112vw" classe="w-full h-full object-cover" prioridade=True %}
-
-          <div class="absolute top-6 right-6 bg-superficie/95 backdrop-blur border border-borda rounded-lg p-4 shadow-lg text-center min-w-[120px]">
-            <div class="flex justify-center gap-0.5 mb-1" role="img" aria-label="5 estrelas">
-              {% for _ in "12345" %}<svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.09 6.26L20 9.27l-4.91 4.78 1.18 6.95L12 17.77l-4.27 3.23 1.18-6.95L4 9.27l5.91-1.01L12 2z"/></svg>{% endfor %}
-            </div>
-            <p class="text-texto font-bold text-sm">5.0/5</p>
-            <p class="text-texto-suave text-xs mt-0.5">32 Avaliações</p>
+          {% if numeros.nota_media %}
+          <div class="absolute top-4 right-4 md:top-6 md:right-6 bg-superficie/95 backdrop-blur border border-borda rounded-xl px-4 py-3 shadow-lg text-center">
+            {% include 'partials/_estrelas.html' with nota=numeros.nota_media estrelas=numeros.estrelas %}
+            <p class="text-texto font-bold text-sm mt-1">{{ numeros.nota_media|floatformat:1 }} de 5</p>
+            <p class="text-texto-suave text-xs mt-0.5">{{ numeros.total_avaliacoes }} avaliações de clientes</p>
           </div>
+          {% endif %}
         </div>
       </div>
 
@@ -97,227 +72,204 @@
   </div>
 </section>
 
-{# ═══════════════════════════════════════════════════════════ #}
-{# NOSSOS SERVIÇOS (faciais + corporais + grid + extras)       #}
-{# ═══════════════════════════════════════════════════════════ #}
+{# ═══ SERVIÇOS — as duas linhas + atalhos do catalogo ═══ #}
 <section id="especialidades" class="reveal py-12 md:py-16 bg-superficie">
   <div class="max-w-6xl mx-auto px-6">
 
     <div class="text-center mb-10">
       <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossos serviços</h2>
-      <p class="text-texto-suave mt-3 text-lg">As principais áreas de atuação da {{ CLINIC_NAME }}</p>
+      <p class="text-texto-suave mt-3 text-lg">Cuidados para o rosto e para o corpo, sempre a partir de uma avaliação</p>
     </div>
 
-    {# 2 pilares — Faciais e Corporais #}
-    <div class="grid md:grid-cols-2 gap-6 mb-6">
-
+    <div class="grid md:grid-cols-2 gap-6 mb-8">
+      {% with por_cat=numeros.tratamentos_por_categoria %}
       <article class="group rounded-2xl overflow-hidden border border-borda bg-fundo flex flex-col">
         <div class="relative aspect-[16/9] overflow-hidden">
-          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
-            <svg class="w-16 h-16 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.5L19.5 10l-5.6 1.5L12 17l-1.9-5.5L4.5 10l5.6-1.5z"/><path d="M5 19l.7 1.9L7.5 21l-1.8.6L5 23l-.7-1.4L2.5 21l1.8-.1z"/></svg>
-          </div>
-          <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">Faciais</span>
+          {% foto 'facial-2' alt="Tratamento facial com luz de LED" sizes="(min-width: 1152px) 540px, (min-width: 768px) 50vw, 100vw" classe="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" %}
         </div>
         <div class="p-6 flex flex-col flex-1">
-          <h3 class="text-texto text-xl font-bold">Tratamentos faciais</h3>
+          <div class="flex items-baseline justify-between gap-3">
+            <h3 class="text-texto text-xl font-bold">Tratamentos faciais</h3>
+            {% if por_cat.FACIAL %}<span class="text-sm text-texto-suave shrink-0">{{ por_cat.FACIAL }} tratamento{{ por_cat.FACIAL|pluralize }}</span>{% endif %}
+          </div>
           <p class="text-texto-suave text-sm leading-relaxed mt-2 flex-1">
-            Botox, preenchimentos, bioestimulador, PRP e limpeza de pele — procedimentos minimamente invasivos para realçar sua beleza com naturalidade.
+            Do cuidado diário com a pele à harmonização do rosto, com indicação feita na avaliação e resultado natural.
           </p>
           <a href="{% url 'aranha:servicos_faciais' %}" class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-4">
-            Saiba mais
-            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            Ver tratamentos faciais
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
         </div>
       </article>
 
       <article class="group rounded-2xl overflow-hidden border border-borda bg-fundo flex flex-col">
         <div class="relative aspect-[16/9] overflow-hidden">
-          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
-            <svg class="w-16 h-16 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><path d="M12 7.5v6m0 0l-3.5 5m3.5-5l3.5 5M7.5 11h9"/></svg>
-          </div>
-          <span class="absolute top-4 left-4 bg-marca-forte text-sobre-marca text-xs font-semibold px-3 py-1 rounded-full">Corporais</span>
+          {% include 'partials/_arte_marca.html' with icone='folha' rotulo='Corpo em harmonia' %}
         </div>
         <div class="p-6 flex flex-col flex-1">
-          <h3 class="text-texto text-xl font-bold">Modelagem Corporal</h3>
+          <div class="flex items-baseline justify-between gap-3">
+            <h3 class="text-texto text-xl font-bold">Tratamentos corporais</h3>
+            {% if por_cat.CORPORAL %}<span class="text-sm text-texto-suave shrink-0">{{ por_cat.CORPORAL }} tratamento{{ por_cat.CORPORAL|pluralize }}</span>{% endif %}
+          </div>
           <p class="text-texto-suave text-sm leading-relaxed mt-2 flex-1">
-            Protocolos personalizados para gordura localizada, flacidez e estrias com enzimas, drenagem linfática e endermoterapia.
+            Cuidados para medidas, firmeza e bem-estar, com um plano montado para o seu corpo e o seu ritmo.
           </p>
           <a href="{% url 'aranha:servicos_corporais' %}" class="inline-flex items-center gap-2 text-marca font-semibold text-sm hover:underline mt-4">
-            Saiba mais
-            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            Ver tratamentos corporais
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
         </div>
       </article>
+      {% endwith %}
     </div>
 
-    {# Grid de 4 teasers com foto #}
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      <div class="group rounded-2xl overflow-hidden border border-borda bg-fundo">
-        <div class="aspect-[3/2] overflow-hidden">
-          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
-            <svg class="w-11 h-11 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-          </div>
-        </div>
-        <div class="p-4"><h3 class="text-texto font-semibold text-sm">Drenagem Linfática</h3><p class="text-texto-suave text-xs mt-1">Leveza e bem-estar, facial e corporal</p></div>
-      </div>
-      <div class="group rounded-2xl overflow-hidden border border-borda bg-fundo">
-        <div class="aspect-[3/2] overflow-hidden">
-          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
-            <svg class="w-11 h-11 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
-          </div>
-        </div>
-        <div class="p-4"><h3 class="text-texto font-semibold text-sm">Cuidados com a pele</h3><p class="text-texto-suave text-xs mt-1">Limpeza, viço e rejuvenescimento</p></div>
-      </div>
-      <div class="group rounded-2xl overflow-hidden border border-borda bg-fundo">
-        <div class="aspect-[3/2] overflow-hidden">
-          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
-            <svg class="w-11 h-11 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.5L19.5 10l-5.6 1.5L12 17l-1.9-5.5L4.5 10l5.6-1.5z"/></svg>
-          </div>
-        </div>
-        <div class="p-4"><h3 class="text-texto font-semibold text-sm">Harmonização Facial</h3><p class="text-texto-suave text-xs mt-1">Botox, preenchimentos e rinomodelação</p></div>
-      </div>
-      <div class="group rounded-2xl overflow-hidden border border-borda bg-fundo">
-        <div class="aspect-[3/2] overflow-hidden">
-          <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-fundo via-marca/[0.06] to-marca/[0.18]">
-            <svg class="w-11 h-11 text-marca-forte/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-          </div>
-        </div>
-        <div class="p-4"><h3 class="text-texto font-semibold text-sm">Tecnologia de ponta</h3><p class="text-texto-suave text-xs mt-1">Equipamentos modernos</p></div>
-      </div>
-    </div>
-
-    {# Serviços extras como chips/links #}
+    {% if amostra_catalogo %}
+    {# Atalhos do catalogo (procedimentos ativos): nada escrito a mao que possa sair do catalogo #}
     <div class="flex flex-wrap items-center justify-center gap-2.5">
       <span class="text-sm text-texto-suave mr-1">Também oferecemos:</span>
       {% with chip="inline-flex items-center px-3.5 py-1.5 rounded-full text-sm font-medium no-underline border border-borda bg-fundo text-texto-suave hover:border-marca hover:text-marca transition" %}
-      <a href="{% url 'aranha:servicos_faciais' %}" class="{{ chip }}">Limpeza de Pele</a>
-      <a href="{% url 'aranha:servicos_corporais' %}" class="{{ chip }}">Massagens</a>
-      <a href="{% url 'aranha:servicos_corporais' %}" class="{{ chip }}">Depilação a Laser</a>
-      <a href="{% url 'aranha:servicos_faciais' %}" class="{{ chip }}">Skinbooster</a>
-      <a href="{% url 'aranha:servicos_corporais' %}" class="{{ chip }}">Enzimas</a>
-      <a href="{% url 'aranha:servicos_corporais' %}" class="{{ chip }}">Endermoterapia</a>
-      <a href="{% url 'aranha:servicos_corporais' %}" class="{{ chip }}">Ventosaterapia</a>
-      <a href="{% url 'aranha:especialidades' %}" class="{{ chip }} !border-marca !text-marca">Ver todos →</a>
+      {% for proc in amostra_catalogo %}
+      <a href="{% url 'aranha:servico_detalhe' proc.slug %}" class="{{ chip }}">{{ proc.nome }}</a>
+      {% endfor %}
+      <a href="{% url 'aranha:especialidades' %}" class="{{ chip }} !border-marca !text-marca">Ver todos os serviços</a>
       {% endwith %}
     </div>
+    {% endif %}
 
   </div>
 </section>
 
-{# ═══════════════════════════════════════════════════════════ #}
-{# EQUIPE                                                      #}
-{# ═══════════════════════════════════════════════════════════ #}
+{# ═══ EQUIPE — 1 profissional: apresentacao dela; 2+: grade ═══ #}
 <section id="equipe" class="reveal py-12 md:py-16 bg-fundo">
   <div class="max-w-6xl mx-auto px-6">
+    {% if profissionais|length == 1 %}
+    {% with prof=profissionais.0 %}
+    <div class="grid md:grid-cols-[auto_1fr] gap-8 md:gap-12 items-center rounded-3xl border border-borda bg-superficie p-6 md:p-10">
+      <div class="mx-auto w-40 md:w-56">
+        {% if prof.foto_url %}
+        <img src="{{ prof.foto_url }}" alt="Foto de {{ prof.nome }}" width="224" height="224" loading="lazy" decoding="async" class="w-full aspect-square rounded-full object-cover border border-borda">
+        {% else %}
+        <div class="monograma w-full text-5xl md:text-6xl" aria-hidden="true">{{ prof.nome|iniciais }}</div>
+        {% endif %}
+      </div>
+      <div class="space-y-4 text-center md:text-left">
+        <p class="text-sm font-semibold text-marca">Quem vai cuidar de você</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-texto">{{ prof.nome }}</h2>
+        {% if prof.especialidade %}<p class="text-texto-suave">{{ prof.especialidade }}</p>{% endif %}
+        {% if prof.bio %}<p class="text-texto-suave leading-relaxed max-w-2xl">{{ prof.bio|truncatewords:45 }}</p>{% endif %}
+        <div class="flex flex-wrap justify-center md:justify-start gap-3 pt-1">
+          <a {% agendar_link profissional=prof.pk %} class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">Agendar com {{ prof.nome|primeiro_nome }}</a>
+          <a href="{% url 'aranha:equipe' %}" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-fundo transition-colors">Sobre a profissional</a>
+        </div>
+      </div>
+    </div>
+    {% endwith %}
 
+    {% elif profissionais %}
     <div class="text-center mb-10">
       <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossa equipe</h2>
-      <p class="text-texto-suave mt-3 text-lg">Profissionais dedicados ao seu bem-estar</p>
+      <p class="text-texto-suave mt-3 text-lg">Profissionais dedicadas ao seu bem-estar</p>
     </div>
-
-    {% if profissionais %}
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
       {% for prof in profissionais %}
       <div class="rounded-2xl border border-borda bg-superficie p-6 flex flex-col gap-4">
         <div class="flex items-center gap-4">
-          <div class="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-fundo border border-borda">
+          <div class="w-16 h-16 shrink-0">
             {% if prof.foto_url %}
-            <img src="{{ prof.foto_url }}" alt="Foto de {{ prof.nome }}" loading="lazy" decoding="async" width="64" height="64" class="w-full h-full object-cover">
+            <img src="{{ prof.foto_url }}" alt="Foto de {{ prof.nome }}" loading="lazy" decoding="async" width="64" height="64" class="w-full h-full rounded-full object-cover border border-borda">
             {% else %}
-            <div class="w-full h-full flex items-center justify-center"><span class="text-2xl font-bold text-marca">{{ prof.nome|slice:":1"|upper }}</span></div>
+            <div class="monograma w-full text-xl" aria-hidden="true">{{ prof.nome|iniciais }}</div>
             {% endif %}
           </div>
           <div class="min-w-0">
             <h3 class="text-texto font-bold text-base truncate">{{ prof.nome }}</h3>
-            <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-fundo border border-borda text-marca mt-1">{{ prof.especialidade|default:"Profissional de Estética" }}</span>
+            {% if prof.especialidade %}<p class="text-sm text-texto-suave mt-0.5 line-clamp-2">{{ prof.especialidade }}</p>{% endif %}
           </div>
         </div>
-        <div class="flex gap-3 mt-auto pt-2">
-          <a href="{% url 'aranha:equipe' %}" class="flex-1 text-center px-4 py-2 rounded-lg border border-borda text-texto text-sm font-medium hover:bg-fundo transition-colors">Ver Perfil</a>
-          <a {% agendar_link profissional=prof.pk %} class="flex-1 text-center px-4 py-2 rounded-lg bg-marca-forte text-sobre-marca text-sm font-semibold hover:opacity-90 transition-opacity">Agendar</a>
-        </div>
+        <a {% agendar_link profissional=prof.pk %} class="mt-auto text-center px-4 py-2 rounded-lg bg-marca-forte text-sobre-marca text-sm font-semibold hover:opacity-90 transition-opacity">Agendar com {{ prof.nome|primeiro_nome }}</a>
       </div>
       {% endfor %}
     </div>
-    {% else %}
-    <p class="text-center text-texto-suave py-8">Em breve apresentaremos nossos profissionais.</p>
-    {% endif %}
-
     <div class="text-center">
       <a href="{% url 'aranha:equipe' %}" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
-        Conheça Todos os Profissionais
-        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        Conheça a equipe
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </a>
     </div>
 
+    {% else %}
+    <div class="text-center">
+      <h2 class="text-3xl md:text-4xl font-bold text-texto">Nossa equipe</h2>
+      <p class="text-texto-suave mt-3">Em breve apresentaremos as profissionais por aqui.</p>
+    </div>
+    {% endif %}
   </div>
 </section>
 
-{# ═══════════════════════════════════════════════════════════ #}
-{# CTA FINAL — banda única                                     #}
-{# ═══════════════════════════════════════════════════════════ #}
+{# ═══ CTA FINAL — banda unica ═══ #}
 <section id="cta-final" class="reveal py-12 md:py-16 bg-superficie">
   <div class="max-w-6xl mx-auto px-6">
     <div class="relative overflow-hidden rounded-3xl border border-borda bg-fundo">
       <div class="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-marca/10 blur-3xl"></div>
-      <div class="relative grid lg:grid-cols-[1.2fr_1fr] gap-8 items-center p-8 md:p-12">
+      <div class="relative grid lg:grid-cols-[1.2fr_1fr] gap-8 items-center p-6 sm:p-8 md:p-12">
 
         <div class="space-y-5">
           <h2 class="text-3xl md:text-4xl font-bold text-texto leading-tight">
             Pronta para se cuidar? <span class="text-marca">Agende sua avaliação.</span>
           </h2>
           <p class="text-texto-suave text-lg leading-relaxed">
-            Online, em poucos cliques e sem precisar criar conta. Tire suas dúvidas ou reserve seu horário com a {{ CLINIC_NAME }}.
+            {% if AGENDAR_WHATSAPP %}Fale com a gente pelo WhatsApp e reserve o seu horário com a {{ CLINIC_NAME }}.{% else %}Online, em poucos cliques e sem precisar criar conta. Tire suas dúvidas ou reserve seu horário com a {{ CLINIC_NAME }}.{% endif %}
           </p>
           <div class="flex flex-wrap gap-3">
-            <a {% agendar_link %}
-               class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold hover:opacity-90 transition-opacity">
-              Agendar Avaliação
-              <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </a>
-            {% if WHATSAPP_NUMERO %}
+            <c-cta-agendar texto="Agendar avaliação" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-marca-forte text-sobre-marca font-semibold no-underline hover:opacity-90 transition-opacity" />
+            {% if WHATSAPP_NUMERO and not AGENDAR_WHATSAPP %}
             <a href="https://wa.me/{{ WHATSAPP_NUMERO }}" target="_blank" rel="noopener"
                class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
-              <svg class="w-4 h-4 text-marca" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.05 2.05a9.94 9.94 0 00-8.5 15.03L2 22l5.06-1.33a9.94 9.94 0 004.99 1.28h.01c5.5 0 9.97-4.47 9.97-9.97a9.9 9.9 0 00-2.92-7.05 9.9 9.9 0 00-7.06-2.88z"/></svg>
+              {% include 'partials/_icone_whatsapp.html' with classe='w-4 h-4 text-whatsapp' %}
               WhatsApp
             </a>
             {% endif %}
           </div>
         </div>
 
-        {# 3 features compactas #}
-        <div class="grid gap-3">
+        <ul class="grid gap-3">
           {% with fi="flex items-start gap-3 rounded-xl border border-borda bg-superficie p-4" %}
-          <div class="{{ fi }}">
-            <svg class="w-6 h-6 text-marca shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z"/></svg>
-            <div><p class="text-texto font-semibold text-sm">Tecnologia Avançada</p><p class="text-texto-suave text-xs mt-0.5">Equipamentos modernos com toque acolhedor.</p></div>
-          </div>
-          <div class="{{ fi }}">
-            <svg class="w-6 h-6 text-marca shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <div><p class="text-texto font-semibold text-sm">Agendamento 24h</p><p class="text-texto-suave text-xs mt-0.5">Marque online a qualquer hora, no seu ritmo.</p></div>
-          </div>
-          <div class="{{ fi }}">
-            <svg class="w-6 h-6 text-marca shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <div><p class="text-texto font-semibold text-sm">Atendimento Humanizado</p><p class="text-texto-suave text-xs mt-0.5">Cuidado individualizado do início ao fim.</p></div>
-          </div>
+          <li class="{{ fi }}">
+            <svg class="w-6 h-6 text-marca shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div><p class="text-texto font-semibold text-sm">Avaliação individual</p><p class="text-texto-suave text-xs mt-0.5">A indicação vem depois de conversar com você.</p></div>
+          </li>
+          {% if not AGENDAR_WHATSAPP %}
+          <li class="{{ fi }}">
+            <svg class="w-6 h-6 text-marca shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div><p class="text-texto font-semibold text-sm">Agendamento online a qualquer hora</p><p class="text-texto-suave text-xs mt-0.5">Escolha o dia e o horário no seu ritmo.</p></div>
+          </li>
+          {% endif %}
+          <li class="{{ fi }}">
+            <svg class="w-6 h-6 text-marca shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <div><p class="text-texto font-semibold text-sm">Acompanhamento de perto</p><p class="text-texto-suave text-xs mt-0.5">Retorno combinado quando o cuidado pede.</p></div>
+          </li>
           {% endwith %}
-        </div>
+        </ul>
 
       </div>
     </div>
   </div>
 </section>
 
-{# ═══════════════════════════════════════════════════════════ #}
-{# FAQ                                                         #}
-{# ═══════════════════════════════════════════════════════════ #}
+{# ═══ DÚVIDAS — so as em destaque; a lista completa fica em /duvidas/ ═══ #}
 <section id="faq" class="reveal py-12 md:py-16 bg-fundo">
   <div class="max-w-6xl mx-auto px-6">
     <div class="text-center mb-10">
       <h2 class="text-3xl md:text-4xl font-bold text-texto">Perguntas frequentes</h2>
-      <p class="text-texto-suave mt-3 text-lg">Tire suas principais dúvidas sobre tratamentos e atendimento.</p>
+      <p class="text-texto-suave mt-3 text-lg">As dúvidas mais comuns antes de agendar.</p>
     </div>
-    {% include 'partials/faq_accordion.html' with faq_categorias=faq_categorias faq_schema=True %}
+    {% include 'partials/faq_accordion.html' with faq_itens=faq_destaque faq_schema=True %}
+    <p class="text-center mt-8">
+      <a href="{% url 'aranha:duvidas' %}" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-borda text-texto font-semibold hover:bg-superficie transition-colors">
+        Ver todas as dúvidas
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+    </p>
   </div>
 </section>
 

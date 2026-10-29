@@ -26,7 +26,7 @@ MENU = (
     ('aranha:especialidades', 'Serviços'),
     ('aranha:equipe', 'Equipe'),
     ('aranha:promocoes', 'Promoções'),
-    ('/#faq', 'Dúvidas'),
+    ('aranha:duvidas', 'Dúvidas'),
     ('aranha:agenda_contato', 'Contato'),
 )
 
@@ -91,6 +91,32 @@ def foto(nome, alt, sizes='100vw', classe='', prioridade=False):
         _srcset('webp'), sizes, static(f'{VARIANTES}/{nome}-{padrao}.jpg'), _srcset('jpg'), sizes,
         dados['largura'], dados['altura'], alt, classe, carregar,
     )
+
+
+_PARTICULAS = {'da', 'das', 'de', 'do', 'dos', 'e'}
+
+
+def _partes_do_nome(nome) -> list[str]:
+    """Nome sem titulo ('Dra.') nem particula ('de', 'da')."""
+    return [p for p in str(nome or '').split()
+            if p.lower() not in _PARTICULAS and not p.endswith('.') and p[:1].isalpha()]
+
+
+@register.filter
+def iniciais(nome):
+    """Monograma: 1a letra do primeiro e do ultimo nome ('Jaqueline Aranha' -> 'JA'; 'Ana' -> 'A';
+    'Dra. Ana de Souza' -> 'AS': titulo e particula ficam de fora)."""
+    partes = _partes_do_nome(nome)
+    if not partes:
+        return ''
+    return (partes[0][0] + (partes[-1][0] if len(partes) > 1 else '')).upper()
+
+
+@register.filter
+def primeiro_nome(nome):
+    """'Dra. Ana de Souza' -> 'Ana' (botao "Agendar com Ana"); sem nome util, o nome como veio."""
+    partes = _partes_do_nome(nome)
+    return partes[0] if partes else str(nome or '')
 
 
 _TITULO_SECAO = re.compile(r'^\d{1,2}\. \S')

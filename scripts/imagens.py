@@ -62,7 +62,8 @@ def gerar() -> list[Path]:
             img.save(webp, 'WEBP', quality=QUALIDADE_WEBP, method=6)
             img.save(jpg, 'JPEG', quality=QUALIDADE_JPEG, optimize=True, progressive=True)
             escritos += [webp, jpg]
-    MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    # bytes: LF tambem no Windows (o repositorio e LF — .gitattributes)
+    MANIFEST.write_bytes((json.dumps(manifest, indent=2, ensure_ascii=False) + '\n').encode('utf-8'))
     return escritos
 
 

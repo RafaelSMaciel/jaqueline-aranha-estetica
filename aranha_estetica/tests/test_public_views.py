@@ -79,7 +79,10 @@ class DadosInventadosTests(TestCase):
         self.assertNotIn('aria-label="Disponível"', html)
         for fora_do_catalogo in ('Gestantes', 'Estética Íntima', 'Pós-operatório'):
             self.assertNotIn(fora_do_catalogo, html)
-        self.assertIn('32 Avaliações', html)  # decisao do dono: manter
+        # numeros sem lastro (o selo "5.0/5 · 32 avaliações" e os "5+ / 500+ / 20+" fixos) saíram:
+        # o site so mostra o que services/prova_social sustenta (ProvaSocialNaHomeTests)
+        for inventado in ('32 Avaliações', '5.0/5', '500+', '>5+<', '20+'):
+            self.assertNotIn(inventado, html)
 
     def test_servicos_sem_percentuais_inventados(self):
         for nome in ('aranha:servicos_faciais', 'aranha:servicos_corporais'):
@@ -131,13 +134,14 @@ class ContatosVaziosTests(TestCase):
 
 
 class FaqHonestoTests(TestCase):
-    """Regressao gap3-01/gap4-03: FAQ (tambem vai p/ o JSON-LD) so promete o que existe."""
+    """Regressao gap3-01/gap4-03: FAQ (tambem vai p/ o JSON-LD) so promete o que existe.
+    A lista completa fica em /duvidas/ (a home mostra so as perguntas em destaque)."""
 
     def setUp(self):
         cache.clear()
 
     def _respostas(self):
-        resp = self.client.get(reverse('aranha:inicio'))
+        resp = self.client.get(reverse('aranha:duvidas'))
         return ' '.join(i['a'] for c in resp.context['faq_categorias'] for i in c['itens']), resp
 
     def test_sem_credito_por_indicacao(self):
@@ -163,6 +167,92 @@ class FaqHonestoTests(TestCase):
         self.assertIn('ou pelo WhatsApp.', respostas)
         self.assertIn('pelo WhatsApp, por e-mail', respostas)
         self.assertNotIn('por telefone', respostas)
+
+
+class ProvaSocialNaHomeTests(TestCase):
+    """Numeros da home e do "Sobre" so com lastro (services/prova_social)."""
+
+    def setUp(self):
+        cache.clear()
+        self.prof = criar_profissional()
+        self.proc = criar_procedimento(profissional=self.prof)
+
+    def _html(self, rota='aranha:inicio'):
+        return self.client.get(reverse(rota)).content.decode()
+
+    def test_sem_dado_so_aparecem_os_tratamentos(self):
+        for rota in ('aranha:inicio', 'aranha:quem_somos'):
+            html = self._html(rota)
+            self.assertIn('tratamento para agendar', html, rota)
+            self.assertNotIn('avaliações de clientes', html, rota)
+            self.assertNotIn('clientes atendidas', html, rota)
+            self.assertNotIn('de experiência</', html, rota)
+            self.assertNotIn('mais de 500', html, rota)
+
+    def test_nota_media_com_dez_respostas(self):
+        for i in range(10):
+            at = criar_atendimento(criar_cliente(), self.prof, self.proc, status='REALIZADO',
+                                   data_hora=timezone.localtime() - timedelta(days=i + 1))
+            AvaliacaoNPS.objects.create(atendimento=at, nota=10 if i % 2 else 9)
+        html = self._html()
+        self.assertIn('4,8 de 5', html)
+        self.assertIn('10 avaliações de clientes', html)
+        self.assertIn('aria-label="Nota média 4,8 de 5"', html)
+
+    def test_anos_de_experiencia_da_dona(self):
+        from aranha_estetica.models import Configuracao
+        Configuracao.objects.create(chave='anos_experiencia', valor='6')
+        self.assertIn('6</strong> <span>anos de experiência', self._html())
+        self.assertIn('6 anos de experiência', self._html('aranha:quem_somos'))
+
+    def test_atalhos_do_catalogo_e_nao_lista_escrita_a_mao(self):
+        criar_procedimento(nome='Ventosaterapia Exclusiva', categoria='CORPORAL')
+        inativo = criar_procedimento(nome='Fora do Ar', categoria='CORPORAL')
+        inativo.ativo = False
+        inativo.save()
+        html = self._html()
+        self.assertIn(f'href="{reverse("aranha:servico_detalhe", args=[self.proc.slug])}"', html)
+        self.assertIn('Ventosaterapia Exclusiva', html)
+        self.assertNotIn('Fora do Ar', html)
+        self.assertNotIn('Depilação a Laser', html)   # nao esta no catalogo deste teste
+
+
+class FaqDaHomeTests(TestCase):
+    """Home: so as perguntas em destaque (accordion) + link p/ /duvidas/; JSON-LD = o que aparece."""
+
+    def setUp(self):
+        cache.clear()
+
+    @staticmethod
+    def _faqpage(html):
+        import json
+        blocos = [json.loads(b) for b in re.findall(r'<script type="application/ld\+json"[^>]*>(.*?)</script>', html, re.S)]
+        return [q['name'] for b in blocos if b['@type'] == 'FAQPage' for q in b['mainEntity']]
+
+    def test_home_mostra_os_destaques_e_o_json_ld_bate(self):
+        resp = self.client.get(reverse('aranha:inicio'))
+        html = resp.content.decode()
+        perguntas = [i['q'] for i in resp.context['faq_destaque']]
+        self.assertTrue(4 <= len(perguntas) <= 5)
+        self.assertEqual(html.count('<details class="faq-item'), len(perguntas))
+        self.assertEqual(self._faqpage(html), perguntas)
+        self.assertIn(f'href="{reverse("aranha:duvidas")}"', html)
+        self.assertIn('Ver todas as dúvidas', html)
+
+    def test_duvidas_tem_todas_as_perguntas(self):
+        resp = self.client.get(reverse('aranha:duvidas'))
+        html = resp.content.decode()
+        todas = [i['q'] for c in resp.context['faq_categorias'] for i in c['itens']]
+        self.assertGreater(len(todas), 5)
+        self.assertEqual(self._faqpage(html), todas)
+        self.assertEqual(html.count('<details class="faq-item'), len(todas))
+        self.assertIn('<h1', html)
+        self.assertRegex(html, r'<h2 class="[^"]*">\s*<span[^>]*></span>\s*Agendamento')
+
+    def test_menu_e_rodape_levam_a_pagina_de_duvidas(self):
+        html = self.client.get(reverse('aranha:equipe')).content.decode()
+        self.assertNotIn('href="/#faq"', html)
+        self.assertGreaterEqual(html.count(f'href="{reverse("aranha:duvidas")}"'), 3)   # nav, celular, rodape
 
 
 class SeoBaseTests(TestCase):

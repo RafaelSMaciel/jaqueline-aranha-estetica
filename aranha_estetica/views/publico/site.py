@@ -14,8 +14,9 @@ from ...utils.branding import get_branding
 from ...utils.email import email_configurado
 from ...utils.pii import nome_publico
 from ...services.precos import candidatas_de, precos_de_vitrine, promocoes_vigentes
+from ...services.prova_social import numeros_do_site
 from ...utils.precos import melhor_promocao
-from ...conteudo.faq import montar_faq
+from ...conteudo.faq import em_destaque, montar_faq
 from .contato import destino_contato
 
 logger = logging.getLogger(__name__)
@@ -33,15 +34,41 @@ def _canais(branding: dict) -> tuple[list[str], list[str]]:
     return agendar, exclusao
 
 
-def home(request):
+def _faq():
     from ...models import Cliente
 
     agendar, exclusao = _canais(get_branding())
+    return montar_faq(canais_agendar=agendar, canais_exclusao=exclusao,
+                      limite_faltas=Cliente.limite_faltas_bloqueio())
+
+
+def _amostra_do_catalogo(limite=8) -> list:
+    """Atalhos "Também oferecemos" da home: procedimentos ativos do catalogo (nunca lista escrita a
+    mao), um por familia ('Botox 1 região' e 'Botox 2 regiões' viram um so), em ordem alfabetica."""
+    vistos, amostra = set(), []
+    for proc in (Procedimento.objects.filter(ativo=True).exclude(slug__isnull=True).exclude(slug='')
+                 .order_by('nome').only('nome', 'slug')):
+        familia = proc.nome.split()[0].lower()
+        if familia not in vistos:
+            vistos.add(familia)
+            amostra.append(proc)
+        if len(amostra) == limite:
+            break
+    return amostra
+
+
+def home(request):
     return render(request, 'publico/home.html', {
         'profissionais': list(Profissional.objects.filter(ativo=True).order_by('nome')[:6]),
-        'faq_categorias': montar_faq(canais_agendar=agendar, canais_exclusao=exclusao,
-                                     limite_faltas=Cliente.limite_faltas_bloqueio()),
+        'faq_destaque': em_destaque(_faq()),   # a lista completa fica em /duvidas/
+        'numeros': numeros_do_site(),
+        'amostra_catalogo': _amostra_do_catalogo(),
     })
+
+
+def duvidas(request):
+    """Todas as perguntas frequentes, por categoria (a home mostra so as em destaque)."""
+    return render(request, 'publico/duvidas.html', {'faq_categorias': _faq()})
 
 
 def termos_uso(request):
@@ -49,7 +76,7 @@ def termos_uso(request):
 
 
 def quem_somos(request):
-    return render(request, 'publico/quem_somos.html')
+    return render(request, 'publico/quem_somos.html', {'numeros': numeros_do_site()})
 
 
 def favicon(request):

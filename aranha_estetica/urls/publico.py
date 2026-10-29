@@ -26,6 +26,7 @@ urlpatterns = [
     path('politica-de-privacidade/', lgpd.politica_privacidade, name='politica_privacidade'),
     path('contato/', contato.agenda_contato, name='agenda_contato'),
     path('promocoes/', site.promocoes, name='promocoes'),
+    path('duvidas/', site.duvidas, name='duvidas'),
     path('favicon.ico', site.favicon, name='favicon'),
     # ─── Serviços ───
     path('servicos/faciais/', site.servicos_faciais, name='servicos_faciais'),

@@ -1,0 +1,12 @@
+{# Uma pergunta do FAQ (partials/faq_accordion.html): <details> nativo, chevron gira no aberto. #}
+<details class="faq-item group bg-superficie border border-borda rounded-lg overflow-hidden hover:border-marca/60 transition">
+  <summary class="flex items-center justify-between gap-4 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden px-5 py-4 font-medium text-texto hover:bg-fundo transition">
+    <span>{{ faq.q }}</span>
+    <svg class="faq-chevron w-5 h-5 shrink-0 text-marca transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+  </summary>
+  <div class="px-5 pb-5 -mt-1 text-texto-suave leading-relaxed">
+    <p>{{ faq.a|linebreaksbr }}</p>
+  </div>
+</details>
