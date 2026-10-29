@@ -10,13 +10,13 @@
 {% endcomment %}
 {% if agend.status == 'PENDENTE' %}
   {% if not pendente_com_botoes %}
-  <span class="px-2 py-0.5 rounded-full text-[0.7rem] font-bold border border-aviso bg-aviso-fundo text-aviso whitespace-nowrap">Aguardando aprovação</span>
+  <span class="selo selo-aviso">Aguardando aprovação</span>
   {% endif %}
 {% elif agend.status == 'AGENDADO' or agend.status == 'CONFIRMADO' %}
 <select data-atend-id="{{ agend.pk }}" data-url="{% url 'aranha:admin_atualizar_status' %}"{% if termo_pendente %} data-termo-pendente="1"{% endif %}
         title="Alterar status" aria-label="Alterar status do agendamento de {{ agend.cliente.nome }}"
-        class="px-1.5 py-1 rounded-lg border-2 border-borda bg-superficie text-[0.7rem] font-bold text-texto cursor-pointer">
-  <option value="">⚡ Status</option>
+        class="campo campo-sm w-auto font-bold">
+  <option value="">Alterar status</option>
   {% if agend.status == 'AGENDADO' %}<option value="CONFIRMADO">Confirmar presença</option>{% endif %}
   {% if agend.data_hora_inicio <= limite %}<option value="REALIZADO">Realizado</option>{% endif %}
   <option value="CANCELADO">Cancelar</option>

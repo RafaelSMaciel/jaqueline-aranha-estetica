@@ -384,6 +384,15 @@
     box-shadow: inset 3px 0 0 var(--cor-marca-forte);
   }
   .menu-lateral-link[aria-current="page"] svg { color: var(--cor-cromo-ativo-texto); }
+  /* abas de navegacao do portal da profissional (na barra escura do topo) */
+  .menu-portal-link {
+    display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 0.75rem;
+    border-bottom: 2px solid transparent; font-size: var(--text-corpo); font-weight: 700;
+    color: var(--cor-cromo-suave); text-decoration: none; white-space: nowrap;
+  }
+  .menu-portal-link svg { width: 1.125rem; height: 1.125rem; }
+  .menu-portal-link:hover { color: var(--cor-cromo-texto); }
+  .menu-portal-link[aria-current="page"] { color: var(--cor-cromo-ativo-texto); border-bottom-color: var(--cor-marca-forte); }
   .menu-lateral-secao {
     margin: 0; padding: 1.25rem 1.5rem 0.375rem; font-size: 0.75rem; font-weight: 700;
     letter-spacing: 0.08em; text-transform: uppercase; color: var(--cor-cromo-suave);
