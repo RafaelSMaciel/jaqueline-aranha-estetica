@@ -1,7 +1,6 @@
 """Application Service de agendamento — aprovacao/rejeicao pelo painel.
 
-A criacao do agendamento publico vive em views/publico/agendamento.py (OTP por
-telefone, validacao de slot via services.disponibilidade e lock de slot).
+O pedido feito pelo site (caso de uso inteiro) vive em services/agendamento_online.py.
 Aqui ficam as transicoes PENDENTE -> AGENDADO/CANCELADO disparadas pela
 recepcao, com auditoria e e-mail ao cliente (fila: services/comunicacao).
 """

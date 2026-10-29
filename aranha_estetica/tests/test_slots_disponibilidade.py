@@ -297,6 +297,41 @@ class ApiDisponibilidadeTests(TestCase):
         self.assertNotIn(folga.isoformat(), dias)
         self.assertIn((self.dia + timedelta(days=2)).isoformat(), dias)
 
+    def _dias(self, dia):
+        resp = self.client.get(reverse('aranha:api_dias_disponiveis'), {
+            'mes': dia.strftime('%Y-%m'), 'procedimento_id': self.proc.pk,
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIs(resp.json()['ok'], True)
+        return set(resp.json()['dias_disponiveis'])
+
+    def test_dias_exclui_dia_com_expediente_inteiro_bloqueado(self):
+        """Bloqueio que cobre o expediente inteiro (inclusive em pedacos ou recorrente) tira o dia
+        do calendario; bloqueio parcial nao."""
+        def aware(dia, h, m=0):
+            return timezone.make_aware(datetime.combine(dia, time(h, m)))
+        inteiro, pedacos, parcial = self.dia, self.dia + timedelta(days=1), self.dia + timedelta(days=2)
+        _bloqueio(self.prof, aware(inteiro, 8), aware(inteiro, 12))
+        _bloqueio(None, aware(pedacos, 9), aware(pedacos, 10))   # da clinica inteira
+        _bloqueio(self.prof, aware(pedacos, 10), aware(pedacos, 11))
+        _bloqueio(self.prof, aware(parcial, 9), aware(parcial, 10))
+        dias = set()
+        for dia in (inteiro, pedacos, parcial):
+            dias |= self._dias(dia)
+        self.assertNotIn(inteiro.isoformat(), dias)
+        self.assertNotIn(pedacos.isoformat(), dias)
+        self.assertIn(parcial.isoformat(), dias)
+
+    def test_dias_exclui_bloqueio_recorrente_do_expediente(self):
+        def aware(dia, h):
+            return timezone.make_aware(datetime.combine(dia, time(h)))
+        _bloqueio(self.prof, aware(self.dia, 9), aware(self.dia, 11), regra_recorrencia='FREQ=WEEKLY')
+        semana_que_vem = self.dia + timedelta(days=7)
+        dias = self._dias(self.dia) | self._dias(semana_que_vem)
+        self.assertNotIn(self.dia.isoformat(), dias)
+        self.assertNotIn(semana_que_vem.isoformat(), dias)
+        self.assertIn((self.dia + timedelta(days=1)).isoformat(), dias)
+
     def test_parametros_invalidos_retornam_400(self):
         for params in (
             {'data': self.dia.isoformat(), 'procedimento_id': 'abc'},

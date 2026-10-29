@@ -5,18 +5,22 @@ recebe o SMS: e-mail digitado nunca vira identidade (senao qualquer um
 receberia no proprio celular o codigo que libera o cadastro de outra pessoa).
 """
 import logging
+from datetime import datetime
 
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ...models import Cliente, CodigoOtp
-from ...services import consentimentos
+from ...services import agendamento_online, consentimentos
 from ...services import otp as otp_service
+from ...services.agendamento_online import MSG_BLOQUEADO_ONLINE
 from ...utils.captcha import turnstile_enabled, verificar_turnstile
 from ...utils.pii import mask_telefone
+from ...utils.respostas import json_erro, json_ok
 from ...utils.seguranca import client_ip as _client_ip
 from ...utils.sms import sms_disponivel
 
@@ -30,16 +34,35 @@ def _captcha_invalido(request):
     return turnstile_enabled() and not verificar_turnstile(token, ip=_client_ip(request))
 
 
-def _resposta_falha_envio(motivo):
-    if motivo == 'aguarde':
-        return JsonResponse({'ok': False, 'erro': 'aguarde'}, status=429)
-    if motivo == 'limite_sms':
-        # Quota de SMS da hora esgotada: nenhum codigo novo foi gerado, o ultimo
-        # recebido continua valendo (o front sugere usa-lo ou o WhatsApp).
-        return JsonResponse({'ok': False, 'erro': 'limite_sms'}, status=429)
-    if motivo == 'sms_falha':
-        return JsonResponse({'ok': False, 'erro': 'sms_falha'}, status=503)
-    return JsonResponse({'ok': False, 'erro': motivo}, status=400)
+# Wizard (contrato utils/respostas): o front decide pelo `codigo` e mostra a `mensagem`
+MENSAGENS_ENVIO = {
+    'captcha': 'Confirme a verificação de segurança e tente novamente.',
+    'telefone_invalido': 'Informe um celular com DDD (9 dígitos, começando com 9).',
+    'aguarde': 'Aguarde um minuto antes de pedir outro código.',
+    # Quota de SMS da hora esgotada: nenhum codigo novo foi gerado, o ultimo recebido continua valendo
+    'limite_sms': 'Você atingiu o limite de códigos nesta hora. Use o último código recebido.',
+    'sms_falha': 'Não conseguimos enviar o código agora.',
+}
+STATUS_ENVIO = {'aguarde': 429, 'limite_sms': 429, 'sms_falha': 503}
+MSG_ENVIO_FALHOU = 'Não foi possível enviar o código. Tente novamente.'
+MENSAGENS_VERIFICACAO = {
+    'dados_ausentes': 'Informe o código de 6 dígitos.',
+    'bloqueado': 'Muitas tentativas. Solicite um novo código.',
+}
+MSG_CODIGO_EXPIRADO = 'Código expirado. Solicite um novo.'
+
+
+def _falha_envio(motivo):
+    return json_erro(motivo, MENSAGENS_ENVIO.get(motivo, MSG_ENVIO_FALHOU), status=STATUS_ENVIO.get(motivo, 400))
+
+
+def _falha_verificacao(motivo):
+    """'incorreto:N' (CodigoOtp.verificar) vira codigo='incorreto' + restantes=N."""
+    codigo, _, restantes = motivo.partition(':')
+    if codigo == 'incorreto':
+        return json_erro('incorreto', f'Código incorreto. Tentativas restantes: {restantes}',
+                         restantes=int(restantes) if restantes.isdigit() else None)
+    return json_erro(codigo, MENSAGENS_VERIFICACAO.get(codigo, MSG_CODIGO_EXPIRADO))
 
 
 @require_POST
@@ -50,12 +73,12 @@ def solicitar_otp_agendamento(request):
     Resposta nao revela se o telefone ja e cliente (anti-enumeracao).
     """
     if _captcha_invalido(request):
-        return JsonResponse({'ok': False, 'erro': 'captcha'}, status=400)
+        return _falha_envio('captcha')
 
     digitos = otp_service.normalizar_telefone_br(request.POST.get('telefone'))
     if not otp_service.eh_celular_br(digitos):
         # Fixo nao recebe SMS: recusa antes de gastar quota.
-        return JsonResponse({'ok': False, 'erro': 'telefone_invalido'}, status=400)
+        return _falha_envio('telefone_invalido')
 
     ok, motivo, canal_usado = otp_service.solicitar_otp_telefone(
         digitos, request=request, proposito=CodigoOtp.PROPOSITO_AGENDAMENTO,
@@ -65,8 +88,8 @@ def solicitar_otp_agendamento(request):
             logger.info('otp_solicitar_falhou', extra={
                 'telefone': mask_telefone(digitos), 'motivo': motivo,
             })
-        return _resposta_falha_envio(motivo)
-    return JsonResponse({'ok': True, 'canal': canal_usado})
+        return _falha_envio(motivo)
+    return json_ok(canal=canal_usado)
 
 
 @require_POST
@@ -76,22 +99,22 @@ def verificar_otp_agendamento(request):
     digitos = otp_service.normalizar_telefone_br(request.POST.get('telefone'))
     codigo = str(request.POST.get('codigo') or '').strip()
     if not digitos or not codigo:
-        return JsonResponse({'ok': False, 'erro': 'dados_ausentes'}, status=400)
+        return _falha_verificacao('dados_ausentes')
 
     ok, motivo = otp_service.verificar_otp_telefone(
         digitos, codigo, proposito=CodigoOtp.PROPOSITO_AGENDAMENTO,
     )
     if not ok:
-        return JsonResponse({'ok': False, 'erro': motivo}, status=400)
+        return _falha_verificacao(motivo)
 
     otp_service.registrar_verificacao_agendamento(request, digitos)
 
     cliente = Cliente.objects.filter(telefone=digitos).first()
     prefill = None
-    aviso = ''
+    aviso, aviso_mensagem = '', ''
     if cliente:
         if cliente.bloqueado_online or not cliente.ativo:
-            aviso = 'bloqueado_online'
+            aviso, aviso_mensagem = 'bloqueado_online', MSG_BLOQUEADO_ONLINE
         prefill = {
             'nome': cliente.nome,
             'telefone': cliente.telefone or '',
@@ -102,7 +125,19 @@ def verificar_otp_agendamento(request):
             # nem zerados as cegas.
             'consents': consentimentos.estado_wizard(cliente),
         }
-    return JsonResponse({'ok': True, 'prefill': prefill, 'aviso': aviso})
+    return json_ok(prefill=prefill, aviso=aviso, aviso_mensagem=aviso_mensagem,
+                   # horario escolhido no wizard: a ficha tem de estar em dia NELE (D14)
+                   fichas_em_dia=agendamento_online.fichas_em_dia_do_wizard(
+                       cliente, _instante(request.POST.get('inicio'))))
+
+
+def _instante(valor):
+    """ISO 8601 com fuso (datetime_iso do slot) -> datetime aware, ou None."""
+    try:
+        instante = datetime.fromisoformat(str(valor or ''))
+    except (TypeError, ValueError):
+        return None
+    return instante if timezone.is_aware(instante) else None
 
 
 def _telefone_do_identificador(identificador):

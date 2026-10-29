@@ -216,6 +216,12 @@
         box-shadow: 0 4px 12px rgba(201,168,76,0.3);
     }
     .slots-loading { text-align: center; padding: 2rem; color: var(--cor-texto-suave); }
+    .lista-espera-link {
+        display: inline-block; margin-top: 0.85rem; padding: 0.5rem 1rem; border-radius: 999px;
+        border: 2px solid var(--gold); color: var(--cor-marca); font-weight: 700; font-size: 0.85rem;
+        text-decoration: none;
+    }
+    .lista-espera-link:hover { background: var(--gold-light); }
 
     /* ─── PROFISSIONAL SELECT ─── */
     .prof-options { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
@@ -340,6 +346,11 @@
     }
     .ficha-titulo { font-weight: 700; color: var(--cor-texto); font-size: 0.85rem; margin-bottom: 0.5rem; }
     .ficha-campo { margin-bottom: 0.5rem; }
+    .ficha-em-dia { font-size: 0.82rem; color: var(--cor-texto-suave); margin: 0 0 0.25rem; }
+    .ficha-atualizar {
+        background: none; border: 0; padding: 0; color: var(--cor-marca); font-weight: 700;
+        text-decoration: underline; cursor: pointer; font-size: inherit;
+    }
     .ficha-rotulo { display: block; font-size: 0.78rem; color: var(--cor-texto-suave); font-weight: 600; margin-bottom: 0.2rem; }
     .ficha-opcao { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--cor-texto); }
     .ficha-entrada {
@@ -369,6 +380,7 @@
         border-radius: 14px; font-size: 0.95rem; background: var(--cor-fundo);
         color: var(--earth); font-weight: 500; transition: border-color 0.2s;
     }
+    .form-input[readonly]:not(#form-telefone) { background: var(--cor-superficie); color: var(--cor-texto-suave); }
     .form-input:focus {
         outline: none; border-color: var(--cor-foco);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 45%, transparent); background: var(--cor-superficie);
@@ -659,7 +671,11 @@
 
                             <div class="form-field">
                                 <label><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Nome completo</label>
-                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo">
+                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo" aria-describedby="nome-titular-aviso">
+                                {# D16: o agendamento e da titular do celular verificado (cadastro existente: nome so leitura) #}
+                                <small id="nome-titular-aviso" hidden style="color:var(--cor-texto-suave);font-size:0.72rem;margin-top:0.35rem;display:block;">
+                                    Vai agendar para outra pessoa? Use o celular dela ou fale conosco pelo WhatsApp.
+                                </small>
                             </div>
 
                             <div class="field-row">
@@ -738,7 +754,7 @@
                             <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:0.5rem;vertical-align:-0.125em;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Confirmar Agendamento
                         </button>
                         <small class="confirm-subnote">
-                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Seu pedido fica reservado até a aprovação da profissional. Depois disso, o status aparece em Meus Agendamentos.
+                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Na primeira vez, seu horário fica reservado até a profissional confirmar; para quem já é cliente, ele é confirmado na hora. O status aparece em Meus Agendamentos.
                         </small>
                     </form>
 
@@ -761,6 +777,7 @@
 {# JSON crus via json_script — Django escapa <,>,&,' p/ XSS-safe #}
 {{ formularios_anamnese_data|json_script:"formularios-anamnese-data" }}
 {{ termos_procedimento_data|json_script:"termos-procedimento-data" }}
+{{ otp_fichas_em_dia|json_script:"fichas-em-dia-data" }}
 {# Config do wizard: resolve tags Django aqui no template, expõe para wizard.js #}
 <script nonce="{{ csp_nonce }}">
   window.WIZARD_CFG = {
@@ -771,8 +788,10 @@
     procPreselect:   "{{ proc_preselect|escapejs }}",
     profPreselect:   "{{ prof_preselect|escapejs }}",
     otpTelefone:     "{{ otp_telefone|escapejs }}",
+    otpTitular:      {% if otp_titular %}true{% else %}false{% endif %},
     rehidratar:      {% if rehidratar %}true{% else %}false{% endif %},
-    whatsappNumero:  "{{ WHATSAPP_NUMERO|escapejs }}"
+    whatsappNumero:  "{{ WHATSAPP_NUMERO|escapejs }}",
+    urlListaEspera:  "{% url 'aranha:lista_espera_publica' %}"
   };
 </script>
 {% vite_asset 'aranha_estetica/static/src/js/wizard.js' %}
