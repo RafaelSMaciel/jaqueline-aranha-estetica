@@ -1,4 +1,4 @@
-"""Forms da agenda do painel: novo agendamento pela recepcao e valor cobrado.
+"""Forms da agenda do painel: novo agendamento pela recepcao, valor cobrado e excecoes de agenda.
 
 A tela de novo agendamento tem etapas (buscar cliente, ver horarios, agendar) num POST so; o Form
 valida tudo no "agendar" e, nas outras etapas, so le o que ja da para mostrar (``lido``).
@@ -9,7 +9,7 @@ from django import forms
 from django.utils import timezone
 
 from ..excecoes import RegraDeNegocio
-from ..models import Procedimento, Profissional
+from ..models import AgendaExcecao, Procedimento, Profissional
 from ..services import agenda
 from ..services.disponibilidade import profissionais_para
 from .painel import CampoPreco, EscolhaPorId
@@ -86,3 +86,87 @@ class ValorAtendimentoForm(forms.Form):
     services.atendimento.registrar_valor_cobrado."""
     valor = CampoPreco(error_messages={'required': CampoPreco.default_error_messages['invalid']})
     usar_credito = forms.BooleanField(required=False)
+
+
+# Tipos que a tela de excecoes do profissional cria (bloqueio tem tela propria; feriado/recesso
+# vem do carregar_feriados / Django admin).
+TIPOS_PAINEL = [
+    (AgendaExcecao.TIPO_FOLGA, 'Folga'),
+    (AgendaExcecao.TIPO_HORARIO_DIFERENTE, 'Horário diferente'),
+]
+MSG_DATA_E_TIPO = 'Data e tipo são obrigatórios.'
+FORMATOS_HORA = ['%H:%M', '%H:%M:%S']
+
+
+class AgendaExcecaoForm(forms.ModelForm):
+    """Folga (um ou varios dias) ou horario diferente (um dia) de um profissional.
+
+    As mensagens da tela ficam aqui (campo a campo); as regras do model (AgendaExcecao.clean:
+    espelho dos CHECKs e da folga sobreposta) rodam depois, so se o form passou. Reenviar o mesmo
+    dia/periodo atualiza a excecao vigente (AgendaExcecao.objects.vigente_para) em vez de duplicar.
+    Campo do POST 'data' = data_inicio."""
+
+    NOMES_POST = {'data_inicio': 'data'}
+
+    tipo = forms.ChoiceField(choices=TIPOS_PAINEL, error_messages={'required': MSG_DATA_E_TIPO,
+                                                                   'invalid_choice': MSG_DATA_E_TIPO})
+    data_inicio = forms.DateField(input_formats=['%Y-%m-%d'], error_messages={'required': MSG_DATA_E_TIPO,
+                                                                              'invalid': 'Data inválida.'})
+    data_fim = forms.DateField(required=False, input_formats=['%Y-%m-%d'], error_messages={'invalid': 'Data inválida.'})
+    hora_inicio = forms.TimeField(required=False, input_formats=FORMATOS_HORA, error_messages={'invalid': 'Hora inválida.'})
+    hora_fim = forms.TimeField(required=False, input_formats=FORMATOS_HORA, error_messages={'invalid': 'Hora inválida.'})
+    motivo = forms.CharField(required=False, strip=True)
+
+    class Meta:
+        model = AgendaExcecao
+        fields = ['tipo', 'data_inicio', 'data_fim', 'hora_inicio', 'hora_fim', 'motivo']
+
+    def __init__(self, *args, profissional, autor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.profissional = profissional
+        self.autor = autor
+        self.criada = True
+
+    def add_prefix(self, field_name):
+        return self.NOMES_POST.get(field_name, field_name)
+
+    def clean(self):
+        dados = super().clean()
+        tipo, data = dados.get('tipo'), dados.get('data_inicio')
+        if not tipo or not data or self.errors:
+            return dados
+        if tipo == AgendaExcecao.TIPO_HORARIO_DIFERENTE:
+            self._limpar_horario(dados)
+            dados['data_fim'] = data   # horario diferente vale um dia
+        else:
+            dados['hora_inicio'] = dados['hora_fim'] = None
+            dados['data_fim'] = dados.get('data_fim') or data
+            if dados['data_fim'] < data:
+                self.add_error('data_fim', 'A data final da folga deve ser igual ou posterior à inicial.')
+        if not self.errors:
+            self._usar_vigente(tipo, data, dados['data_fim'])
+        return dados
+
+    def _limpar_horario(self, dados) -> None:
+        inicio, fim = dados.get('hora_inicio'), dados.get('hora_fim')
+        if not inicio or not fim:
+            raise forms.ValidationError('Para horário diferente, informe a hora de início e a de fim.')
+        # sem isso uma janela 14:00-09:00 zerava a agenda do dia sem aviso
+        if fim <= inicio:
+            self.add_error('hora_fim', 'A hora de fim deve ser depois da hora de início.')
+
+    def _usar_vigente(self, tipo, data, data_fim) -> None:
+        """Upsert: o mesmo dia/periodo ja cadastrado vira a instancia do form (antes de validar no model)."""
+        vigente = AgendaExcecao.objects.vigente_para(self.profissional, tipo, data, data_fim)
+        if vigente is not None:
+            self.instance, self.criada = vigente, False
+        else:
+            self.instance.profissional = self.profissional
+            self.instance.origem = AgendaExcecao.ORIGEM_MANUAL
+            self.instance.usuario_autor = self.autor
+
+    def _post_clean(self):
+        # Um aviso por vez, como a tela sempre fez: com erro no form, o model nem e validado
+        # (a mesma regra sairia de novo com outra frase).
+        if not self.errors:
+            super()._post_clean()

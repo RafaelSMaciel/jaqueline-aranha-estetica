@@ -142,7 +142,7 @@ ROTAS = {
     'aranha:admin_cancelar_compra_pacote': (_d(pk=lambda d: d['compra'].pk), '', SO_POST),
     'aranha:admin_prorrogar_compra_pacote': (_d(pk=lambda d: d['compra'].pk), '', SO_POST),
     'aranha:admin_bloqueios': (SEM, '', STAFF),
-    'aranha:admin_criar_bloqueio': (SEM, '', OUTRA),
+    'aranha:admin_criar_bloqueio': (SEM, '', SO_POST),
     'aranha:admin_excluir_bloqueio': (_d(bloqueio_id=lambda d: d['bloqueio'].pk), '', SO_POST),
     'aranha:admin_procedimentos': (SEM, '', STAFF),
     'aranha:admin_criar_procedimento': (SEM, '', OUTRA),

@@ -4,13 +4,11 @@ Feriados/recessos e folgas ficam em admin_excecoes."""
 import logging
 
 from django.contrib import messages
-from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import DatabaseError
 from django.shortcuts import get_object_or_404, redirect, render
-from django_ratelimit.decorators import ratelimit
 
-from ...decorators import staff_required
+from ...decorators import escrita_painel, staff_required
 from ...forms.painel import BloqueioForm, avisar_erros
 from ...models import AgendaExcecao, Profissional
 from ...utils.auditoria import registrar_log
@@ -38,21 +36,17 @@ def admin_bloqueios(request):
     return render(request, 'painel/bloqueios.html', context)
 
 
-@staff_required
-@ratelimit(key='user', rate='30/m', method='POST', block=True)
+@escrita_painel
 def admin_criar_bloqueio(request):
-    """Cria bloqueio de agenda via POST (BloqueioForm)."""
-    if request.method != 'POST':
-        return redirect('aranha:admin_bloqueios')
-
+    """Cria bloqueio de agenda via POST (BloqueioForm: mensagem por campo)."""
     form = BloqueioForm(request.POST)
     if not form.is_valid():
         avisar_erros(request, form)
         return redirect('aranha:admin_bloqueios')
     try:
         bloqueio = form.criar(request.user)
-    except (DatabaseError, ValidationError) as e:
-        logger.error(f'Erro ao criar bloqueio: {e}', exc_info=True)
+    except DatabaseError:
+        logger.error('bloqueio_criar_falhou', exc_info=True)
         messages.error(request, 'Erro ao criar bloqueio.')
         return redirect('aranha:admin_bloqueios')
     alvo = bloqueio.profissional.nome if bloqueio.profissional_id else 'todos os profissionais'
