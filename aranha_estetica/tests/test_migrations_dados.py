@@ -129,6 +129,12 @@ class Remodelagem0034a0037Tests(_MigracaoBase):
     migrate_from = '0033_remodelagem_fase2c_cliente_nome'
     migrate_to = '0037_remodelagem_fase6_aceite_termo'
 
+    def tearDown(self):
+        # a 0076 aborta com inscricoes repetidas (mesma cliente/procedimento/dia): o cenario deste teste
+        # tem um pedido avisado e outro pendente; o legado sai antes de subir ao topo
+        self.apps.get_model(APP, 'ListaEspera').objects.all().delete()
+        super().tearDown()
+
     def preparar(self, apps):
         Cliente = apps.get_model(APP, 'Cliente')
         Profissional = apps.get_model(APP, 'Profissional')

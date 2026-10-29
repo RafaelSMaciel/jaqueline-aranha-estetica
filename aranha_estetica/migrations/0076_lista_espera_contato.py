@@ -13,6 +13,8 @@ import django.db.models.deletion
 from django.db import migrations, models
 from django.db.models import Count
 
+from aranha_estetica.db.operacoes import PadronizarFks
+
 
 def avisado_vira_data(apps, schema_editor):
     ListaEspera = apps.get_model('aranha_estetica', 'ListaEspera')
@@ -102,6 +104,8 @@ class Migration(migrations.Migration):
                 db_comment='So com o celular verificado por OTP; NULL = inscricao anonima (nome/telefone_contato).',
             ),
         ),
+        # o AlterField de FK recria a constraint com nome de hash: volta ao padrao (fk_..., ON DELETE, DEFERRABLE)
+        PadronizarFks('lista_espera', ['cliente_id']),
         migrations.AlterField(
             model_name='listaespera',
             name='email_contato',
