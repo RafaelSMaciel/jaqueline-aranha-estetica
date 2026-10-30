@@ -6,8 +6,12 @@
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
 > pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documento do TCC (requisitos, UML,
 > arquitetura): [`gerar_documentacao.py`](gerar_documentacao.py) → `ShivaZen-Documentacao.docx/.pdf`;
+> regras de negócio, requisitos (RF/RNF com prioridade, verificação e rastreabilidade) e documento
+> técnico em separado: [`gerar_especificacoes.py`](gerar_especificacoes.py) →
+> `ShivaZen-Regras-de-Negocio`, `ShivaZen-Requisitos` e `ShivaZen-Documento-Tecnico` (.docx/.pdf),
+> gerados deste arquivo, do `REGRAS-DE-NEGOCIO.md`, do `ARCHITECTURE.md` e do `_dados_requisitos.json`;
 > diagramas em [`uml/`](uml/README.md) (PlantUML gerado do código + versões de apresentação no
-> Lucidchart: MER conceitual, DER, classes, casos de uso e atividades, exportadas em `uml/lucid/`).
+> Lucidchart de todos os tipos, exportadas em `uml/lucid/`).
 
 ## Sumário
 
