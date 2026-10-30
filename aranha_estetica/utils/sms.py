@@ -140,7 +140,12 @@ def enviar_sms(telefone: str, mensagem: str) -> bool:
             # Preview (com o codigo) so no dev local e no ambiente de testes publicado (log do
             # Railway, so quem tem acesso ao projeto) — nunca em producao nem na suite.
             extra['preview'] = mensagem[:200]
-        logger.info('sms_dev_log', extra=extra)
+        if getattr(settings, 'DEBUG', False):
+            # o formatter de texto do DEBUG nao imprime os extras: no dev local a mensagem vai
+            # na propria linha (sem ela nao da para concluir o agendamento sem provedor de SMS)
+            logger.info('sms_dev_log: %s', extra['preview'], extra=extra)
+        else:
+            logger.info('sms_dev_log', extra=extra)
         return True
 
     token = settings.ZENVIA_API_TOKEN

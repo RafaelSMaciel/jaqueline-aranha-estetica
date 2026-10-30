@@ -88,6 +88,29 @@ document.addEventListener('keydown', (e) => {
   aberto.querySelector('summary').focus()
 })
 
+// ── Tabela responsiva (cotton/tabela.html): cartoes quando a tabela nao cabe no proprio bloco ──
+// O @media (< 768px) cobre o celular; entre o celular e a tela larga (tablet, notebook pequeno, menu
+// lateral aberto) a tabela larga estourava a pagina. Rolar dentro do bloco cortaria o menu "⋯".
+// Empilhada, a tabela nao tem mais largura propria: a natural fica guardada p/ desempilhar.
+function ajustarTabela(env) {
+  const tabela = env.querySelector('.tabela-responsiva')
+  if (!tabela) return
+  if (!env.classList.contains('tabela-empilhada')) {
+    if (tabela.scrollWidth > env.clientWidth + 1) {
+      env.dataset.larguraNatural = String(tabela.scrollWidth)
+      env.classList.add('tabela-empilhada')
+    }
+  } else if (env.clientWidth >= Number(env.dataset.larguraNatural)) {
+    env.classList.remove('tabela-empilhada')
+    ajustarTabela(env)
+  }
+}
+const envoltorios = document.querySelectorAll('.tabela-envoltorio')
+if (envoltorios.length && 'ResizeObserver' in window) {
+  const observador = new ResizeObserver((entradas) => entradas.forEach((e) => ajustarTabela(e.target)))
+  envoltorios.forEach((env) => { ajustarTabela(env); observador.observe(env) })
+}
+
 // ── Modais (cotton/dialogo.html): abrir/fechar sem Alpine ──
 document.addEventListener('click', (e) => {
   const abrir = e.target.closest('[data-abrir-dialogo]')

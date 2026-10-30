@@ -5,8 +5,8 @@
 
     <a href="{% url 'aranha:inicio' %}" class="font-serif text-lg font-bold text-texto no-underline shrink-0">{{ CLINIC_NAME }}</a>
 
-    {# ── Nav desktop ── #}
-    <nav class="hidden md:flex items-center gap-0.5" aria-label="Navegação principal">
+    {# ── Nav desktop (lg: nome + 7 itens + ações pedem ~900px; abaixo, o menu do celular) ── #}
+    <nav class="hidden lg:flex items-center gap-0.5" aria-label="Navegação principal">
       {% for item in menu %}
       <a href="{{ item.href }}" class="{{ nl }} {% if item.atual %}text-marca bg-fundo{% else %}text-texto-suave{% endif %}"{% if item.atual %} aria-current="page"{% endif %}>{{ item.rotulo }}</a>
       {% endfor %}
@@ -26,7 +26,7 @@
       {# Hambúrguer mobile #}
       <button type="button" x-ref="botao" x-on:click="alternar" x-bind:aria-expanded="aberto" aria-controls="nav-mobile"
               aria-label="Abrir menu de navegação"
-              class="md:hidden p-2 rounded-full text-texto hover:bg-fundo transition">
+              class="lg:hidden p-2 rounded-full text-texto hover:bg-fundo transition">
         <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
@@ -35,7 +35,7 @@
   </div>
 
   {# ── Painel mobile ── #}
-  <nav id="nav-mobile" x-show="aberto" x-cloak class="md:hidden border-t border-borda bg-superficie px-4 py-3 space-y-1" aria-label="Navegação principal">
+  <nav id="nav-mobile" x-show="aberto" x-cloak class="lg:hidden border-t border-borda bg-superficie px-4 py-3 space-y-1" aria-label="Navegação principal">
     {% for item in menu %}
     <a href="{{ item.href }}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium {% if item.atual %}text-marca bg-fundo{% else %}text-texto{% endif %} no-underline hover:bg-fundo transition"{% if item.atual %} aria-current="page"{% endif %}>{{ item.rotulo }}</a>
     {% endfor %}

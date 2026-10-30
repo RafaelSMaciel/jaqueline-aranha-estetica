@@ -62,7 +62,7 @@
         {% csrf_token %}
         <c-campo nome="nome" id="cliNome" label="Nome completo" value="{{ cliente.nome }}" required autocomplete="name"></c-campo>
         <div class="grade-campos grade-campos-2">
-          <c-campo nome="telefone" id="cliTelefone" label="Telefone" tipo="tel" value="{{ cliente.telefone|default_if_none:'' }}" inputmode="tel" autocomplete="tel"></c-campo>
+          <c-campo nome="telefone" id="cliTelefone" label="Telefone" tipo="tel" value="{{ cliente.telefone|telefone }}" inputmode="tel" autocomplete="tel"></c-campo>
           <c-campo nome="cpf" id="cliCpf" label="CPF" value="{{ cliente.cpf|default_if_none:'' }}" inputmode="numeric"></c-campo>
           <c-campo nome="email" id="cliEmail" label="E-mail" tipo="email" value="{{ cliente.email|default_if_none:'' }}" autocomplete="email"></c-campo>
           <c-campo nome="data_nascimento" id="cliNascimento" label="Data de nascimento" tipo="date" value="{{ cliente.data_nascimento|date:'Y-m-d' }}"></c-campo>

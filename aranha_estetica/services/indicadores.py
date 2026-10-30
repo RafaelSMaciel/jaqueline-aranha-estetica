@@ -8,16 +8,22 @@ Ocupacao da semana = horas de atendimento marcadas/realizadas ÷ horas de expedi
 Antes: quantidade de REALIZADOS ÷ horarios de 30 min da grade — um atendimento de 90 min contava
 como 1 horario, a segunda-feira mostrava ~0% por definicao e semana com feriado parecia ociosa.
 Aproximacao conhecida: horario diferente e bloqueio pontual nao descontam o expediente.
+
+Atendimentos do dia/da semana (cards da visao geral) = os mesmos status que ocupam a agenda: um
+atendimento realizado continua contando no dia em que aconteceu (antes so os ativos contavam, o card
+"hoje" zerava ao fim do expediente e a semana passada — ja toda realizada — virava 0 na comparacao).
 """
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from django.db.models import Q
-
 from ..models import AgendaExcecao, AgendaHorario, Atendimento
 from ..models.agendamentos import STATUS_ATIVOS, StatusAtendimento
 from ..utils.datas import dias_locais
+
+
+# marcado ou feito: o que ocupa a agenda e conta como atendimento do dia/da semana
+STATUS_OCUPAM_AGENDA = (*STATUS_ATIVOS, StatusAtendimento.REALIZADO)
 
 
 def _minutos(inicio, fim) -> int:
@@ -47,8 +53,7 @@ def ocupacao_semana(inicio: date, fim: date) -> dict:
         dia += timedelta(days=1)
 
     ocupados = Atendimento.objects.filter(
-        Q(status__in=STATUS_ATIVOS) | Q(status=StatusAtendimento.REALIZADO),
-        **dias_locais('data_hora_inicio', inicio, fim),
+        status__in=STATUS_OCUPAM_AGENDA, **dias_locais('data_hora_inicio', inicio, fim),
     ).values_list('data_hora_inicio', 'data_hora_fim')
     ocupado = sum(int((f - i).total_seconds() // 60) for i, f in ocupados)
     return {
