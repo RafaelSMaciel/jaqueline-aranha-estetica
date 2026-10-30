@@ -1245,16 +1245,43 @@ compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que vence
   monitor (`CRON_MONITOR_URL`) com o nome dele.
 - **Alternativa sem o serviço**: um agendador externo chamando o cron HTTP (§14 d).
 
+### 13.3 Estado no Railway (2026-10-30)
+
+Projeto `jaqueline-aranha-estetica`, região `us-east4`. **O trial venceu**: o Railway aceita mudar
+configuração, mas não faz deploy nem cria serviço até a conta escolher um plano (Hobby, US$ 5/mês —
+[`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md)). Escolher o plano é ação da dona da conta.
+
+| Environment | Serviço | Situação |
+|---|---|---|
+| `dev` (branch `dev`) | `web` | **Aplicado**: `railway.json` como config-as-code (Dockerfile, pre-deploy com `seed --demo`, healthcheck), start do gunicorn novo (sai o `gunicorn shivazen.wsgi` antigo), **Serverless** (dorme após 10 min sem tráfego). Variáveis: `DJANGO_ENV=staging`, `DATABASE_URL=${{Postgres-Dev.DATABASE_URL}}`, `SITE_URL`/`CSRF_TRUSTED_ORIGINS`/`ALLOWED_HOSTS` a partir de `RAILWAY_PUBLIC_DOMAIN`, `DB_APPLICATION_NAME=shivazen-dev` e `DJANGO_SECRET_KEY`, `CRON_TOKEN` e `CHAVES_CIFRAGEM` **de teste**, próprios do dev. Domínio: `web-dev-1a30.up.railway.app` |
+| `dev` | `Postgres-Dev` | **Aplicado**: imagem `postgres-ssl:18` (era 17) com `PGDATA=/var/lib/postgresql/data/pgdata18` — cluster novo, vazio; o cluster 17 antigo (dados de demonstração da `0026`) ficou intacto em `pgdata/` no mesmo volume e pode ser apagado. Sem TCP proxy público. Serverless |
+| `dev` | Cron | Não existe, de propósito: no `dev` os jobs rodam à mão (`manage.py rodar_job <job>`). Economia na tabela de custos |
+| `prod` (branch `main`) | `web` | **Staged** (não aplicado): `railway.json`, sem Serverless, `DJANGO_ENV=prod`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `SITE_URL`/`CSRF`/`ALLOWED_HOSTS` do domínio do Railway (`web-production-465af.up.railway.app`), `DB_APPLICATION_NAME=shivazen` |
+| `prod` | `Postgres` | **Staged**: `PGDATA=/var/lib/postgresql/data/pgdata-golive` (o **banco novo** do go-live; o cluster antigo da `0026` fica em `pgdata/`), sem Serverless, sem TCP proxy público |
+| `prod` | `cron` | **A criar** depois do plano (o trial bloqueia criar serviço): §13.2, branch `main`, variáveis por referência ao web (`${{web.DJANGO_SECRET_KEY}}`, `${{web.CHAVES_CIFRAGEM}}`, `${{web.SITE_URL}}`, provedores) |
+
+Falta, da dona da conta (nenhum desses passa por código):
+
+1. Escolher o plano Hobby no Railway.
+2. **dev**: `ADMIN_EMAIL`/`ADMIN_PASSWORD` e `DESTINATARIOS_TESTE` no `web`, e então *Deploy* no
+   `Postgres-Dev` e no `web` (ou um push na `dev` que mexa em código).
+3. Nos dois `web`: ligar **Wait for CI** (Settings › Source) e apagar as variáveis legadas `DEBUG` e
+   `STATIC_ROOT` (o `CRON_TOKEN` do prod também sobra: lá os jobs vão pelo serviço Cron).
+4. **prod, só no go-live** (§14 a): revisão jurídica da política; `CHAVES_CIFRAGEM` própria com cópia
+   offline; conferir ou trocar o `DJANGO_SECRET_KEY` antigo (50+ caracteres); `ADMIN_*`; provedores;
+   merge `dev` → `main`; **aplicar as mudanças staged** do `prod` (antes do merge o `prod` publicaria
+   a `main` atual, na `0058`); criar o serviço `cron`.
+
 ---
 
 ## 14. Go-live / Operação (runbook)
 
-> **Estado em 2026-10-27:** ainda não há produção. O projeto do Railway que existia (web + Postgres
-> na `0026`) era só **ambiente de desenvolvimento**; está em **stand-by** (trial expirado) e não
-> precisa de upgrade nem de backup. O primeiro deploy de produção cria um **banco novo**: o
-> `migrate_atomico` aplica `0001`→`0079` numa transação e o `seed --force` carrega o catálogo. O
-> roteiro de atualização de um banco já existente (`0026` → `0079`) fica no §14 a.1, para o caso
-> de esse banco um dia ser reaproveitado.
+> **Estado em 2026-10-30:** ainda não há produção. A infraestrutura dos dois environments está
+> configurada no Railway (§13.3), parada até a conta escolher um plano. O primeiro deploy de produção
+> cria um **banco novo** (o `PGDATA` do `prod` já aponta para um cluster vazio): o `migrate_atomico`
+> aplica `0001`→`0079` numa transação e o `seed --force` carrega o catálogo. O roteiro de
+> atualização de um banco já existente (`0026` → `0079`) fica no §14 a.1, para o caso de o cluster
+> antigo um dia ser reaproveitado.
 
 ### a) Pré-deploy
 

@@ -355,8 +355,8 @@ def tecnico(word):
     d.h1('13. Implantação e configuração')
     _secao(d, r'^13\. Deploy', '13')
     d.figura('07-implantacao/01-railway.png', 'Implantação — Railway.')
-    d.h2('13.3 Variáveis de ambiente')
-    d.markdown(secao_md(PROJECT, r'^11\. Variáveis de ambiente'), niveis={'###': 3}, renumerar='13.3')
+    d.h2('13.4 Variáveis de ambiente')
+    d.markdown(secao_md(PROJECT, r'^11\. Variáveis de ambiente'), niveis={'###': 3}, renumerar='13.4')
 
     d.h1('14. Convenções de código')
     _secao(d, r'^15\. Convenções de código', '14')
