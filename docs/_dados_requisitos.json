@@ -2861,354 +2861,773 @@
    {
     "id": "RF01",
     "ator": "Cliente (público)",
-    "descricao": "Consultar serviços, equipe, promoções (com o mesmo preço do agendamento), galeria e depoimentos autorizados."
+    "descricao": "Consultar serviços, equipe, promoções (com o mesmo preço do agendamento), galeria e depoimentos autorizados.",
+    "prioridade": "Essencial",
+    "casos_uso": [],
+    "regras": [
+     "RN28",
+     "RN34",
+     "RN57"
+    ]
    },
    {
     "id": "RF02",
     "ator": "Cliente (público)",
-    "descricao": "Agendar online escolhendo procedimento, data/horário e profissional, confirmando o celular com código SMS (até 3 horários futuros ativos pelo site); em dia sem horário, pedir aviso de vaga já preenchido."
+    "descricao": "Agendar online escolhendo procedimento, data/horário e profissional, confirmando o celular com código SMS (até 3 horários futuros ativos pelo site); em dia sem horário, pedir aviso de vaga já preenchido.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC01",
+     "UC02",
+     "UC03",
+     "UC08"
+    ],
+    "regras": [
+     "RN03",
+     "RN04",
+     "RN06",
+     "RN07",
+     "RN08",
+     "RN09",
+     "RN10",
+     "RN11",
+     "RN18",
+     "RN19"
+    ]
    },
    {
     "id": "RF03",
     "ator": "Cliente (público)",
-    "descricao": "No agendamento, aceitar a Política de Privacidade e os termos do procedimento, consentir o uso do dado de saúde (termo SAÚDE), escolher as autorizações de comunicação e responder a ficha de anamnese."
+    "descricao": "No agendamento, aceitar a Política de Privacidade e os termos do procedimento, consentir o uso do dado de saúde (termo SAÚDE), escolher as autorizações de comunicação e responder a ficha de anamnese.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC01",
+     "UC09"
+    ],
+    "regras": [
+     "RN14",
+     "RN15",
+     "RN16",
+     "RN17"
+    ]
    },
    {
     "id": "RF04",
     "ator": "Cliente (público)",
-    "descricao": "Acessar \"Meus agendamentos\" com celular ou e-mail cadastrado (código sempre ao celular) — ou direto ao fim do agendamento online, sem novo SMS — e ver agendamentos futuros e passados, retornos a combinar e o código de indicação; sair só por POST."
+    "descricao": "Acessar \"Meus agendamentos\" com celular ou e-mail cadastrado (código sempre ao celular) — ou direto ao fim do agendamento online, sem novo SMS — e ver agendamentos futuros e passados, retornos a combinar e o código de indicação; sair só por POST.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC06",
+     "UC02"
+    ],
+    "regras": [
+     "RN18",
+     "RN19"
+    ]
    },
    {
     "id": "RF05",
     "ator": "Cliente (público)",
-    "descricao": "Reagendar um atendimento até 24 h antes pelo portal, escolhendo novo horário disponível."
+    "descricao": "Reagendar um atendimento até 24 h antes pelo portal, escolhendo novo horário disponível.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC04",
+     "UC03"
+    ],
+    "regras": [
+     "RN21"
+    ]
    },
    {
     "id": "RF06",
     "ator": "Cliente (público)",
-    "descricao": "Cancelar um atendimento futuro pelo portal, com o aviso de que, com menos de 24 h de um horário aprovado, o cancelamento conta como falta."
+    "descricao": "Cancelar um atendimento futuro pelo portal, com o aviso de que, com menos de 24 h de um horário aprovado, o cancelamento conta como falta.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC05"
+    ],
+    "regras": [
+     "RN22",
+     "RN52"
+    ]
    },
    {
     "id": "RF07",
     "ator": "Cliente (público)",
-    "descricao": "Confirmar presença ou cancelar pelo link do lembrete D-1 (WhatsApp ou e-mail), com o mesmo aviso de cancelamento tardio."
+    "descricao": "Confirmar presença ou cancelar pelo link do lembrete D-1 (WhatsApp ou e-mail), com o mesmo aviso de cancelamento tardio.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC07"
+    ],
+    "regras": [
+     "RN23",
+     "RN47",
+     "RN52"
+    ]
    },
    {
     "id": "RF08",
     "ator": "Cliente (público)",
-    "descricao": "Aceitar termos pendentes pelo link do atendimento."
+    "descricao": "Aceitar termos pendentes pelo link do atendimento.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC11"
+    ],
+    "regras": [
+     "RN16",
+     "RN39",
+     "RN47"
+    ]
    },
    {
     "id": "RF09",
     "ator": "Cliente (público)",
-    "descricao": "Entrar na lista de espera sem criar cadastro (nome, celular, procedimento, data, turno e profissional opcionais; captcha, honeypot e limite diário por IP) e, com o celular verificado, receber o aviso de vaga por e-mail/WhatsApp, continuando na fila até a data passar ou agendar."
+    "descricao": "Entrar na lista de espera sem criar cadastro (nome, celular, procedimento, data, turno e profissional opcionais; captcha, honeypot e limite diário por IP) e, com o celular verificado, receber o aviso de vaga por e-mail/WhatsApp, continuando na fila até a data passar ou agendar.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC08"
+    ],
+    "regras": [
+     "RN32"
+    ]
    },
    {
     "id": "RF10",
     "ator": "Cliente (público)",
-    "descricao": "Responder o NPS (0–10) e autorizar a publicação do depoimento."
+    "descricao": "Responder o NPS (0–10) e autorizar a publicação do depoimento.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC10"
+    ],
+    "regras": [
+     "RN33",
+     "RN34"
+    ]
    },
    {
     "id": "RF11",
     "ator": "Cliente (público)",
-    "descricao": "Responder ficha de anamnese por link, com consentimento para dado de saúde."
+    "descricao": "Responder ficha de anamnese por link, com consentimento para dado de saúde.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC09"
+    ],
+    "regras": [
+     "RN15",
+     "RN36",
+     "RN47"
+    ]
    },
    {
     "id": "RF12",
     "ator": "Cliente (público)",
-    "descricao": "Baixar os próprios dados (DSAR, sem a ficha de saúde) com código SMS em \"Meus dados\", descadastrar-se de marketing e pesquisas por link e parar as mensagens de WhatsApp respondendo \"PARAR\"."
+    "descricao": "Baixar os próprios dados (DSAR, sem a ficha de saúde) com código SMS em \"Meus dados\", descadastrar-se de marketing e pesquisas por link e parar as mensagens de WhatsApp respondendo \"PARAR\".",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC12",
+     "UC26"
+    ],
+    "regras": [
+     "RN17",
+     "RN42"
+    ]
    },
    {
     "id": "RF13",
     "ator": "Sistema",
-    "descricao": "Oferecer o WhatsApp da clínica como caminho de agendamento quando o SMS não estiver disponível."
+    "descricao": "Oferecer o WhatsApp da clínica como caminho de agendamento quando o SMS não estiver disponível.",
+    "prioridade": "Desejável",
+    "casos_uso": [
+     "UC01"
+    ],
+    "regras": [
+     "RN06"
+    ]
    },
    {
     "id": "RF14",
     "ator": "Equipe",
-    "descricao": "Entrar com e-mail e senha, cadastrar e validar 2FA (obrigatório para ADMIN e PROFISSIONAL em produção), gerar códigos de backup e redefinir a senha por link."
+    "descricao": "Entrar com e-mail e senha, cadastrar e validar 2FA (obrigatório para ADMIN e PROFISSIONAL em produção), gerar códigos de backup e redefinir a senha por link.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC13",
+     "UC14"
+    ],
+    "regras": [
+     "RN44",
+     "RN45"
+    ]
    },
    {
     "id": "RF15",
     "ator": "ADMIN",
-    "descricao": "Aprovar ou rejeitar pedidos PENDENTES (individual ou em lote, item a item: o que outra tela decidiu fica de fora sem desfazer os outros), com e-mail à cliente."
+    "descricao": "Aprovar ou rejeitar pedidos PENDENTES (individual ou em lote, item a item: o que outra tela decidiu fica de fora sem desfazer os outros), com e-mail à cliente.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC16",
+     "UC15"
+    ],
+    "regras": [
+     "RN11",
+     "RN20"
+    ]
    },
    {
     "id": "RF16",
     "ator": "ADMIN (recepção)",
-    "descricao": "Agendar pelo painel para cliente existente ou nova (cadastrada na mesma transação), com os horários do mesmo cálculo do site, valor do dia ou combinado e e-mail de confirmação à cliente."
+    "descricao": "Agendar pelo painel para cliente existente ou nova (cadastrada na mesma transação), com os horários do mesmo cálculo do site, valor do dia ou combinado e e-mail de confirmação à cliente.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC27",
+     "UC03"
+    ],
+    "regras": [
+     "RN12",
+     "RN13"
+    ]
    },
    {
     "id": "RF17",
     "ator": "ADMIN",
-    "descricao": "Operar a agenda: lista com filtros por dia e marcadores em lote, seletor de status só para AGENDADO/CONFIRMADO (Realizado e Faltou só a partir do início), calendário com arrastar-e-soltar (motivo detalhado da recusa), valor cobrado, link do termo, override \"Realizado sem termo aceito\", desfazer realização e o botão \"Agendar retorno\" quando o retorno é devido."
+    "descricao": "Operar a agenda: lista com filtros por dia e marcadores em lote, seletor de status só para AGENDADO/CONFIRMADO (Realizado e Faltou só a partir do início), calendário com arrastar-e-soltar (motivo detalhado da recusa), valor cobrado, link do termo, override \"Realizado sem termo aceito\", desfazer realização e o botão \"Agendar retorno\" quando o retorno é devido.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC16"
+    ],
+    "regras": [
+     "RN20",
+     "RN24",
+     "RN29"
+    ]
    },
    {
     "id": "RF18",
     "ator": "Profissional",
-    "descricao": "Usar o portal: agenda do dia/semana, pedidos pendentes (aprovar/rejeitar), marcar realizado, anotar a sessão, ver alertas de saúde e a ficha das clientes com vínculo, ativar push (novo agendamento, cliente cancelou/remarcou, atendimentos sem desfecho)."
+    "descricao": "Usar o portal: agenda do dia/semana, pedidos pendentes (aprovar/rejeitar), marcar realizado, anotar a sessão, ver alertas de saúde e a ficha das clientes com vínculo, ativar push (novo agendamento, cliente cancelou/remarcou, atendimentos sem desfecho).",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC15"
+    ],
+    "regras": [
+     "RN20",
+     "RN37",
+     "RN38"
+    ]
    },
    {
     "id": "RF19",
     "ator": "ADMIN / Profissional",
-    "descricao": "Registrar e consultar o prontuário (com as perguntas do formulário PRONTUARIO) e o histórico de versões, e anotar as sessões."
+    "descricao": "Registrar e consultar o prontuário (com as perguntas do formulário PRONTUARIO) e o histórico de versões, e anotar as sessões.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC17"
+    ],
+    "regras": [
+     "RN36",
+     "RN37",
+     "RN48"
+    ]
    },
    {
     "id": "RF20",
     "ator": "ADMIN",
-    "descricao": "Gerir clientes: busca sem acento, ficha com alertas, pacotes, histórico, autorizações de comunicação e edição validada (telefone/CPF/e-mail únicos)."
+    "descricao": "Gerir clientes: busca sem acento, ficha com alertas, pacotes, histórico, autorizações de comunicação e edição validada (telefone/CPF/e-mail únicos).",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC17"
+    ],
+    "regras": [
+     "RN02",
+     "RN05",
+     "RN38"
+    ]
    },
    {
     "id": "RF21",
     "ator": "ADMIN",
-    "descricao": "Gerir profissionais (grade semanal, exceções — folga, horário diferente, bloqueio —, antecedências, novo link do feed iCal), procedimentos, preços (vigência nova a partir de hoje), habilitações e bloqueios de agenda (inclusive para todos os profissionais). Desativar a profissional revoga o feed iCal dela; edição que deixaria atendimento futuro sem quem atenda é recusada."
+    "descricao": "Gerir profissionais (grade semanal, exceções — folga, horário diferente, bloqueio —, antecedências, novo link do feed iCal), procedimentos, preços (vigência nova a partir de hoje), habilitações e bloqueios de agenda (inclusive para todos os profissionais). Desativar a profissional revoga o feed iCal dela; edição que deixaria atendimento futuro sem quem atenda é recusada.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC18"
+    ],
+    "regras": [
+     "RN09",
+     "RN28",
+     "RN46"
+    ]
    },
    {
     "id": "RF22",
     "ator": "ADMIN",
-    "descricao": "Gerir pacotes: criar/editar o catálogo, vender (itens congelados na venda), acompanhar saldo e validade, cancelar com valor devolvido (reembolso no mês do cancelamento) e prorrogar a validade."
+    "descricao": "Gerir pacotes: criar/editar o catálogo, vender (itens congelados na venda), acompanhar saldo e validade, cancelar com valor devolvido (reembolso no mês do cancelamento) e prorrogar a validade.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC19"
+    ],
+    "regras": [
+     "RN26",
+     "RN27",
+     "RN54"
+    ]
    },
    {
     "id": "RF23",
     "ator": "ADMIN",
-    "descricao": "Gerir promoções e disparar o e-mail da promoção (período dos atendimentos) em lotes, uma vez, para clientes com consentimento; reenviar só com confirmação."
+    "descricao": "Gerir promoções e disparar o e-mail da promoção (período dos atendimentos) em lotes, uma vez, para clientes com consentimento; reenviar só com confirmação.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC20"
+    ],
+    "regras": [
+     "RN17",
+     "RN28",
+     "RN35"
+    ]
    },
    {
     "id": "RF24",
     "ator": "ADMIN",
-    "descricao": "Acompanhar dashboard e financeiro por competência mensal (?mes=: faturamento de avulsos + vendas de pacote − reembolsos do mês, faltas, rankings, últimos 12 meses), comissões em livro-razão (créditos com base e percentual, pagamentos, estornos e saldo por profissional), pagar uma comissão ou o repasse em lote com recibo para imprimir e exportar o Excel gerencial do mês."
+    "descricao": "Acompanhar dashboard e financeiro por competência mensal (?mes=: faturamento de avulsos + vendas de pacote − reembolsos do mês, faltas, rankings, últimos 12 meses), comissões em livro-razão (créditos com base e percentual, pagamentos, estornos e saldo por profissional), pagar uma comissão ou o repasse em lote com recibo para imprimir e exportar o Excel gerencial do mês.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC21"
+    ],
+    "regras": [
+     "RN29",
+     "RN30"
+    ]
    },
    {
     "id": "RF25",
     "ator": "ADMIN",
-    "descricao": "Acompanhar o NPS e aprovar ou retirar depoimentos do site."
+    "descricao": "Acompanhar o NPS e aprovar ou retirar depoimentos do site.",
+    "prioridade": "Desejável",
+    "casos_uso": [
+     "UC28"
+    ],
+    "regras": [
+     "RN33",
+     "RN34"
+    ]
    },
    {
     "id": "RF26",
     "ator": "ADMIN",
-    "descricao": "Ver a lista de espera (inclusive as inscrições anônimas, com nome e celular de contato) e avisar manualmente uma vaga: e-mail quando há destino e o aviso registrado mesmo sem e-mail."
+    "descricao": "Ver a lista de espera (inclusive as inscrições anônimas, com nome e celular de contato) e avisar manualmente uma vaga: e-mail quando há destino e o aviso registrado mesmo sem e-mail.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC22"
+    ],
+    "regras": [
+     "RN32"
+    ]
    },
    {
     "id": "RF27",
     "ator": "ADMIN",
-    "descricao": "Gerir formulários (anamnese, pesquisa e perguntas do prontuário) e termos versionados (LGPD, saúde, procedimento), e acompanhar a conformidade dos aceites."
+    "descricao": "Gerir formulários (anamnese, pesquisa e perguntas do prontuário) e termos versionados (LGPD, saúde, procedimento), e acompanhar a conformidade dos aceites.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC23"
+    ],
+    "regras": [
+     "RN16",
+     "RN36",
+     "RN39"
+    ]
    },
    {
     "id": "RF28",
     "ator": "ADMIN",
-    "descricao": "Gerir usuários da equipe (sem trancar a equipe fora; desligamento revoga o feed iCal), as regras operacionais (registro tipado: e-mail do alerta, faltas para pausar o online e anos de experiência do site), a identidade visual (contatos e marca), notificações, pré-visualizar e-mails e consultar a auditoria."
+    "descricao": "Gerir usuários da equipe (sem trancar a equipe fora; desligamento revoga o feed iCal), as regras operacionais (registro tipado: e-mail do alerta, faltas para pausar o online e anos de experiência do site), a identidade visual (contatos e marca), notificações, pré-visualizar e-mails e consultar a auditoria.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC24"
+    ],
+    "regras": [
+     "RN01",
+     "RN51"
+    ]
    },
    {
     "id": "RF29",
     "ator": "Sistema",
-    "descricao": "Executar os jobs periódicos pela agenda única (serviço Cron com rodar_jobs_devidos, cron HTTP autenticado ou rodar_job; job de mensagem no máximo 1×/dia): fila de e-mail, lembrete D-1 (WhatsApp ou e-mail), atendimentos sem desfecho, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping e feriados."
+    "descricao": "Executar os jobs periódicos pela agenda única (serviço Cron com rodar_jobs_devidos, cron HTTP autenticado ou rodar_job; job de mensagem no máximo 1×/dia): fila de e-mail, lembrete D-1 (WhatsApp ou e-mail), atendimentos sem desfecho, NPS, alerta de detrator, pacotes, aniversário, limpeza de status, retenção LGPD, housekeeping e feriados.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC25"
+    ],
+    "regras": [
+     "RN23",
+     "RN33",
+     "RN40",
+     "RN49",
+     "RN50"
+    ]
    },
    {
     "id": "RF30",
     "ator": "Sistema",
-    "descricao": "Deixar o retorno gratuito devido (janela em dias) quando o procedimento exige, para a recepção marcar com a cliente — o sistema não reserva horário sozinho."
+    "descricao": "Deixar o retorno gratuito devido (janela em dias) quando o procedimento exige, para a recepção marcar com a cliente — o sistema não reserva horário sozinho.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC16",
+     "UC27"
+    ],
+    "regras": [
+     "RN25"
+    ]
    },
    {
     "id": "RF31",
     "ator": "Sistema",
-    "descricao": "Ao mudar o status do atendimento, aplicar na mesma transação: débito de sessão de pacote, comissão (crédito/estorno), cashback, faltas, retorno e aviso à lista de espera."
+    "descricao": "Ao mudar o status do atendimento, aplicar na mesma transação: débito de sessão de pacote, comissão (crédito/estorno), cashback, faltas, retorno e aviso à lista de espera.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC15",
+     "UC16"
+    ],
+    "regras": [
+     "RN20",
+     "RN24",
+     "RN25",
+     "RN26",
+     "RN30",
+     "RN31"
+    ]
    },
    {
     "id": "RF32",
     "ator": "Sistema externo",
-    "descricao": "Receber webhooks do WhatsApp (resposta de NPS e pedido de \"PARAR\") e da Zenvia (status de SMS), autenticados (assinatura da Meta; segredo no header e/ou IP permitido na Zenvia), em tempo constante."
+    "descricao": "Receber webhooks do WhatsApp (resposta de NPS e pedido de \"PARAR\") e da Zenvia (status de SMS), autenticados (assinatura da Meta; segredo no header e/ou IP permitido na Zenvia), em tempo constante.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC26"
+    ],
+    "regras": [
+     "RN17",
+     "RN33"
+    ]
    },
    {
     "id": "RF33",
     "ator": "ADMIN",
-    "descricao": "Na ficha da cliente, ver as autorizações de comunicação por canal, revogá-las a pedido e registrar autorização com justificativa (histórico preservado)."
+    "descricao": "Na ficha da cliente, ver as autorizações de comunicação por canal, revogá-las a pedido e registrar autorização com justificativa (histórico preservado).",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC29"
+    ],
+    "regras": [
+     "RN17"
+    ]
    },
    {
     "id": "RF34",
     "ator": "Profissional",
-    "descricao": "Gerar o link do feed iCal da própria agenda (exibido uma única vez)."
+    "descricao": "Gerar o link do feed iCal da própria agenda (exibido uma única vez).",
+    "prioridade": "Desejável",
+    "casos_uso": [
+     "UC30"
+    ],
+    "regras": [
+     "RN47"
+    ]
    },
    {
     "id": "RF35",
     "ator": "Sistema",
-    "descricao": "Enfileirar os e-mails transacionais (inclusive o lembrete D-1) na própria notificação e reenviá-los com espera crescente até 5 tentativas."
+    "descricao": "Enfileirar os e-mails transacionais (inclusive o lembrete D-1) na própria notificação e reenviá-los com espera crescente até 5 tentativas.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC25"
+    ],
+    "regras": [
+     "RN49"
+    ]
    },
    {
     "id": "RF36",
     "ator": "Sistema",
-    "descricao": "Registrar automaticamente, por trigger, toda alteração das tabelas sensíveis com autor, IP e origem."
+    "descricao": "Registrar automaticamente, por trigger, toda alteração das tabelas sensíveis com autor, IP e origem.",
+    "prioridade": "Essencial",
+    "casos_uso": [],
+    "regras": [
+     "RN43"
+    ]
    },
    {
     "id": "RF37",
     "ator": "ADMIN",
-    "descricao": "Gerir as regras de comissão no painel (percentual XOR valor fixo, por profissional e/ou procedimento, com a especificidade e o número de usos à vista); regra já usada só é desativada."
+    "descricao": "Gerir as regras de comissão no painel (percentual XOR valor fixo, por profissional e/ou procedimento, com a especificidade e o número de usos à vista); regra já usada só é desativada.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC21"
+    ],
+    "regras": [
+     "RN30"
+    ]
    },
    {
     "id": "RF38",
     "ator": "Profissional",
-    "descricao": "Consultar \"Minhas comissões\" do mês: cada crédito com a base e a regra, o status e o saldo a receber, sem nome de cliente (só leitura)."
+    "descricao": "Consultar \"Minhas comissões\" do mês: cada crédito com a base e a regra, o status e o saldo a receber, sem nome de cliente (só leitura).",
+    "prioridade": "Desejável",
+    "casos_uso": [
+     "UC31"
+    ],
+    "regras": [
+     "RN30"
+    ]
    },
    {
     "id": "RF39",
     "ator": "Cliente (público)",
-    "descricao": "Em \"Meus agendamentos\", mudar as próprias preferências de comunicação (promoções por e-mail, lembrete e pesquisa por WhatsApp), com o estado vigente à vista e o registro com origem PORTAL."
+    "descricao": "Em \"Meus agendamentos\", mudar as próprias preferências de comunicação (promoções por e-mail, lembrete e pesquisa por WhatsApp), com o estado vigente à vista e o registro com origem PORTAL.",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC06",
+     "UC12"
+    ],
+    "regras": [
+     "RN17"
+    ]
    },
    {
     "id": "RF40",
     "ator": "Cliente (público) / ADMIN",
-    "descricao": "Revogar o consentimento de dado de saúde pelo portal (ou a equipe, a pedido, pelo Django admin com motivo), com trilha e o aviso de que a ficha feita fica pelo prazo de guarda."
+    "descricao": "Revogar o consentimento de dado de saúde pelo portal (ou a equipe, a pedido, pelo Django admin com motivo), com trilha e o aviso de que a ficha feita fica pelo prazo de guarda.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC33"
+    ],
+    "regras": [
+     "RN55"
+    ]
    },
    {
     "id": "RF41",
     "ator": "Cliente (público)",
-    "descricao": "Pedir correção ou exclusão dos dados pelo portal: o pedido fica na auditoria com o prazo de resposta (15 dias) e vai por e-mail à clínica (encarregado > e-mail do administrador > e-mail da marca)."
+    "descricao": "Pedir correção ou exclusão dos dados pelo portal: o pedido fica na auditoria com o prazo de resposta (15 dias) e vai por e-mail à clínica (encarregado > e-mail do administrador > e-mail da marca).",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC12"
+    ],
+    "regras": [
+     "RN41",
+     "RN42"
+    ]
    },
    {
     "id": "RF42",
     "ator": "Cliente (público)",
-    "descricao": "Baixar os próprios dados pelo portal (sem a ficha de saúde), exigindo código confirmado há até 10 minutos."
+    "descricao": "Baixar os próprios dados pelo portal (sem a ficha de saúde), exigindo código confirmado há até 10 minutos.",
+    "prioridade": "Essencial",
+    "casos_uso": [
+     "UC12"
+    ],
+    "regras": [
+     "RN42"
+    ]
    },
    {
     "id": "RF43",
     "ator": "Cliente (público)",
-    "descricao": "Enviar mensagem pelo formulário de contato, com aceite da política, captcha, honeypot, 5/min e 20/dia por IP e teto diário global; sem caixa de marketing; se o e-mail não sair, a página mantém o texto e oferece o WhatsApp."
+    "descricao": "Enviar mensagem pelo formulário de contato, com aceite da política, captcha, honeypot, 5/min e 20/dia por IP e teto diário global; sem caixa de marketing; se o e-mail não sair, a página mantém o texto e oferece o WhatsApp.",
+    "prioridade": "Desejável",
+    "casos_uso": [
+     "UC32"
+    ],
+    "regras": [
+     "RN14"
+    ]
    },
    {
     "id": "RF44",
     "ator": "Sistema",
-    "descricao": "Exibir a Política de Privacidade a partir do termo LGPD vigente (texto, versão e vigência), emoldurado pela identificação da clínica e do encarregado."
+    "descricao": "Exibir a Política de Privacidade a partir do termo LGPD vigente (texto, versão e vigência), emoldurado pela identificação da clínica e do encarregado.",
+    "prioridade": "Essencial",
+    "casos_uso": [],
+    "regras": [
+     "RN39",
+     "RN56"
+    ]
    },
    {
     "id": "RF45",
     "ator": "Sistema",
-    "descricao": "Registrar na auditoria a leitura de alertas de saúde na agenda e na visão geral do painel (\"Leu alertas de saúde\", sem nome de cliente)."
+    "descricao": "Registrar na auditoria a leitura de alertas de saúde na agenda e na visão geral do painel (\"Leu alertas de saúde\", sem nome de cliente).",
+    "prioridade": "Importante",
+    "casos_uso": [
+     "UC16",
+     "UC17"
+    ],
+    "regras": [
+     "RN38",
+     "RN43"
+    ]
    },
    {
     "id": "RF46",
     "ator": "Sistema",
-    "descricao": "Mostrar no site público só números com dado real — nota média do NPS (com 10+ respostas), clientes atendidas (a partir de 50, arredondadas para baixo), tratamentos agendáveis online e anos de experiência informados pela clínica —, escondendo o que não atinge o mínimo."
+    "descricao": "Mostrar no site público só números com dado real — nota média do NPS (com 10+ respostas), clientes atendidas (a partir de 50, arredondadas para baixo), tratamentos agendáveis online e anos de experiência informados pela clínica —, escondendo o que não atinge o mínimo.",
+    "prioridade": "Desejável",
+    "casos_uso": [],
+    "regras": [
+     "RN57"
+    ]
    },
    {
     "id": "RF47",
     "ator": "Cliente (público)",
-    "descricao": "Consultar as perguntas frequentes por categoria na página /duvidas/ (agendamento, pagamentos e pacotes, tratamentos, privacidade e dados), com respostas geradas das regras que o sistema aplica; a página inicial mostra as 5 em destaque e leva para a lista completa."
+    "descricao": "Consultar as perguntas frequentes por categoria na página /duvidas/ (agendamento, pagamentos e pacotes, tratamentos, privacidade e dados), com respostas geradas das regras que o sistema aplica; a página inicial mostra as 5 em destaque e leva para a lista completa.",
+    "prioridade": "Desejável",
+    "casos_uso": [],
+    "regras": []
    }
   ],
   "requisitos_nao_funcionais": [
    {
     "id": "RNF01",
     "categoria": "Segurança",
-    "descricao": "Content-Security-Policy com nonce por request, sem unsafe-inline em script-src/style-src e sem handlers inline; nenhum CDN (bibliotecas de terceiros pelo npm, no bundle do Vite; o único host externo de script é o captcha); frame-ancestors none (exceto o widget)."
+    "descricao": "Content-Security-Policy com nonce por request, sem unsafe-inline em script-src/style-src e sem handlers inline; nenhum CDN (bibliotecas de terceiros pelo npm, no bundle do Vite; o único host externo de script é o captcha); frame-ancestors none (exceto o widget).",
+    "verificacao": "test_csp; varredura visual do CI (reprova violação de CSP em qualquer rota)"
    },
    {
     "id": "RNF02",
     "categoria": "Segurança",
-    "descricao": "HTTPS obrigatório com HSTS de 1 ano (preload), X-Frame-Options DENY, nosniff, COOP/CORP, Permissions-Policy e cookies HttpOnly/SameSite/Secure."
+    "descricao": "HTTPS obrigatório com HSTS de 1 ano (preload), X-Frame-Options DENY, nosniff, COOP/CORP, Permissions-Policy e cookies HttpOnly/SameSite/Secure.",
+    "verificacao": "check --deploy com os settings de produção e de staging (job SQLite do CI); test_hardening_final"
    },
    {
     "id": "RNF03",
     "categoria": "Segurança",
-    "descricao": "2FA TOTP obrigatório para ADMIN e PROFISSIONAL em produção, conferido a cada request no painel, portal, Django admin e push; códigos de backup; sem tela de login paralela; recuperação só por comando no servidor."
+    "descricao": "2FA TOTP obrigatório para ADMIN e PROFISSIONAL em produção, conferido a cada request no painel, portal, Django admin e push; códigos de backup; sem tela de login paralela; recuperação só por comando no servidor.",
+    "verificacao": "test_2fa, test_auth_equipe, conta/test_dois_fatores"
    },
    {
     "id": "RNF04",
     "categoria": "Segurança",
-    "descricao": "OTP com HMAC-SHA256 (OTP_HMAC_KEY ou a SECRET_KEY), comparação em tempo constante, 5 tentativas, propósitos isolados, desafio preso ao telefone e latência mínima no pedido de código do portal e do \"Meus dados\" (a resposta não revela, nem pelo tempo, quem é cliente)."
+    "descricao": "OTP com HMAC-SHA256 (OTP_HMAC_KEY ou a SECRET_KEY), comparação em tempo constante, 5 tentativas, propósitos isolados, desafio preso ao telefone e latência mínima no pedido de código do portal e do \"Meus dados\" (a resposta não revela, nem pelo tempo, quem é cliente).",
+    "verificacao": "test_otp, test_token_expiry"
    },
    {
     "id": "RNF05",
     "categoria": "Segurança",
-    "descricao": "Rate-limit em camadas: cotas de SMS (telefone, IP, global), limites por IP nos endpoints e formulários públicos (lista de espera, contato com teto diário global, \"Meus dados\" também por telefone), 30 ações de escrita por minuto por usuário na agenda do painel, django-axes no login; captcha Turnstile no pedido de código, no contato e na lista de espera; honeypot nos formulários sem login."
+    "descricao": "Rate-limit em camadas: cotas de SMS (telefone, IP, global), limites por IP nos endpoints e formulários públicos (lista de espera, contato com teto diário global, \"Meus dados\" também por telefone), 30 ações de escrita por minuto por usuário na agenda do painel, django-axes no login; captcha Turnstile no pedido de código, no contato e na lista de espera; honeypot nos formulários sem login.",
+    "verificacao": "test_otp, test_contato, test_lista_espera_publica, conta/test_autenticacao, test_auth_equipe"
    },
    {
     "id": "RNF06",
     "categoria": "Privacidade",
-    "descricao": "Áreas privadas sem cache no navegador (no-store), Referrer-Policy no-referrer nas rotas com token, X-Robots-Tag noindex nas privadas, Clear-Site-Data no logout; links públicos guardam só o SHA-256 do token; tokens, e-mail, CPF e telefone redigidos no access log, no log da aplicação e no Sentry."
+    "descricao": "Áreas privadas sem cache no navegador (no-store), Referrer-Policy no-referrer nas rotas com token, X-Robots-Tag noindex nas privadas, Clear-Site-Data no logout; links públicos guardam só o SHA-256 do token; tokens, e-mail, CPF e telefone redigidos no access log, no log da aplicação e no Sentry.",
+    "verificacao": "test_hardening_final, test_painel_seguranca_b, test_auth_equipe, test_pii_sentry"
    },
    {
     "id": "RNF07",
     "categoria": "Segurança",
-    "descricao": "Segredos só em variáveis de ambiente, lidas e validadas só nos settings (ruff TID251; .env.example conferido contra o código); SECRET_KEY obrigatória fora de DEBUG; DJANGO_ENV inválido derruba o boot; system checks aranha.W001–W016 apontam configuração de produção faltando e os erros E001–E004 (sem chave de cifragem, sem Postgres, segredo fraco, OTP acima do teto do banco) barram o pre-deploy."
+    "descricao": "Segredos só em variáveis de ambiente, lidas e validadas só nos settings (ruff TID251; .env.example conferido contra o código); SECRET_KEY obrigatória fora de DEBUG; DJANGO_ENV inválido derruba o boot; system checks aranha.W001–W016 apontam configuração de produção faltando e os erros E001–E004 (sem chave de cifragem, sem Postgres, segredo fraco, OTP acima do teto do banco) barram o pre-deploy.",
+    "verificacao": "test_deploy_config (env só nos settings, .env.example, system checks), infra/test_deploy; ruff TID251"
    },
    {
     "id": "RNF08",
     "categoria": "Confiabilidade",
-    "descricao": "Canais de mensagem falham fechado: sem credencial nada é enviado nem marcado como enviado; I/O externo só após o commit; e-mail transacional em fila no banco com reenvio (sem Celery, nada roda em segundo plano sem rastro)."
+    "descricao": "Canais de mensagem falham fechado: sem credencial nada é enviado nem marcado como enviado; I/O externo só após o commit; e-mail transacional em fila no banco com reenvio (sem Celery, nada roda em segundo plano sem rastro).",
+    "verificacao": "test_fila_email, test_servicos_canais, test_otp (SMS sem credencial não envia)"
    },
    {
     "id": "RNF09",
     "categoria": "LGPD",
-    "descricao": "Autorizações de comunicação por finalidade × canal em histórico append-only (texto exibido, IP, navegador, autor); aceite da política, do termo de saúde (art. 11) e dos termos do procedimento com prova (IP, navegador, SHA-256)."
+    "descricao": "Autorizações de comunicação por finalidade × canal em histórico append-only (texto exibido, IP, navegador, autor); aceite da política, do termo de saúde (art. 11) e dos termos do procedimento com prova (IP, navegador, SHA-256).",
+    "verificacao": "test_consentimentos, test_consentimento_saude, test_aceite_termo_modelo, test_pg_ddl (imutabilidade)"
    },
    {
     "id": "RNF10",
     "categoria": "LGPD",
-    "descricao": "Retenção automatizada (OTP, notificações, auditoria, trilha, links, logs de login, clientes inativas/excluídas, fichas de pedidos não realizados, lista de espera, registro de saúde aos 20 anos do último evento, pacote 5 anos após o fim) e esquecimento por pseudonimização, executados por procedures do Postgres; prazos LGPD fixos no settings e conferidos contra o texto publicado (aranha.W016); inventário LGPD coluna a coluna conferido por teste."
+    "descricao": "Retenção automatizada (OTP, notificações, auditoria, trilha, links, logs de login, clientes inativas/excluídas, fichas de pedidos não realizados, lista de espera, registro de saúde aos 20 anos do último evento, pacote 5 anos após o fim) e esquecimento por pseudonimização, executados por procedures do Postgres; prazos LGPD fixos no settings e conferidos contra o texto publicado (aranha.W016); inventário LGPD coluna a coluna conferido por teste.",
+    "verificacao": "test_lgpd_retencao_saude, test_lgpd_esquecimento, test_pg_paridade (procedures), test_inventario_lgpd"
    },
    {
     "id": "RNF11",
     "categoria": "LGPD",
-    "descricao": "Direitos do titular pela área da cliente: acesso/portabilidade (JSON sem a ficha de saúde), pedido de correção ou exclusão com prazo, preferências e revogação de consentimento (inclusive o de saúde), e pseudonimização pela clínica."
+    "descricao": "Direitos do titular pela área da cliente: acesso/portabilidade (JSON sem a ficha de saúde), pedido de correção ou exclusão com prazo, preferências e revogação de consentimento (inclusive o de saúde), e pseudonimização pela clínica.",
+    "verificacao": "test_politica_dsar, test_portal_cliente, test_lgpd_esquecimento"
    },
    {
     "id": "RNF12",
     "categoria": "LGPD",
-    "descricao": "Trilha de auditoria (log_auditoria) e trilha de dados (historico_alteracao, por trigger) com autor, IP e origem, ambas append-only no banco; a leitura de alerta de saúde nas listas do painel também vai para a auditoria; PII mascarada em logs e no Sentry (send_default_pii=False)."
+    "descricao": "Trilha de auditoria (log_auditoria) e trilha de dados (historico_alteracao, por trigger) com autor, IP e origem, ambas append-only no banco; a leitura de alerta de saúde nas listas do painel também vai para a auditoria; PII mascarada em logs e no Sentry (send_default_pii=False).",
+    "verificacao": "test_pg_historico (trilha por trigger, append-only), test_pii_sentry"
    },
    {
     "id": "RNF13",
     "categoria": "Integridade",
-    "descricao": "Invariantes no banco: EXCLUDE (atendimento, grade, folgas), UNIQUE parciais, CHECKs, 47 triggers (atualizado_em, imutabilidade de ledgers, prova de aceite, termo aceito, prontuário, anotação, item de pacote, consentimento e link; validação de consumo, de comissão e da regra de comissão usada) e FKs PROTECT no histórico clínico/financeiro."
+    "descricao": "Invariantes no banco: EXCLUDE (atendimento, grade, folgas), UNIQUE parciais, CHECKs, 49 triggers (updated_at, imutabilidade de ledgers, prova de aceite, termo aceito, prontuário, anotação, item de pacote, consentimento e link; validação de consumo, de comissão e da regra de comissão usada) e FKs PROTECT no histórico clínico/financeiro.",
+    "verificacao": "test_pg_ddl e test_nomes_padrao no Postgres 18 do CI"
    },
    {
     "id": "RNF14",
     "categoria": "Confiabilidade",
-    "descricao": "Migrações aplicadas numa transação única com lock_timeout no pre-deploy (tudo ou nada); data migrations com pré-checagem que aborta listando os registros; rollback de produção por restauração do backup."
+    "descricao": "Migrações aplicadas numa transação única com lock_timeout no pre-deploy (tudo ou nada); data migrations com pré-checagem que aborta listando os registros; rollback de produção por restauração do backup.",
+    "verificacao": "test_migrations_dados (descem e sobem a cadeia); job Postgres: migrate_atomico do zero; smoke do pre-deploy na imagem"
    },
    {
     "id": "RNF15",
     "categoria": "Confiabilidade",
-    "descricao": "FSM com transições validadas sob lock e auditadas; efeitos explícitos (services/atendimento) na mesma transação do status; efeitos idempotentes (1 retorno por origem, 1 consumo e 1 crédito de comissão ativo por atendimento, job de mensagem 1×/dia, cashback único)."
+    "descricao": "FSM com transições validadas sob lock e auditadas; efeitos explícitos (services/atendimento) na mesma transação do status; efeitos idempotentes (1 retorno por origem, 1 consumo e 1 crédito de comissão ativo por atendimento, job de mensagem 1×/dia, cashback único).",
+    "verificacao": "test_fsm_integridade, test_efeitos_atendimento, test_fluxo_pedido"
    },
    {
     "id": "RNF16",
     "categoria": "Desempenho",
-    "descricao": "gunicorn 1 worker × 4 threads com cache local (Redis opcional para escalar); estáticos comprimidos e com hash (WhiteNoise); índices das consultas reais, busca trigram sem acento, alertas de saúde em lote, statement_timeout na conexão e consultas lentas pelo pg_stat_statements."
+    "descricao": "gunicorn 1 worker × 4 threads com cache local (Redis opcional para escalar); estáticos comprimidos e com hash (WhiteNoise); índices das consultas reais, busca trigram sem acento, alertas de saúde em lote, statement_timeout na conexão e consultas lentas pelo pg_stat_statements.",
+    "verificacao": "test_consultas_por_tela (teto de consultas por tela), test_consultas_lentas, test_deploy_config (statement_timeout)"
    },
    {
     "id": "RNF17",
     "categoria": "Observabilidade",
-    "descricao": "Healthchecks /healthz/ (liveness + build do front) e /health/ (banco, cache, front); Sentry opcional; logs JSON em produção; jobs devolvem 500 (cron HTTP) ou exit 1 (serviço Cron) quando falham e avisam o monitor (CRON_MONITOR_URL)."
+    "descricao": "Healthchecks /healthz/ (liveness + build do front) e /health/ (banco, cache, front); Sentry opcional; logs JSON em produção; jobs devolvem 500 (cron HTTP) ou exit 1 (serviço Cron) quando falham e avisam o monitor (CRON_MONITOR_URL).",
+    "verificacao": "infra/test_deploy, test_deploy_config (healthchecks), infra/test_cron (falha devolve 500)"
    },
    {
     "id": "RNF18",
     "categoria": "Qualidade",
-    "descricao": "Cerca de 2.020 testes automatizados em 124 arquivos, num runner só (manage.py test); CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard e painel no Chromium (Playwright), varredura visual de todas as rotas (desktop claro e celular escuro: erros de página, JS e CSP, rolagem lateral e acessibilidade pelo axe-core), imagem Docker com smoke do pre-deploy e do start, pip-audit, npm audit e gitleaks bloqueantes; ruff, import-linter, mypy nos services e cobertura combinada (SQLite + Postgres) com catraca (≈ 87 %)."
+    "descricao": "Cerca de 2.020 testes automatizados em 124 arquivos, num runner só (manage.py test); CI com SQLite, Postgres 18 (conformidade do padrão SQL, trilha e paridade das funções com o Python), data migrations em paralelo, build do front, wizard e painel no Chromium (Playwright), varredura visual de todas as rotas (desktop claro e celular escuro: erros de página, JS e CSP, rolagem lateral e acessibilidade pelo axe-core), imagem Docker com smoke do pre-deploy e do start, pip-audit, npm audit e gitleaks bloqueantes; ruff, import-linter, mypy nos services e cobertura combinada (SQLite + Postgres) com catraca (≈ 87 %).",
+    "verificacao": "CI com 9 jobs obrigatórios e catraca de cobertura combinada"
    },
    {
     "id": "RNF19",
     "categoria": "Usabilidade",
-    "descricao": "Interface pt-BR em tom de estética e bem-estar, em caixa de frase; contraste AA nos tokens, foco visível, formulários acessíveis, diálogos nativos e respeito a prefers-reduced-motion; telas da equipe num design system de componentes (texto base de 15px, nada abaixo de 12px, abas acessíveis, tabela que vira cartões no celular); wizard com as etapas visíveis e botão Continuar fixo no celular, operável por teclado; tema claro/escuro automático; fontes locais; fotos responsivas (WebP com JPEG de reserva, dimensões reservadas); PWA instalável para o site e para a equipe."
+    "descricao": "Interface pt-BR em tom de estética e bem-estar, em caixa de frase; contraste AA nos tokens, foco visível, formulários acessíveis, diálogos nativos e respeito a prefers-reduced-motion; telas da equipe num design system de componentes (texto base de 15px, nada abaixo de 12px, abas acessíveis, tabela que vira cartões no celular); wizard com as etapas visíveis e botão Continuar fixo no celular, operável por teclado; tema claro/escuro automático; fontes locais; fotos responsivas (WebP com JPEG de reserva, dimensões reservadas); PWA instalável para o site e para a equipe.",
+    "verificacao": "test_a11y_front, test_crawl_visual (axe-core em todas as rotas, desktop claro e celular escuro)"
    },
    {
     "id": "RNF20",
     "categoria": "Manutenibilidade",
-    "descricao": "Camadas views → services/utils → models e áreas de views independentes verificadas por import-linter; fontes únicas (services/agenda, services/atendimento, SlotService, preços, Branding, termos, consentimentos); recusas tipadas (RegraDeNegocio); contrato JSON único (utils/respostas) e telefone numa fonte só (utils/telefone); Django Forms no painel; componentes cotton e Alpine CSP; textos que também são regra (política de privacidade, FAQ) gerados das constantes (conteudo/); documentação viva e requisitos gerados a partir de dados versionados."
+    "descricao": "Camadas views → services/utils → models e áreas de views independentes verificadas por import-linter; fontes únicas (services/agenda, services/atendimento, SlotService, preços, Branding, termos, consentimentos); recusas tipadas (RegraDeNegocio); contrato JSON único (utils/respostas) e telefone numa fonte só (utils/telefone); Django Forms no painel; componentes cotton e Alpine CSP; textos que também são regra (política de privacidade, FAQ) gerados das constantes (conteudo/); documentação viva e requisitos gerados a partir de dados versionados.",
+    "verificacao": "import-linter (contratos de camada) no CI; test_deploy_config (runner único); test_openapi (contrato JSON)"
    },
    {
     "id": "RNF21",
     "categoria": "Implantação",
-    "descricao": "Imagem Docker multi-stage (Node para o front, Python para a app) com dependências fixadas (requirements.lock), usuário não-root sem shell, código só leitura, sem curl e healthcheck; deploy no Railway com pre-deploy de migração e criação do ADMIN e um serviço Cron para os jobs."
+    "descricao": "Imagem Docker multi-stage (Node para o front, Python para a app) com dependências fixadas (requirements.lock), usuário não-root sem shell, código só leitura, sem curl e healthcheck; deploy no Railway com pre-deploy de migração e criação do ADMIN e um serviço Cron para os jobs.",
+    "verificacao": "job \"Imagem de produção\" do CI (build, pre-deploy e start)"
    },
    {
     "id": "RNF22",
     "categoria": "Privacidade",
-    "descricao": "Dado de saúde cifrado em repouso na aplicação (Fernet, CHAVES_CIFRAGEM com subchave por finalidade e rotação por comando): dump ou backup sem a chave não expõe a ficha."
+    "descricao": "Dado de saúde cifrado em repouso na aplicação (Fernet, CHAVES_CIFRAGEM com subchave por finalidade e rotação por comando): dump ou backup sem a chave não expõe a ficha.",
+    "verificacao": "test_cifragem, test_pg_historico (trilha sem texto claro)"
    },
    {
     "id": "RNF23",
     "categoria": "Manutenibilidade",
-    "descricao": "Padrão SQL em todas as tabelas (nomes snake_case PT-BR, prefixos pk_/fk_/uq_/ck_/ix_/ex_/tg_/fn_, ON DELETE real, COMMENT em toda tabela, defaults no banco), conferido por teste no pg_catalog."
+    "descricao": "Padrão SQL em todas as tabelas (nomes snake_case PT-BR, prefixos pk_/fk_/uq_/ck_/ix_/ex_/tg_/fn_, ON DELETE real, COMMENT em toda tabela, defaults no banco) e metadados de linha iguais em todas, em inglês: created_at em toda tabela, updated_at (por trigger) onde há UPDATE de negócio, deleted_at no soft delete e autoria created_by_id + created_by_name; conferido por teste no pg_catalog e nos models.",
+    "verificacao": "test_nomes_padrao (pg_catalog no Postgres) e MetadadosDeLinhaTests (sem banco)"
+   },
+   {
+    "id": "RNF24",
+    "categoria": "Documentação",
+    "descricao": "Contrato das rotas de máquina em OpenAPI 3.1 (aranha_estetica/api/openapi.yaml) navegável no Swagger UI do painel; respostas JSON num envelope único {ok, codigo, mensagem}; diagramas UML, modelo de dados e documentos do projeto gerados a partir do código, sem cópia manual de contagens.",
+    "verificacao": "test_openapi (especificação válida, toda rota JSON documentada); geradores de documentação e UML a partir do código"
    }
   ]
  },

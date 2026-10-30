@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Gera a Documentação Técnica do Shiva Zen (DOCX + PDF): requisitos, regras de negócio, todos os
-diagramas UML (docs/uml/png), arquitetura, modelo de dados, segurança/LGPD, qualidade e implantação.
+diagramas UML (docs/uml/lucid, ou docs/uml/png sem a versão do Lucid), arquitetura, modelo de dados,
+segurança/LGPD, qualidade e implantação. Estilo, capa, sumário e gravação: docs/_docx_base.py.
+Regras de negócio, requisitos e documento técnico em separado: docs/gerar_especificacoes.py.
 
 Fontes: docs/_dados_requisitos.json (requisitos, regras, casos de uso, entidades, rotas — extraídos
 do código), docs/uml/png (render do PlantUML: python docs/uml/gerar_uml.py), docs/ARCHITECTURE.md
@@ -19,26 +21,13 @@ from datetime import date
 
 import yaml
 
-from docx import Document
-from docx.enum.section import WD_ORIENT, WD_SECTION
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.image.image import Image as DocxImage
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-from docx.shared import Inches, Pt, RGBColor
+from _docx_base import BASE, RAIZ, Documento, abrir_word
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-RAIZ = os.path.dirname(BASE)
-PNG = os.path.join(BASE, 'uml', 'png')
-# Versões de apresentação feitas no Lucidchart (mesmo conteúdo, exportadas para docs/uml/lucid/):
-# quando existe a do Lucid, o documento usa ela; senão, a renderização do PlantUML.
-LUCID = os.path.join(BASE, 'uml', 'lucid')
 DADOS = os.path.join(BASE, '_dados_requisitos.json')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 
-VERSAO = '3.4'
-DATA = date(2026, 10, 29).strftime('%d/%m/%Y')
+VERSAO = '3.5'
+DATA = date(2026, 10, 30).strftime('%d/%m/%Y')
 # (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
 HISTORICO = [
     ('2.1', '21/06/2026', 'Documento de requisitos + modelagem UML gerado a partir do código '
@@ -75,11 +64,11 @@ HISTORICO = [
                           'refeitos com os nomes novos e os metadados por último; diagramas de sequência, '
                           'estados, componentes e implantação também no Lucidchart — todas as figuras '
                           'UML do documento passam a ser as do Lucid.'),
+    ('3.5', '30/10/2026', 'Requisitos funcionais com prioridade e rastreabilidade (casos de uso e regras), '
+                          'requisitos não funcionais com a forma de verificação (RNF24: documentação e '
+                          'contrato da API); regras de negócio, requisitos e documento técnico também em '
+                          'documentos próprios.'),
 ]
-GOLD = RGBColor(0xC4, 0xA3, 0x5A)
-DARK = RGBColor(0x4A, 0x34, 0x25)
-CINZA = RGBColor(0x66, 0x66, 0x66)
-
 with open(DADOS, encoding='utf-8') as f:
     D = json.load(f)
 
@@ -130,179 +119,11 @@ N_TESTES = _contar_testes()
 N_MIGRATIONS = _contar_migrations()
 N_TABELAS = len(D['models-core']['models']) + len(D['models-aux']['models'])
 
-doc = Document()
-normal = doc.styles['Normal']
-normal.font.name = 'Calibri'
-normal.font.size = Pt(10.5)
-for lvl, sz in ((1, 16), (2, 13), (3, 11.5)):
-    st = doc.styles[f'Heading {lvl}']
-    st.font.color.rgb = DARK
-    st.font.size = Pt(sz)
-    st.font.name = 'Calibri'
+d = Documento('Shiva Zen — Documentação Técnica v' + VERSAO)
+h1, h2, par, itens, add_table, figura = d.h1, d.h2, d.par, d.itens, d.tabela, d.figura
 
-FIGURA = [0]
-
-
-def _shade(cell, hexcolor):
-    tcPr = cell._tc.get_or_add_tcPr()
-    shd = OxmlElement('w:shd')
-    shd.set(qn('w:val'), 'clear')
-    shd.set(qn('w:fill'), hexcolor)
-    tcPr.append(shd)
-
-
-def add_table(headers, rows, widths=None):
-    t = doc.add_table(rows=1, cols=len(headers))
-    t.style = 'Light Grid Accent 1'
-    t.alignment = WD_TABLE_ALIGNMENT.CENTER
-    hdr = t.rows[0].cells
-    for i, h in enumerate(headers):
-        hdr[i].text = ''
-        run = hdr[i].paragraphs[0].add_run(h)
-        run.bold = True
-        run.font.size = Pt(9.5)
-        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-        _shade(hdr[i], '7A5F1F')
-    for row in rows:
-        cells = t.add_row().cells
-        for i, val in enumerate(row):
-            cells[i].text = ''
-            r = cells[i].paragraphs[0].add_run(str(val))
-            r.font.size = Pt(9)
-    if widths:
-        for col, w in enumerate(widths):
-            for cell in t.columns[col].cells:
-                cell.width = Inches(w)
-    doc.add_paragraph()
-    return t
-
-
-def _orientar(paisagem):
-    """Garante a orientacao da pagina atual. Secao nova (= pagina nova) so quando ela muda."""
-    sec = doc.sections[-1]
-    if (sec.orientation == WD_ORIENT.LANDSCAPE) == paisagem:
-        return False
-    sec = doc.add_section(WD_SECTION.NEW_PAGE)
-    sec.orientation = WD_ORIENT.LANDSCAPE if paisagem else WD_ORIENT.PORTRAIT
-    sec.page_width, sec.page_height = sec.page_height, sec.page_width
-    return True
-
-
-def figura(caminho, legenda, descricao=None):
-    """Diagrama numerado (docs/uml/lucid/<caminho> ou docs/uml/png/<caminho>); largo vai em paisagem,
-    alto em retrato."""
-    path = os.path.join(LUCID, caminho)
-    if not os.path.exists(path):
-        path = os.path.join(PNG, caminho)
-    if not os.path.exists(path):
-        doc.add_paragraph(f'[diagrama ausente: {caminho} — rode python docs/uml/gerar_uml.py]')
-        return
-    img = DocxImage.from_file(path)
-    proporcao = img.px_height / img.px_width
-    paisagem = proporcao <= 0.75
-    if paisagem:
-        if not _orientar(True):
-            doc.add_page_break()
-    else:
-        _orientar(False)
-    if descricao:
-        par(descricao, size=9.5)
-    sec = doc.sections[-1]
-    max_w = sec.page_width - sec.left_margin - sec.right_margin
-    max_h = sec.page_height - sec.top_margin - sec.bottom_margin - Inches(1.1 if descricao else 0.8)
-    largura = min(max_w, int(max_h / proporcao))
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.add_run().add_picture(path, width=largura)
-    FIGURA[0] += 1
-    cap = doc.add_paragraph()
-    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = cap.add_run(f'Figura {FIGURA[0]} — {legenda}')
-    r.italic = True
-    r.font.size = Pt(8.5)
-    r.font.color.rgb = CINZA
-
-
-def campo(run, instrucao, texto=''):
-    """Campo do Word (sumario, numero de pagina) no run: begin + instrucao [+ texto] + end."""
-    def marca(tipo):
-        el = OxmlElement('w:fldChar')
-        el.set(qn('w:fldCharType'), tipo)
-        return el
-    instr = OxmlElement('w:instrText')
-    instr.set(qn('xml:space'), 'preserve')
-    instr.text = instrucao
-    elementos = [marca('begin'), instr]
-    if texto:
-        t = OxmlElement('w:t')
-        t.text = texto
-        elementos += [marca('separate'), t]
-    elementos.append(marca('end'))
-    for el in elementos:
-        run._r.append(el)
-
-
-def h1(txt, nova_pagina=True):
-    _orientar(False)
-    if nova_pagina:
-        doc.add_page_break()
-    doc.add_heading(txt, level=1)
-
-
-def h2(txt):
-    _orientar(False)
-    doc.add_heading(txt, level=2)
-
-
-def par(txt, size=10.5):
-    p = doc.add_paragraph()
-    r = p.add_run(txt)
-    r.font.size = Pt(size)
-    return p
-
-
-def itens(lista, numerada=False, size=9.5):
-    for item in lista:
-        p = doc.add_paragraph(style='List Number' if numerada else 'List Bullet')
-        p.add_run(item).font.size = Pt(size)
-
-
-# ===================== CAPA =====================
-for _ in range(4):
-    doc.add_paragraph()
-for texto, tamanho, cor, negrito in (
-        ('SHIVA ZEN', 34, GOLD, True),
-        ('Sistema de Gestão para Clínica de Estética', 15, DARK, False),
-        ('Jaqueline Aranha Estética', 12, CINZA, False)):
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run(texto)
-    r.bold = negrito
-    r.font.size = Pt(tamanho)
-    r.font.color.rgb = cor
-for _ in range(2):
-    doc.add_paragraph()
-tit = doc.add_paragraph()
-tit.alignment = WD_ALIGN_PARAGRAPH.CENTER
-r = tit.add_run('Documentação Técnica do Projeto\nRequisitos, Modelagem UML, Arquitetura e Implantação')
-r.bold = True
-r.font.size = Pt(16)
-for _ in range(6):
-    doc.add_paragraph()
-meta = doc.add_paragraph()
-meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-meta.add_run(f'Versão {VERSAO}  |  {DATA}').font.size = Pt(11)
-
-# ===================== SUMARIO =====================
-doc.add_page_break()
-titulo_sumario = doc.add_paragraph()
-r = titulo_sumario.add_run('Sumário')   # sem estilo de titulo: nao entra no proprio sumario
-r.bold = True
-r.font.size = Pt(16)
-r.font.color.rgb = DARK
-toc_p = doc.add_paragraph()
-run = toc_p.add_run()
-campo(run, 'TOC \\o "1-2" \\h \\z \\u', 'Atualize este campo no Word (Ctrl+A, F9) para gerar o sumário.')
+d.capa('Documentação Técnica do Projeto', 'Requisitos, Modelagem UML, Arquitetura e Implantação', VERSAO, DATA)
+d.sumario()
 
 # ===================== 1. INTRODUCAO =====================
 h1('1. Introdução')
@@ -366,13 +187,15 @@ add_table(['Ator', 'Descrição'], [[a['nome'], a['descricao']] for a in D['caso
 
 # ===================== 4-6. REQUISITOS E REGRAS =====================
 h1('4. Requisitos Funcionais')
-add_table(['ID', 'Ator', 'Descrição'],
-          [[rf['id'], rf['ator'], rf['descricao']] for rf in D['regras-requisitos']['requisitos_funcionais']],
-          widths=[0.6, 1.4, 4.7])
+add_table(['ID', 'Ator', 'Prioridade', 'Descrição'],
+          [[rf['id'], rf['ator'], rf['prioridade'], rf['descricao']]
+           for rf in D['regras-requisitos']['requisitos_funcionais']],
+          widths=[0.6, 1.3, 0.8, 4.0])
 h1('5. Requisitos Não Funcionais')
-add_table(['ID', 'Categoria', 'Descrição'],
-          [[r['id'], r['categoria'], r['descricao']] for r in D['regras-requisitos']['requisitos_nao_funcionais']],
-          widths=[0.6, 1.2, 4.9])
+add_table(['ID', 'Categoria', 'Descrição', 'Como é verificado'],
+          [[r['id'], r['categoria'], r['descricao'], r['verificacao']]
+           for r in D['regras-requisitos']['requisitos_nao_funcionais']],
+          widths=[0.6, 1.0, 3.3, 1.8])
 h1('6. Regras de Negócio')
 add_table(['ID', 'Título', 'Descrição'],
           [[r['id'], r['titulo'], r['descricao']] for r in D['regras-requisitos']['regras']],
@@ -675,44 +498,10 @@ add_table(['Termo', 'Significado'], [
 h1('Histórico de Versões')
 add_table(['Versão', 'Data', 'Descrição'], [list(linha) for linha in HISTORICO], widths=[0.9, 1.2, 4.6])
 
-# ---- rodape com numero de pagina (secoes em paisagem herdam o rodape da 1a) ----
-for i, section in enumerate(doc.sections):
-    footer = section.footer
-    if i > 0 and footer.is_linked_to_previous:
-        continue
-    fp = footer.paragraphs[0]
-    fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = fp.add_run('Shiva Zen — Documentação Técnica v' + VERSAO + '   |   Pág. ')
-    run.font.size = Pt(8)
-    campo(run, 'PAGE')
-
-out_docx = os.path.join(BASE, 'ShivaZen-Documentacao.docx')
-out_pdf = os.path.join(BASE, 'ShivaZen-Documentacao.pdf')
-rascunho = os.path.join(BASE, '~rascunho-documentacao.docx')
-doc.save(rascunho)
-print(f'{FIGURA[0]} figuras, {N_TESTES} testes, {N_MIGRATIONS} migrations')
-
-# ---- sumario atualizado + PDF pelo Word (Windows). Sem Word: fica o DOCX sem o sumario
-# preenchido (abra no Word, F9 no sumario e Salvar como PDF).
+print(f'{d.figuras} figuras, {N_TESTES} testes, {N_MIGRATIONS} migrations')
+word = abrir_word()
 try:
-    import win32com.client
-
-    word = win32com.client.DispatchEx('Word.Application')
-    word.Visible = False
-    word.DisplayAlerts = 0
-    try:
-        d = word.Documents.Open(rascunho, ReadOnly=False, AddToRecentFiles=False)
-        for toc in d.TablesOfContents:
-            toc.Update()
-        d.SaveAs2(out_docx, FileFormat=16)            # wdFormatXMLDocument
-        d.ExportAsFixedFormat(OutputFileName=out_pdf, ExportFormat=17,   # wdExportFormatPDF
-                              OptimizeFor=0, CreateBookmarks=1)          # marcadores = sumario do PDF
-        d.Close(False)
-    finally:
+    d.salvar('ShivaZen-Documentacao', word)
+finally:
+    if word is not None:
         word.Quit()
-    os.remove(rascunho)
-    print('DOCX:', out_docx)
-    print('PDF :', out_pdf)
-except Exception as e:  # noqa: BLE001
-    os.replace(rascunho, out_docx)
-    print('DOCX:', out_docx, '(sumario e PDF pendentes: Word indisponivel)', repr(e))
