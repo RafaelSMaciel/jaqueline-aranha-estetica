@@ -41,13 +41,20 @@
   font-size: 1.15rem;
   font-weight: 700;
 }
-/* .markdown (descricao de operacao) e .renderedMarkdown (descricao geral da API, no topo) */
-.swagger-painel .swagger-ui :is(.markdown, .renderedMarkdown) table {
+.swagger-painel .swagger-ui .markdown table {
   display: block;
-  max-width: 100%;
   overflow-x: auto;
   margin: 0.5rem 0 1rem;
 }
+/* descricao geral da API (topo): a tabela cabe na largura e quebra o texto da celula — rolar dentro
+   do bloco criaria uma regiao rolavel sem foco de teclado (axe scrollable-region-focusable) e sem
+   isso ela passava da tela no celular */
+.swagger-painel .swagger-ui .renderedMarkdown table {
+  width: 100%;
+  table-layout: fixed;
+  margin: 0.5rem 0 1rem;
+}
+.swagger-painel .swagger-ui .renderedMarkdown :is(td, th) { overflow-wrap: anywhere; }
 .swagger-painel .swagger-ui .markdown td,
 .swagger-painel .swagger-ui .markdown th {
   padding: 0.35rem 0.6rem;
