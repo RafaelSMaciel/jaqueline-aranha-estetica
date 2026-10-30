@@ -29,7 +29,6 @@ FONTE = 'Arial'
 CAFE = '#1F1A14'          # cromo do painel (DESIGN-E-MARKETING.md)
 AREIA = '#F1EFE8'
 AZUL = '#0000FF'          # entrada
-AMARELO = '#FFFF00'       # estimativa para a clínica conferir
 CINZA = '#BFBFBF'
 REAIS = '"R$" #,##0.00;("R$" #,##0.00);"-"'
 REAIS_3 = '"R$" #,##0.000;("R$" #,##0.000);"-"'
@@ -50,7 +49,7 @@ def titulo(celula):
 
 # ─── Custos ─────────────────────────────────────────────────────────────────────────
 # Linhas 4–16: premissas (B = valor; observação mesclada em C:F). Linhas 18–27: custo mensal.
-# Linhas 29–34: implantação. Linhas 36–38: o que ainda depende de mudar o código.
+# Linhas 29–33: implantação. Linhas 35–37: o que ainda depende de mudar o código.
 CUSTOS = [
     ['Custo do sistema: clínica com até 60 atendimentos por mês'],
     ['Células em azul são entradas: troque o valor e a planilha recalcula. Preços de lista consultados '
@@ -89,12 +88,10 @@ CUSTOS = [
     [],
     ['Implantação (uma vez)', 'Fornecedor', 'Quantidade', 'Preço unitário (R$)', 'Valor (R$)', 'Observação'],
     ['Domínio .com.br, 1º ano', 'Registro.br', 1, '=B13', '=C30*D30', 'Nos anos seguintes entra no custo mensal'],
-    ['Chip pré-pago para o número do WhatsApp', 'Operadora', 1, 20, '=C31*D31',
-     'Estimativa. O número não pode estar em uso no aplicativo WhatsApp comum'],
-    ['Primeiro crédito de SMS', 'SMSGo', 300, '=B14', '=C32*D32', 'Créditos que não expiram'],
-    ['Contas nos serviços', 'Railway, Brevo, Meta, Cloudflare, Sentry, healthchecks.io', 1, 0, '=C33*D33',
+    ['Primeiro crédito de SMS', 'SMSGo', 300, '=B14', '=C31*D31', 'Créditos que não expiram'],
+    ['Contas nos serviços', 'Railway, Brevo, Meta, Cloudflare, Sentry, healthchecks.io', 1, 0, '=C32*D32',
      'Sem custo; a Meta exige CNPJ e o Railway pede cartão'],
-    ['Total da implantação', None, None, None, '=SUM(E30:E33)', None],
+    ['Total da implantação', None, None, None, '=SUM(E30:E32)', None],
     [],
     ['No radar: mudança de código', 'Hoje', 'Recomendado', 'Situação', 'Economia por mês (R$)', 'Observação'],
     ['Código de acesso por SMS', 'Zenvia, pacote mínimo mensal', 'SMS pré-pago', 'Pendente', '=B16-E21',
@@ -105,7 +102,7 @@ CUSTOS = [
 FMT_CUSTOS = {
     'rules': [
         titulo('A1'), {'range': 'A2', 'italic': True},
-        cabecalho('A4:F4'), cabecalho('A18:F18'), cabecalho('A29:F29'), cabecalho('A36:F36'),
+        cabecalho('A4:F4'), cabecalho('A18:F18'), cabecalho('A29:F29'), cabecalho('A35:F35'),
         {'range': 'B5:B7', 'fg': AZUL, 'number': DECIMAL}, {'range': 'B5', 'number': INTEIRO},
         {'range': 'B8', 'fg': AZUL, 'number': REAIS},
         {'range': 'B9', 'fg': AZUL, 'number': PORCENTO},
@@ -118,14 +115,14 @@ FMT_CUSTOS = {
         {'range': 'D19:E27', 'number': REAIS}, {'range': 'D21:D22', 'number': REAIS_3},
         {'range': 'D23:D24', 'fg': AZUL},
         {'range': 'A25:F25', 'bold': True, 'bg': AREIA}, {'range': 'A26:F27', 'bold': True},
-        {'range': 'C30:C33', 'number': INTEIRO}, {'range': 'C32', 'fg': AZUL},
-        {'range': 'D30:E34', 'number': REAIS}, {'range': 'D32', 'number': REAIS_3},
-        {'range': 'D31', 'fg': AZUL, 'bg': AMARELO}, {'range': 'D33', 'fg': AZUL},
-        {'range': 'A34:F34', 'bold': True, 'bg': AREIA},
-        {'range': 'E37', 'number': REAIS, 'bold': True},
-        {'range': 'A19:F38', 'wrap': True, 'valign': 'top'},
+        {'range': 'C30:C32', 'number': INTEIRO}, {'range': 'C31', 'fg': AZUL},
+        {'range': 'D30:E33', 'number': REAIS}, {'range': 'D31', 'number': REAIS_3},
+        {'range': 'D32', 'fg': AZUL},
+        {'range': 'A33:F33', 'bold': True, 'bg': AREIA},
+        {'range': 'E36', 'number': REAIS, 'bold': True},
+        {'range': 'A19:F37', 'wrap': True, 'valign': 'top'},
         {'range': 'A4:F16', 'borders': CINZA}, {'range': 'A18:F27', 'borders': CINZA},
-        {'range': 'A29:F34', 'borders': CINZA}, {'range': 'A36:F38', 'borders': CINZA},
+        {'range': 'A29:F33', 'borders': CINZA}, {'range': 'A35:F37', 'borders': CINZA},
     ],
     'merges': [f'C{lin}:F{lin}' for lin in range(4, 17)],
     'col_widths': {'A': 330, 'B': 250, 'C': 120, 'D': 140, 'E': 140, 'F': 380},
@@ -150,10 +147,9 @@ FONTES = [
     ['healthchecks.io: planos', 'healthchecks.io', 'https://healthchecks.io/pricing/', CONSULTA],
     ['Câmbio: PTAX de 16/10/2026', 'Terceiro', 'https://www.simianx.ai/pt/stories/us-dollar-exchange-rate-by-year-every-year-1971-2026-table', CONSULTA],
     ['Câmbio: cotação oficial', 'Banco Central', 'https://www.bcb.gov.br/estabilidadefinanceira/historicocotacoes', CONSULTA],
-    ['Premissas e estimativa de consumo', 'Projeto', 'docs/CUSTOS-OPERACIONAIS.md', CONSULTA],
 ]
 FMT_FONTES = {
-    'rules': [titulo('A1'), cabecalho('A3:D3'), {'range': 'A3:D18', 'borders': CINZA}],
+    'rules': [titulo('A1'), cabecalho('A3:D3'), {'range': 'A3:D17', 'borders': CINZA}],
     'col_widths': {'A': 320, 'B': 250, 'C': 520, 'D': 110},
 }
 
