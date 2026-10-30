@@ -24,9 +24,9 @@ from datetime import date
 
 import yaml
 
-from _docx_base import BASE, RAIZ, Documento, abrir_word, secao_md
+from _docx_base import BASE, RAIZ, Documento, abrir_word, corpo_md, secao_md
 
-VERSAO = '1.0'
+VERSAO = '1.1'
 DATA = date(2026, 10, 30).strftime('%d/%m/%Y')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 D = json.load(open(os.path.join(BASE, '_dados_requisitos.json'), encoding='utf-8'))
@@ -263,14 +263,16 @@ def _secao(d, titulo_md, capitulo, nivel='##'):
 def tecnico(word):
     api = yaml.safe_load(open(os.path.join(APP, 'api', 'openapi.yaml'), encoding='utf-8'))
     d = Documento(f'Shiva Zen — Documento Técnico v{VERSAO}')
-    d.capa('Documento Técnico', 'Arquitetura, dados, segurança, qualidade e operação', VERSAO, DATA)
+    d.capa('Documento Técnico', 'Arquitetura, dados, segurança, qualidade, operação e custo', VERSAO, DATA)
     d.sumario()
 
     d.h1('1. Introdução')
     d.par('Este documento reúne as questões técnicas do Shiva Zen — como o sistema é construído, onde vive '
-          'cada responsabilidade, o que o banco garante, como ele é testado, publicado e operado, e o que '
-          'ainda está pendente. O conteúdo é extraído dos documentos vivos do repositório (PROJECT.md, '
-          'ARCHITECTURE.md, padrão SQL e o contrato OpenAPI), atualizados a cada mudança de código.')
+          'cada responsabilidade, o que o banco garante, como ele é testado, publicado e operado, o que '
+          'ainda está pendente, quanto custa por mês mantê-lo no ar e as escolhas de design e marketing. '
+          'O conteúdo é extraído dos documentos vivos do repositório (PROJECT.md, ARCHITECTURE.md, padrão '
+          'SQL, contrato OpenAPI, CUSTOS-OPERACIONAIS.md e DESIGN-E-MARKETING.md), atualizados a cada '
+          'mudança de código.')
     n_tabelas = len(D['models-core']['models']) + len(D['models-aux']['models'])
     d.tabela(['Item', 'Quantidade'], [
         ['Tabelas do domínio', n_tabelas],
@@ -373,6 +375,12 @@ def tecnico(word):
         else:
             atual = None
     d.itens([' '.join(item) for item in abertos])
+
+    d.h1('16. Custo operacional')
+    d.markdown(corpo_md(os.path.join(BASE, 'CUSTOS-OPERACIONAIS.md')), renumerar='16')
+
+    d.h1('17. Identidade visual, design e marketing')
+    d.markdown(corpo_md(os.path.join(BASE, 'DESIGN-E-MARKETING.md')), renumerar='17')
     d.salvar('ShivaZen-Documento-Tecnico', word)
 
 

@@ -257,7 +257,7 @@ class Documento:
         niveis = niveis or {'##': 2, '###': 3}
         linhas = texto.splitlines()
         i, buffer = 0, []
-        contador = [0]
+        contador = [0, 0]   # [título do 1º nível, subtítulo numerado dentro dele]
 
         def despejar():
             if buffer:
@@ -287,8 +287,12 @@ class Documento:
                 marcador, titulo = m.group(1), m.group(2).strip()
                 titulo = re.sub(r'[*`]', '', titulo)
                 if renumerar is not None and marcador == min(niveis, key=len):
-                    contador[0] += 1
+                    contador[0], contador[1] = contador[0] + 1, 0
                     titulo = f'{renumerar}.{contador[0]} ' + re.sub(r'^\d+(\.\d+)*\.?\s+', '', titulo)
+                elif renumerar is not None and contador[0] and re.match(r'^\d+\.\d+\.?\s', titulo):
+                    # "### 2.1 Por que" sob "## 2." -> "20.2.1 Por que" (sem número fica como está)
+                    contador[1] += 1
+                    titulo = f'{renumerar}.{contador[0]}.{contador[1]} ' + re.sub(r'^\d+(\.\d+)*\.?\s+', '', titulo)
                 nivel = niveis.get(marcador)
                 if nivel == 1:
                     self.h1(titulo, nova_pagina=False)
@@ -437,6 +441,15 @@ def abrir_word():
     except Exception as e:  # noqa: BLE001
         print('Word indisponivel:', repr(e))
         return None
+
+
+def corpo_md(caminho):
+    """Markdown do arquivo sem o título (# ...) e sem a nota de abertura (> ...) que o segue."""
+    linhas = open(caminho, encoding='utf-8').read().splitlines()
+    i = 0
+    while i < len(linhas) and (not linhas[i].strip() or linhas[i].startswith(('# ', '>'))):
+        i += 1
+    return '\n'.join(linhas[i:])
 
 
 def secao_md(caminho, titulo, nivel='##'):

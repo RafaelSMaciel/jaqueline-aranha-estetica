@@ -21,12 +21,12 @@ from datetime import date
 
 import yaml
 
-from _docx_base import BASE, RAIZ, Documento, abrir_word
+from _docx_base import BASE, RAIZ, Documento, abrir_word, corpo_md
 
 DADOS = os.path.join(BASE, '_dados_requisitos.json')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 
-VERSAO = '3.5'
+VERSAO = '3.6'
 DATA = date(2026, 10, 30).strftime('%d/%m/%Y')
 # (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
 HISTORICO = [
@@ -68,6 +68,10 @@ HISTORICO = [
                           'requisitos não funcionais com a forma de verificação (RNF24: documentação e '
                           'contrato da API); regras de negócio, requisitos e documento técnico também em '
                           'documentos próprios.'),
+    ('3.6', '30/10/2026', 'Capítulos de identidade visual, design e marketing (psicologia das cores, '
+                          'tipografia, tom de voz, acessibilidade e recursos de marketing) e de custo '
+                          'operacional (preços de 2026 dos provedores, cenários por volume, travas de custo '
+                          'e esforço de operação), gerados de DESIGN-E-MARKETING.md e CUSTOS-OPERACIONAIS.md.'),
 ]
 with open(DADOS, encoding='utf-8') as f:
     D = json.load(f)
@@ -132,7 +136,8 @@ par('Este documento descreve de forma completa o sistema Shiva Zen — plataform
     'de estética Jaqueline Aranha: requisitos funcionais e não funcionais, regras de negócio, a '
     'modelagem UML (casos de uso, classes, sequência, estados, atividades, componentes e implantação), '
     'o modelo de dados, a arquitetura, a segurança e a conformidade com a LGPD, a estratégia de '
-    'qualidade e o roteiro de implantação. O conteúdo é derivado do código-fonte: os diagramas de '
+    'qualidade, o roteiro de implantação, as escolhas de identidade visual, design e marketing e o custo '
+    'operacional mensal. O conteúdo é derivado do código-fonte: os diagramas de '
     'classes e de dados são gerados a partir dos models do Django e as contagens são lidas do '
     'repositório na geração do documento.')
 h2('1.2 Contexto e problema')
@@ -480,6 +485,13 @@ for caminho, item in API['paths'].items():
             linhas.append([op['tags'][0], f'{metodo.upper()} {caminho}', _acesso(op), op['summary']])
 linhas.sort(key=lambda linha: [t['name'] for t in API['tags']].index(linha[0]))
 add_table(['Grupo', 'Operação', 'Acesso', 'Descrição'], linhas, widths=[1.2, 2.3, 1.2, 2.0])
+
+# ===================== 20. DESIGN E MARKETING / 21. CUSTO =====================
+h1('20. Identidade Visual, Design e Marketing')
+d.markdown(corpo_md(os.path.join(BASE, 'DESIGN-E-MARKETING.md')), renumerar='20')
+
+h1('21. Custo Operacional')
+d.markdown(corpo_md(os.path.join(BASE, 'CUSTOS-OPERACIONAIS.md')), renumerar='21')
 
 # ===================== GLOSSARIO E HISTORICO =====================
 h1('Glossário')
