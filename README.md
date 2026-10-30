@@ -181,7 +181,7 @@ requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões (ADR-lite) e checkpoint de progresso/pendências |
 | [docs/AUTENTICACAO-E-ACESSO.md](docs/AUTENTICACAO-E-ACESSO.md) | Login da equipe, 2FA, OTP da cliente, links por token, sessões |
 | [docs/REGRAS-DE-NEGOCIO.md](docs/REGRAS-DE-NEGOCIO.md) | Regras funcionais com os valores reais do código |
-| [docs/CUSTOS-OPERACIONAIS.md](docs/CUSTOS-OPERACIONAIS.md) | Custo mensal de operação: preço de cada provedor, cenários por volume, travas de custo |
+| [docs/CUSTOS-OPERACIONAIS.md](docs/CUSTOS-OPERACIONAIS.md) | Custo mensal de operação: preço de cada provedor, cenários por volume, ferramentas recomendadas para clínica pequena, travas de custo (planilha com as contas: `docs/tcc/ShivaZen-Custos-Operacionais.xlsx`) |
 | [docs/DESIGN-E-MARKETING.md](docs/DESIGN-E-MARKETING.md) | Identidade visual (psicologia das cores, tipografia), tom de voz, acessibilidade e recursos de marketing |
 | [aranha_estetica/api/openapi.yaml](aranha_estetica/api/openapi.yaml) | Contrato HTTP (OpenAPI 3.1) das rotas de máquina: wizard, portal, painel, webhooks, cron, ICS, saúde. Navegável no Swagger UI em `/painel/api/` |
 | [docs/LGPD.md](docs/LGPD.md) | Registro das operações (art. 37), operadores, relatório de impacto do dado de saúde, plano de incidente |

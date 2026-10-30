@@ -108,32 +108,46 @@ Comparadas no cenário Rotina (400 atendimentos/mês, ≈ R$ 271):
 
 | Alternativa | Economia/mês | O que exige | Decisão |
 |---|---|---|---|
-| **Código de acesso pelo WhatsApp** (template de autenticação, R$ 0,035) no lugar do SMS; SMS só para quem não tem WhatsApp | ≈ R$ 84 (de R$ 100 para ~R$ 16) | Código: um canal novo no OTP (o envio de template já existe em `utils/whatsapp`) e um template de **autenticação** aprovado na Meta, com botão "copiar código" | **Recomendada**: a maior economia, e o WhatsApp é o canal que a cliente já usa |
-| **SMS pré-pago sem mensalidade** (SMSDev, Mobizon, Comtele, SMSGo: ~R$ 0,06 a R$ 0,07 por SMS) no lugar do pacote mínimo da Zenvia | ≈ R$ 74 (400 × R$ 0,065 = R$ 26) | Código: outro provedor em `utils/sms` (o envio da Zenvia está isolado nesse módulo); conferir se os créditos expiram | **Recomendada** como reserva da alternativa anterior |
-| **Campanha de e-mail em lotes diários** (até ~80 por dia, dentro do Resend Free) | ≈ R$ 106 (sem o Resend Pro) | Código pequeno: teto diário de e-mails de marketing na fila. A promoção leva alguns dias para chegar a toda a base | **Recomendada**. Sem código: Brevo Free (300/dia) |
+| **Código de acesso pelo WhatsApp** (template de autenticação, R$ 0,035) no lugar do SMS; SMS só para quem não tem WhatsApp | ≈ R$ 84 (de R$ 100 para ~R$ 16) | Código: um canal novo no OTP (o envio de template já existe em `utils/whatsapp`) e um template de **autenticação** aprovado na Meta, com botão "copiar código" | Opcional: a menor tarifa, mas com pouco volume fica só R$ 2 a R$ 14/mês abaixo do SMS pré-pago e exige o template na Meta |
+| **SMS pré-pago sem mensalidade** (SMSDev, Mobizon, Comtele, SMSGo: ~R$ 0,06 a R$ 0,07 por SMS) no lugar do pacote mínimo da Zenvia | ≈ R$ 74 (400 × R$ 0,065 = R$ 26) | Código: outro provedor em `utils/sms` (o envio da Zenvia está isolado nesse módulo); conferir se os créditos expiram | **Recomendada** (clínica pequena): só um adaptador, sem pacote mínimo |
+| **Campanha de e-mail em lotes diários** (até ~80 por dia, dentro do Resend Free) | ≈ R$ 106 (sem o Resend Pro) | Código pequeno: teto diário de e-mails de marketing na fila. A promoção leva alguns dias para chegar a toda a base | Alternativa ao Brevo Free (300/dia, só configuração), que é o recomendado para clínica pequena |
 | **Ambiente de testes dormindo** (Serverless do Railway: o serviço para após 10 min sem tráfego e acorda na próxima visita) e sem serviço Cron no `dev` | ≈ R$ 26 a R$ 32 (o ambiente ligado o mês todo custaria ≈ US$ 5 a 6) | Só configuração | **Aplicada** na infraestrutura do Railway |
-| Amazon SES (US$ 0,10 por mil e-mails) | ≈ R$ 106 | Conta na AWS, outra dependência no anymail; os planos do SES mudaram em 2026 | Descartada: o lote diário dá a mesma economia sem nova conta |
+| Amazon SES (US$ 0,10 por mil e-mails) | ≈ R$ 106 | Conta na AWS, outra dependência no anymail; os planos do SES mudaram em 2026 | Descartada: o Brevo Free dá a mesma economia sem nova conta |
 | VPS própria (ex.: Hetzner CX23, ~€ 5,49/mês) com Docker | ~R$ 10 | A clínica passa a cuidar de sistema operacional, certificado, backup e monitoramento | Descartada: economia pequena para muito mais operação |
 | Nuvem gratuita (Oracle Always Free) ou banco grátis externo (Neon) | ≈ R$ 15 a R$ 45 | Sem garantia de serviço; banco fora da rede do app (latência, "acordar" lento) | Descartada: risco alto para dado de saúde |
 | Lembrete D-1 só por e-mail | ≈ R$ 14 | Só configuração | Descartada: o WhatsApp reduz falta, e uma falta evitada vale mais que o mês inteiro |
 
-**Cenário otimizado** (as três recomendadas + ambiente de testes dormindo):
+## 7. Ferramentas recomendadas para clínica pequena
 
-| Item | Início (150) | Rotina (400) | Agenda cheia (800) |
+Critério: menor custo fixo, sem servidor para administrar e sem pagar por capacidade que a clínica
+não usa. A planilha [`tcc/ShivaZen-Custos-Operacionais.xlsx`](tcc/ShivaZen-Custos-Operacionais.xlsx)
+tem as contas em fórmulas, os cenários editáveis (aba Premissas) e as fontes; ela é gerada por
+[`tcc/gerar_planilha_custos.py`](tcc/gerar_planilha_custos.py).
+
+| Função | Ferramenta | Custo | Muda o código? |
 |---|---|---|---|
-| Railway (produção) | R$ 34,00 | R$ 45,00 | R$ 77,00 |
-| Domínio | R$ 3,33 | R$ 3,33 | R$ 3,33 |
-| Código pelo WhatsApp (R$ 0,035) | R$ 5,25 | R$ 14,00 | R$ 28,00 |
-| SMS de reserva (10%, R$ 0,065) | R$ 1,00 | R$ 2,60 | R$ 5,20 |
-| WhatsApp utilidade | R$ 6,65 | R$ 17,50 | R$ 35,00 |
-| E-mail (Resend Free, campanha em lotes) | R$ 0,00 | R$ 0,00 | R$ 0,00 |
-| **Total por mês** | **≈ R$ 50** (−65%) | **≈ R$ 82** (−70%) | **≈ R$ 149** (−54%) |
-| **Por atendimento** | R$ 0,33 | R$ 0,21 | R$ 0,19 |
+| Site, painel, banco e jobs | Railway Hobby (PostgreSQL 18 incluído) | US$ 5/mês com US$ 5 de uso | Não (já configurado) |
+| Domínio e DNS | Registro.br | R$ 40/ano | Não |
+| Código de acesso (OTP) | **SMS pré-pago sem mensalidade** (SMSGo, créditos que não expiram) | R$ 0,12 por SMS | Sim: adaptador em `utils/sms` |
+| Lembrete D-1, NPS e aviso de vaga | WhatsApp Cloud API (Meta, direto) | R$ 0,035 por mensagem | Não |
+| E-mail | **Brevo Free** | 300 e-mails/dia sem custo | Não (só `EMAIL_BACKEND` e `BREVO_API_KEY`) |
+| Backup, erros, monitor dos jobs, antirrobô, push | Cloudflare R2, Sentry, healthchecks.io, Turnstile, Web Push | R$ 0 | Não |
 
-As duas mudanças de código (código pelo WhatsApp e lote diário de e-mail) ficam como próximos passos
-em [`ARCHITECTURE.md`](ARCHITECTURE.md) (pendências).
+| Cenário | Atendimentos/mês | Stack atual | Stack recomendada | Por atendimento | Com código pelo WhatsApp |
+|---|---|---|---|---|---|
+| Muito pequena | 60 | R$ 142,91 | **R$ 50,11** (−65%) | R$ 0,84 | R$ 45,52 |
+| Pequena | 150 | R$ 254,53 | **R$ 66,96** (−74%) | R$ 0,45 | R$ 55,48 |
+| Média | 300 | R$ 266,90 | **R$ 144,83** (−46%) | R$ 0,48 | R$ 121,88 |
 
-## 7. Custos que não são mensais
+- **Stack atual** = Zenvia (pacote mínimo de R$ 100) + Resend, que precisa do Pro (US$ 20) quando a
+  campanha passa de 100 e-mails no dia.
+- **No cenário Média**, a base de 400 clientes com consentimento passa do limite do Brevo Free e a
+  planilha cobra o Brevo Starter (US$ 9). Com a campanha em lotes diários, esse valor some.
+- **Railway** inclui o ambiente de testes dormindo (≈ US$ 1/mês).
+
+As mudanças de código ficam em [`ARCHITECTURE.md`](ARCHITECTURE.md) (pendências).
+
+## 8. Custos que não são mensais
 
 - **Na implantação (uma vez):**
   - Domínio no 1º ano: R$ 40.
@@ -149,7 +163,7 @@ em [`ARCHITECTURE.md`](ARCHITECTURE.md) (pendências).
 - **Plano Pro do Railway** (US$ 20/mês com US$ 20 de uso, ≈ R$ 106): só se a clínica precisar de mais
   de uma pessoa na conta ou de suporte do Railway. O consumo estimado cabe no crédito incluído.
 
-## 8. Travas de custo no sistema
+## 9. Travas de custo no sistema
 
 Cada canal pago tem um teto no código. Abuso ou erro não vira fatura:
 
@@ -164,7 +178,7 @@ Cada canal pago tem um teto no código. Abuso ou erro não vira fatura:
 | Envio sem provedor configurado | falha fechada: nada sai, nada é cobrado nem marcado como enviado | `utils/sms`, `utils/whatsapp` |
 | Avisos à equipe | Web Push gratuito em vez de SMS ou WhatsApp | `services/push` |
 
-## 9. Esforço de operação (tempo, não dinheiro)
+## 10. Esforço de operação (tempo, não dinheiro)
 
 | Frequência | Tarefa | Tempo |
 |---|---|---|
@@ -174,7 +188,7 @@ Cada canal pago tem um teto no código. Abuso ou erro não vira fatura:
 | Anual | Renovar o domínio e revisar este documento com os preços do ano | ~1 h |
 | Quando mudar o texto | Reaprovar o template do WhatsApp na Meta | ~1 dia de espera |
 
-## 10. Fontes (consultadas em 30/10/2026)
+## 11. Fontes (consultadas em 30/10/2026)
 
 - Railway, planos e tarifas: https://railway.com/pricing
 - Meta, modelo de cobrança do WhatsApp Business Platform: https://developers.facebook.com/docs/whatsapp/pricing
@@ -187,6 +201,7 @@ Cada canal pago tem um teto no código. Abuso ou erro não vira fatura:
 - Sentry, plano Developer gratuito: https://costbench.com/software/developer-tools/sentry/free-plan/
 - healthchecks.io, planos: https://healthchecks.io/pricing/
 - Cloudflare R2, cota gratuita: https://developers.cloudflare.com/r2/pricing
+- Brevo Starter (US$ 9/mês, 5 mil e-mails; resenha de terceiro): https://www.sender.net/reviews/brevo/pricing/
 - Railway Serverless: https://docs.railway.com/reference/app-sleeping
 - SMS sem mensalidade no Brasil (comparativo de provedores): https://x-apps.com.br/sms-verificacao-otp-brasil-provedores-precos/ ,
   https://smsgo.com.br/ , https://www.smsdev.com.br/ , https://comtele.com.br/disparo-sms/

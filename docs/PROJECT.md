@@ -10,7 +10,9 @@
 > prioridade, verificação e rastreabilidade) e documento técnico
 > ([`gerar_especificacoes.py`](tcc/gerar_especificacoes.py) → `ShivaZen-Regras-de-Negocio`,
 > `ShivaZen-Requisitos` e `ShivaZen-Documento-Tecnico`), gerados deste arquivo, do
-> `REGRAS-DE-NEGOCIO.md`, do `ARCHITECTURE.md` e do `tcc/_dados_requisitos.json`;
+> `REGRAS-DE-NEGOCIO.md`, do `ARCHITECTURE.md` e do `tcc/_dados_requisitos.json`; planilha de
+> custos com fórmulas: [`gerar_planilha_custos.py`](tcc/gerar_planilha_custos.py) →
+> `tcc/ShivaZen-Custos-Operacionais.xlsx`;
 > diagramas em [`uml/`](uml/README.md) (PlantUML gerado do código + versões de apresentação no
 > Lucidchart de todos os tipos, exportadas em `uml/lucid/`). Custo mensal de operação (provedores,
 > cenários por volume): [`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md); identidade visual, cores,
