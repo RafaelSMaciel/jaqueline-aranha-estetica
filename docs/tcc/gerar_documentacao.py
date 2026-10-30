@@ -2,16 +2,16 @@
 """
 Gera a Documentação Técnica do Shiva Zen (DOCX + PDF): requisitos, regras de negócio, todos os
 diagramas UML (docs/uml/lucid, ou docs/uml/png sem a versão do Lucid), arquitetura, modelo de dados,
-segurança/LGPD, qualidade e implantação. Estilo, capa, sumário e gravação: docs/_docx_base.py.
-Regras de negócio, requisitos e documento técnico em separado: docs/gerar_especificacoes.py.
+segurança/LGPD, qualidade e implantação. Estilo, capa, sumário e gravação: docs/tcc/_docx_base.py.
+Regras de negócio, requisitos e documento técnico em separado: docs/tcc/gerar_especificacoes.py.
 
-Fontes: docs/_dados_requisitos.json (requisitos, regras, casos de uso, entidades, rotas — extraídos
+Fontes: docs/tcc/_dados_requisitos.json (requisitos, regras, casos de uso, entidades, rotas — extraídos
 do código), docs/uml/png (render do PlantUML: python docs/uml/gerar_uml.py), docs/ARCHITECTURE.md
 (decisões), aranha_estetica/api/openapi.yaml (capítulo da API) e o próprio código (contagens,
 docstrings dos serviços).
 
 Uso (Python com python-docx; no Windows o PDF sai pelo Word, com o sumário atualizado):
-    python docs/gerar_documentacao.py
+    python docs/tcc/gerar_documentacao.py
 """
 import ast
 import json
@@ -21,9 +21,9 @@ from datetime import date
 
 import yaml
 
-from _docx_base import BASE, RAIZ, Documento, abrir_word, corpo_md
+from _docx_base import BASE, RAIZ, TCC, Documento, abrir_word, corpo_md
 
-DADOS = os.path.join(BASE, '_dados_requisitos.json')
+DADOS = os.path.join(TCC, '_dados_requisitos.json')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 
 VERSAO = '3.6'

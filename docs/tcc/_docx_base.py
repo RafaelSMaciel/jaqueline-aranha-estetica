@@ -3,8 +3,8 @@
 figuras UML, rodapé e um conversor do Markdown dos docs/ (títulos, parágrafos, listas, tabelas,
 blocos de código e negrito/itálico/código/links em linha).
 
-Usado por docs/gerar_documentacao.py (documento geral do TCC) e docs/gerar_especificacoes.py
-(regras de negócio, requisitos e documento técnico). O PDF e o sumário saem pelo Word (Windows);
+Usado por docs/tcc/gerar_documentacao.py (documento geral do TCC) e docs/tcc/gerar_especificacoes.py
+(regras de negócio, requisitos e documento técnico); os DOCX/PDF saem em docs/tcc/. O PDF e o sumário saem pelo Word (Windows);
 sem Word fica o DOCX (abra no Word, F9 no sumário e Salvar como PDF).
 """
 import os
@@ -19,7 +19,8 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+TCC = os.path.dirname(os.path.abspath(__file__))   # docs/tcc: geradores, dados e os DOCX/PDF
+BASE = os.path.dirname(TCC)                          # docs/: os Markdown vivos e a uml/
 RAIZ = os.path.dirname(BASE)
 PNG = os.path.join(BASE, 'uml', 'png')
 # Versões de apresentação feitas no Lucidchart (mesmo conteúdo, exportadas para docs/uml/lucid/):
@@ -405,11 +406,11 @@ class Documento:
             campo(run, 'PAGE')
 
     def salvar(self, nome_base, word=None):
-        """Grava docs/<nome_base>.docx e, com o Word (COM), atualiza o sumário e exporta o PDF."""
+        """Grava docs/tcc/<nome_base>.docx e, com o Word (COM), atualiza o sumário e exporta o PDF."""
         self._rodape()
-        out_docx = os.path.join(BASE, nome_base + '.docx')
-        out_pdf = os.path.join(BASE, nome_base + '.pdf')
-        rascunho = os.path.join(BASE, f'~rascunho-{nome_base}.docx')
+        out_docx = os.path.join(TCC, nome_base + '.docx')
+        out_pdf = os.path.join(TCC, nome_base + '.pdf')
+        rascunho = os.path.join(TCC, f'~rascunho-{nome_base}.docx')
         self.doc.save(rascunho)
         if word is None:
             os.replace(rascunho, out_docx)

@@ -2,7 +2,7 @@
 
 Uma notação (PlantUML) e uma pasta. As imagens prontas estão em `png/` (para o Word e para
 apresentação) e `svg/` (vetorial, para ampliar sem perder nitidez). Todas também entram no
-documento [`../ShivaZen-Documentacao.pdf`](../ShivaZen-Documentacao.pdf).
+documento [`../tcc/ShivaZen-Documentacao.pdf`](../tcc/ShivaZen-Documentacao.pdf).
 
 | Pasta | Conteúdo | Origem |
 |---|---|---|
@@ -59,7 +59,7 @@ model, caso de uso ou fluxo? Atualize o PlantUML (`gerar_uml.py`) e refaça a p�
 
 ```bash
 python docs/uml/gerar_uml.py          # ER + classes a partir do código, depois render (SVG + PNG)
-python docs/gerar_documentacao.py     # DOCX + PDF com todos os diagramas (Word no Windows)
+python docs/tcc/gerar_documentacao.py     # DOCX + PDF com todos os diagramas (Word no Windows)
 ```
 
 O `gerar_uml.py` roda com o Python do projeto (`.venv`, lê os models) e precisa do PlantUML

@@ -2,7 +2,7 @@
 
 > Referência funcional do sistema, com os valores **reais** do código (branch `dev`).
 > Fonte: `models/`, `services/`, `views/`, `constants.py`, `settings` e `Configuracao`. Mudou regra
-> ou valor? Atualize aqui, no código e em `docs/_dados_requisitos.json` (requisitos do TCC).
+> ou valor? Atualize aqui, no código e em `docs/tcc/_dados_requisitos.json` (requisitos do TCC).
 > Arquitetura e pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Acesso: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md).
 
 ---

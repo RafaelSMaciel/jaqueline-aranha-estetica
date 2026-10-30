@@ -102,7 +102,38 @@ tabela no primeiro mês.
 A troca de provedor é só de configuração: `EMAIL_BACKEND=anymail.backends.<provedor>.EmailBackend` e
 a chave do provedor na env (`PROJECT.md` §14 i). A fila de e-mail reenvia o que falhou a cada 15 min.
 
-## 6. Custos que não são mensais
+## 6. Alternativas para gastar menos
+
+Comparadas no cenário Rotina (400 atendimentos/mês, ≈ R$ 271):
+
+| Alternativa | Economia/mês | O que exige | Decisão |
+|---|---|---|---|
+| **Código de acesso pelo WhatsApp** (template de autenticação, R$ 0,035) no lugar do SMS; SMS só para quem não tem WhatsApp | ≈ R$ 84 (de R$ 100 para ~R$ 16) | Código: um canal novo no OTP (o envio de template já existe em `utils/whatsapp`) e um template de **autenticação** aprovado na Meta, com botão "copiar código" | **Recomendada**: a maior economia, e o WhatsApp é o canal que a cliente já usa |
+| **SMS pré-pago sem mensalidade** (SMSDev, Mobizon, Comtele, SMSGo: ~R$ 0,06 a R$ 0,07 por SMS) no lugar do pacote mínimo da Zenvia | ≈ R$ 74 (400 × R$ 0,065 = R$ 26) | Código: outro provedor em `utils/sms` (o envio da Zenvia está isolado nesse módulo); conferir se os créditos expiram | **Recomendada** como reserva da alternativa anterior |
+| **Campanha de e-mail em lotes diários** (até ~80 por dia, dentro do Resend Free) | ≈ R$ 106 (sem o Resend Pro) | Código pequeno: teto diário de e-mails de marketing na fila. A promoção leva alguns dias para chegar a toda a base | **Recomendada**. Sem código: Brevo Free (300/dia) |
+| **Ambiente de testes dormindo** (Serverless do Railway: o serviço para após 10 min sem tráfego e acorda na próxima visita) e sem serviço Cron no `dev` | ≈ R$ 26 a R$ 32 (o ambiente ligado o mês todo custaria ≈ US$ 5 a 6) | Só configuração | **Aplicada** na infraestrutura do Railway |
+| Amazon SES (US$ 0,10 por mil e-mails) | ≈ R$ 106 | Conta na AWS, outra dependência no anymail; os planos do SES mudaram em 2026 | Descartada: o lote diário dá a mesma economia sem nova conta |
+| VPS própria (ex.: Hetzner CX23, ~€ 5,49/mês) com Docker | ~R$ 10 | A clínica passa a cuidar de sistema operacional, certificado, backup e monitoramento | Descartada: economia pequena para muito mais operação |
+| Nuvem gratuita (Oracle Always Free) ou banco grátis externo (Neon) | ≈ R$ 15 a R$ 45 | Sem garantia de serviço; banco fora da rede do app (latência, "acordar" lento) | Descartada: risco alto para dado de saúde |
+| Lembrete D-1 só por e-mail | ≈ R$ 14 | Só configuração | Descartada: o WhatsApp reduz falta, e uma falta evitada vale mais que o mês inteiro |
+
+**Cenário otimizado** (as três recomendadas + ambiente de testes dormindo):
+
+| Item | Início (150) | Rotina (400) | Agenda cheia (800) |
+|---|---|---|---|
+| Railway (produção) | R$ 34,00 | R$ 45,00 | R$ 77,00 |
+| Domínio | R$ 3,33 | R$ 3,33 | R$ 3,33 |
+| Código pelo WhatsApp (R$ 0,035) | R$ 5,25 | R$ 14,00 | R$ 28,00 |
+| SMS de reserva (10%, R$ 0,065) | R$ 1,00 | R$ 2,60 | R$ 5,20 |
+| WhatsApp utilidade | R$ 6,65 | R$ 17,50 | R$ 35,00 |
+| E-mail (Resend Free, campanha em lotes) | R$ 0,00 | R$ 0,00 | R$ 0,00 |
+| **Total por mês** | **≈ R$ 50** (−65%) | **≈ R$ 82** (−70%) | **≈ R$ 149** (−54%) |
+| **Por atendimento** | R$ 0,33 | R$ 0,21 | R$ 0,19 |
+
+As duas mudanças de código (código pelo WhatsApp e lote diário de e-mail) ficam como próximos passos
+em [`ARCHITECTURE.md`](ARCHITECTURE.md) (pendências).
+
+## 7. Custos que não são mensais
 
 - **Na implantação (uma vez):**
   - Domínio no 1º ano: R$ 40.
@@ -112,13 +143,13 @@ a chave do provedor na env (`PROJECT.md` §14 i). A fila de e-mail reenvia o que
   - Contas no Railway, Sentry, Cloudflare e healthchecks: sem custo. O Railway pede cartão.
   - **Sem** a taxa de ativação de R$ 649 da Zenvia. Ela só existe para WhatsApp/RCS pela Zenvia, e o
     sistema fala com a Meta direto.
-- **Ambiente de testes publicado** (branch `dev`): enquanto ligado, custa quase o mesmo que a produção
-  (outro web + outro Postgres, ≈ US$ 5 a 6/mês a mais). Ligue só para ensaiar uma migration ou o
-  go-live (`PROJECT.md` §13.1) e desligue depois.
+- **Ambiente de testes publicado** (branch `dev`): ligado o mês todo, custaria quase o mesmo que a
+  produção (outro web + outro Postgres, ≈ US$ 5 a 6/mês a mais). Por isso o web do `dev` está no
+  modo Serverless (dorme sem tráfego) e o `dev` não tem serviço Cron (`PROJECT.md` §13.1).
 - **Plano Pro do Railway** (US$ 20/mês com US$ 20 de uso, ≈ R$ 106): só se a clínica precisar de mais
   de uma pessoa na conta ou de suporte do Railway. O consumo estimado cabe no crédito incluído.
 
-## 7. Travas de custo no sistema
+## 8. Travas de custo no sistema
 
 Cada canal pago tem um teto no código. Abuso ou erro não vira fatura:
 
@@ -133,7 +164,7 @@ Cada canal pago tem um teto no código. Abuso ou erro não vira fatura:
 | Envio sem provedor configurado | falha fechada: nada sai, nada é cobrado nem marcado como enviado | `utils/sms`, `utils/whatsapp` |
 | Avisos à equipe | Web Push gratuito em vez de SMS ou WhatsApp | `services/push` |
 
-## 8. Esforço de operação (tempo, não dinheiro)
+## 9. Esforço de operação (tempo, não dinheiro)
 
 | Frequência | Tarefa | Tempo |
 |---|---|---|
@@ -143,7 +174,7 @@ Cada canal pago tem um teto no código. Abuso ou erro não vira fatura:
 | Anual | Renovar o domínio e revisar este documento com os preços do ano | ~1 h |
 | Quando mudar o texto | Reaprovar o template do WhatsApp na Meta | ~1 dia de espera |
 
-## 9. Fontes (consultadas em 30/10/2026)
+## 10. Fontes (consultadas em 30/10/2026)
 
 - Railway, planos e tarifas: https://railway.com/pricing
 - Meta, modelo de cobrança do WhatsApp Business Platform: https://developers.facebook.com/docs/whatsapp/pricing
@@ -156,6 +187,12 @@ Cada canal pago tem um teto no código. Abuso ou erro não vira fatura:
 - Sentry, plano Developer gratuito: https://costbench.com/software/developer-tools/sentry/free-plan/
 - healthchecks.io, planos: https://healthchecks.io/pricing/
 - Cloudflare R2, cota gratuita: https://developers.cloudflare.com/r2/pricing
+- Railway Serverless: https://docs.railway.com/reference/app-sleeping
+- SMS sem mensalidade no Brasil (comparativo de provedores): https://x-apps.com.br/sms-verificacao-otp-brasil-provedores-precos/ ,
+  https://smsgo.com.br/ , https://www.smsdev.com.br/ , https://comtele.com.br/disparo-sms/
+- WhatsApp, tarifa de autenticação no Brasil igual à de utilidade (US$ 0,0068): https://www.authgear.com/post/whatsapp-api-pricing
+- Amazon SES: https://www.usecarly.com/blog/amazon-ses-pricing/
+- Hetzner, reajustes de 2026 (CX23): https://privatedevops.com/news/hetzner-june-2026-cloud-price-increase-what-to-do
 - Câmbio (PTAX de 16/10/2026): https://www.simianx.ai/pt/stories/us-dollar-exchange-rate-by-year-every-year-1971-2026-table
 - Cotação oficial: https://www.bcb.gov.br/estabilidadefinanceira/historicocotacoes
 
