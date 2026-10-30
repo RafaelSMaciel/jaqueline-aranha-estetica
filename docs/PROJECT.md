@@ -216,7 +216,7 @@ scripts/             backup/ (dump cifrado e teste de restauração, §14 h) e i
 ```
 Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   └─ middleware: Security → GZip → WhiteNoise → Session → CSRF → Auth → OTP → Messages
-                 → XFrame → CSP (nonce) → SecurityHeaders (no-store/no-referrer) → Enforce2FA
+                 → XFrame → CSP (nonce) → SecurityHeaders (no-store/same-origin) → Enforce2FA
                  → Axes → Ratelimit
       └─ view (validação + permissão) ──▶ services/ e utils/ (regra de negócio)
             └─ models (FSM do Atendimento, managers, constraints) ──▶ PostgreSQL
@@ -749,7 +749,7 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
   X-Frame-Options DENY, nosniff, COOP/CORP, Permissions-Policy.
 - **Privacidade no navegador:** `/painel/`, `/profissional/`, `/meus-agendamentos/`, `/lgpd/`,
   `/api/`, `/django-admin-sv/` saem com `Cache-Control: no-store` (e views sensíveis com
-  `@never_cache`); rotas com token no path usam `Referrer-Policy: no-referrer`; privadas e com token saem com `X-Robots-Tag: noindex, nofollow, noarchive` (o robots.txt só pede para não buscar); logout envia
+  `@never_cache`); rotas com token no path usam `Referrer-Policy: same-origin` (o Referer não sai para outro domínio; `no-referrer` fazia o navegador mandar `Origin: null` no POST da própria página e o CSRF recusava); privadas e com token saem com `X-Robots-Tag: noindex, nofollow, noarchive` (o robots.txt só pede para não buscar); logout envia
   `Clear-Site-Data: "cache"`; o access log do gunicorn redige tokens (`LoggerSemTokens`) e o log da
   aplicação passa pelo filtro `clinica/logging_filtros.RedigirLog` (token de link, DETAIL do
   Postgres, e-mail, CPF e telefone na mensagem, no traceback e nos extras — a mesma redação do

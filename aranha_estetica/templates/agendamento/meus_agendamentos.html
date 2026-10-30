@@ -670,13 +670,13 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                 if (res.ok && res.data.ok) {
                     var savedId = cancelAtendimentoId;
                     closeCancelModal();
-                    // o cartao sai deslizando (.saindo no site.css)
+                    // o cartao sai deslizando (.saindo no site.css) e a pagina recarrega: contadores,
+                    // selo "Proximo" e historico vem do servidor (so tirar o cartao deixava "1 Proximos"
+                    // com a lista vazia). O aviso atravessa o recarregamento pelo sessionStorage.
                     var card = document.getElementById('agend-' + savedId);
-                    if (card) {
-                        card.classList.add('saindo');
-                        setTimeout(function() { card.remove(); }, 400);
-                    }
-                    showToast(res.data.mensagem || 'Agendamento cancelado com sucesso.');
+                    if (card) card.classList.add('saindo');
+                    try { sessionStorage.setItem(CHAVE_AVISO, res.data.mensagem || 'Agendamento cancelado com sucesso.'); } catch (e) { /* sem storage: so recarrega */ }
+                    setTimeout(function() { window.location.reload(); }, 400);
                 } else {
                     closeCancelModal();
                     // Codigos internos do lerJson ('limite', 'rede') viram texto legivel
@@ -693,6 +693,15 @@ var CSRF_TOKEN = '{{ csrf_token }}';
     }
 
     /* ═══ AVISO FLUTUANTE (.portal-toast no site.css) ═══ */
+    var CHAVE_AVISO = 'portal-aviso';
+    try {
+        var avisoPendente = sessionStorage.getItem(CHAVE_AVISO);
+        if (avisoPendente) {
+            sessionStorage.removeItem(CHAVE_AVISO);
+            setTimeout(function() { showToast(avisoPendente); }, 0);
+        }
+    } catch (e) { /* sem storage */ }
+
     function showToast(msg, isError) {
         var toast = document.createElement('div');
         toast.className = 'portal-toast' + (isError ? ' portal-toast--erro' : '');

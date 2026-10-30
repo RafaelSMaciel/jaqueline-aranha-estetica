@@ -172,8 +172,9 @@ Todos com `secrets.token_urlsafe(32)` (≈ 256 bits). Desde a migration 0049 o b
 `sha256(token)` em `link_acesso` (`services/links.py`): a busca é por igualdade do hash (índice
 único), sem comparação de segredo em Python; sem pepper/HMAC de propósito (rotacionar a
 SECRET_KEY num incidente não derruba links enviados). O token em claro só existe na URL
-entregue — o feed ICS é exibido uma única vez, na geração. `Referrer-Policy: no-referrer` nas
-páginas; o access log do gunicorn e o Sentry redigem os tokens. Revogado (rotação do ICS,
+entregue — o feed ICS é exibido uma única vez, na geração. `Referrer-Policy: same-origin` nas
+páginas (o token não vai para outro domínio; `no-referrer` fazia o navegador mandar `Origin: null`
+no POST e o CSRF recusava confirmar, NPS, termo, ficha e nova senha); o access log do gunicorn e o Sentry redigem os tokens. Revogado (rotação do ICS,
 pseudonimização) = 404; token de outra finalidade = 404.
 
 | Finalidade (`link_acesso`) | Onde | Validade | Dá acesso a |
@@ -202,7 +203,7 @@ atendimento + sessão do OTP, só agendamentos do telefone verificado). O link l
   é o Turnstile); `frame-ancestors 'none'` (exceto `/embed/agendar/`,
   que usa `EMBED_FRAME_ANCESTORS`).
 - `X-Frame-Options: DENY`, `nosniff`, COOP/CORP `same-origin`, Permissions-Policy restritiva,
-  `Referrer-Policy: strict-origin-when-cross-origin` (e `no-referrer` nas rotas com token).
+  `Referrer-Policy: strict-origin-when-cross-origin` (e `same-origin` nas rotas com token).
 - CSRF em todos os formulários; o `webpush.js` lê o token da página (cookie CSRF é HttpOnly).
 - Sem API REST: a DRF (somente leitura, sem consumidor, exportava CPF/telefone em lote) foi removida;
   sob `/api/` só ficam os webhooks da Meta e da Zenvia.
@@ -214,7 +215,7 @@ atendimento + sessão do OTP, só agendamentos do telefone verificado). O link l
 **Forte hoje:** OTP com HMAC + cotas + propósito isolado + preso ao telefone; anti-enumeração no
 portal, no DSAR (mesma resposta e latência mínima) e na lista de espera; 2FA obrigatório do ADMIN e do PROFISSIONAL conferido a cada
 request e falhando fechado, sem tela de login paralela; axes por IP + usuário e por IP (sem
-trancar a dona por e-mail); sessão/HSTS/CSP estritos; no-store e no-referrer onde há dado
+trancar a dona por e-mail); sessão/HSTS/CSP estritos; no-store e same-origin onde há dado
 sensível; tokens longos e redigidos no access log, no log da aplicação e no Sentry; segredos de
 header (cron, webhooks) comparados em tempo constante; trilha de auditoria com IP.
 

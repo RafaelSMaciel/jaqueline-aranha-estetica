@@ -373,7 +373,7 @@ class NoStoreRotasTokenTests(TestCase):
         resp = Client().get(reverse('aranha:nps_web', args=[token]))
         self.assertEqual(resp.status_code, 200)
         self.assertIn('no-store', resp['Cache-Control'])
-        self.assertEqual(resp['Referrer-Policy'], 'no-referrer')
+        self.assertEqual(resp['Referrer-Policy'], 'same-origin')
 
     def test_todos_os_prefixos_de_token_sem_cache(self):
         mw = SecurityHeadersMiddleware(lambda _r: HttpResponse('ok'))

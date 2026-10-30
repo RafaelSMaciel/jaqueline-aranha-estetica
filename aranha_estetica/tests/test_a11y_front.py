@@ -249,6 +249,13 @@ class TitulosEAbasTests(SimpleTestCase):
                 anterior = nivel
         self.assertEqual(pulos, [])
 
+    def test_pagina_do_site_tem_titulo_proprio(self):
+        """WCAG 2.4.2: toda pagina do site (extends base_v2) define o <title> (reagendar nao tinha)."""
+        sem = [arq.relative_to(_TEMPLATES).as_posix() for arq in _templates_html()
+               if "{% extends 'estrutura/base_v2.html' %}" in (html := arq.read_text(encoding='utf-8'))
+               and '{% block titulo %}' not in html]
+        self.assertEqual(sem, [])
+
     def test_rodape_comeca_em_h2(self):
         rodape = (_TEMPLATES / 'cotton' / 'chrome' / 'rodape.html').read_text(encoding='utf-8')
         self.assertNotRegex(rodape, r'<h[3-6][\s>]')

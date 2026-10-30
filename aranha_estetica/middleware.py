@@ -137,8 +137,8 @@ class SecurityHeadersMiddleware:
         Enforce2FAMiddleware.ADMIN_PREFIX, Enforce2FAMiddleware.API_PREFIX,
     )
 
-    # Rotas cujo path carrega token de link magico: sem Referer, senao o token
-    # vaza p/ CDN/links externos abertos a partir da pagina; e sem cache
+    # Rotas cujo path carrega token de link magico: sem Referer para outro dominio, senao o
+    # token vaza p/ CDN/links externos abertos a partir da pagina; e sem cache
     # (no-store), como as areas privadas.
     PREFIXOS_TOKEN = (
         '/confirmar/', '/nps/', '/anamnese/', '/pesquisa/',
@@ -163,7 +163,10 @@ class SecurityHeadersMiddleware:
         response.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         response.setdefault("Cross-Origin-Resource-Policy", "same-origin")
         if com_token:
-            response["Referrer-Policy"] = "no-referrer"
+            # same-origin, nao no-referrer: com no-referrer o navegador manda `Origin: null` no POST
+            # do formulario da propria pagina (confirmar, NPS, termo, ficha, nova senha) e o CSRF do
+            # Django recusa. Para outro dominio o Referer continua nao indo (o token nao vaza).
+            response["Referrer-Policy"] = "same-origin"
         else:
             response.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
