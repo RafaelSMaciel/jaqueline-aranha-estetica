@@ -218,7 +218,7 @@ class DDLSoPostgresTests(TestCase):
             ('agenda_horario', 'fk_agenda_horario_profissional', 'f', 'c'),
             ('agenda_excecao', 'pk_agenda_excecao', 'p', ' '),
             ('agenda_excecao', 'fk_agenda_excecao_profissional', 'f', 'c'),
-            ('agenda_excecao', 'fk_agenda_excecao_usuario_autor', 'f', 'n'),
+            ('agenda_excecao', 'fk_agenda_excecao_created_by', 'f', 'n'),
         })
         self.assertEqual(sequencias, ('public.agenda_excecao_id_seq', 'public.agenda_horario_id_seq'))
 
@@ -322,11 +322,11 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(objetos, {
             ('pk_consentimento', 'p', ' '),
             ('fk_consentimento_cliente', 'f', 'a'),
-            ('fk_consentimento_usuario_autor', 'f', 'a'),
+            ('fk_consentimento_created_by', 'f', 'a'),
         })
         self.assertEqual(set(indices), {
             'pk_consentimento', 'ix_consentimento_cliente_finalidade_canal_registrado_em',
-            'ix_consentimento_usuario_autor_parcial',
+            'ix_consentimento_created_by_parcial',
         })
         self.assertIn('(cliente_id, finalidade, canal, registrado_em DESC, id DESC)',
                       indices['ix_consentimento_cliente_finalidade_canal_registrado_em'])
@@ -609,7 +609,7 @@ class DDLSoPostgresTests(TestCase):
             indices = dict(cursor.fetchall())
         # 0055: as FKs antigas tambem no padrao (PadronizarNomes), todas NO ACTION (PROTECT)
         self.assertEqual(fks, {('fk_movimento_comissao_movimento_comissao_origem', 'a'),
-                               ('fk_movimento_comissao_usuario_autor', 'a'),
+                               ('fk_movimento_comissao_created_by', 'a'),
                                ('fk_movimento_comissao_profissional', 'a'),
                                ('fk_movimento_comissao_atendimento', 'a'),
                                ('fk_movimento_comissao_regra_comissao', 'a')})

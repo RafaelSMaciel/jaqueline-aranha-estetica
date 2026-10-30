@@ -491,6 +491,7 @@ class TemplatesPainelTests(TestCase):
 @skipUnless(connection.vendor == 'postgresql', 'EXCLUDE ex_atendimento_sobreposicao so existe no Postgres')
 class AgendamentoInternoExcludePgTests(_AdminTestCase):
     def test_corrida_de_slot_vira_mensagem_e_nao_500(self):
+        limpar_feriados()  # hoje+3 pode cair em feriado (ex.: 02/11, Finados)
         prof = criar_profissional()
         proc = criar_procedimento(profissional=prof)
         dia = _local(3).date()
