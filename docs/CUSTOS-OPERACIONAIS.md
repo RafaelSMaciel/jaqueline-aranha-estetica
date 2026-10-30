@@ -14,7 +14,7 @@
 | **Custo mensal** | **≈ R$ 50,11** |
 | Por atendimento (60/mês) | ≈ R$ 0,84 |
 | Por ano | ≈ R$ 601 |
-| Implantação (uma vez) | ≈ R$ 96 |
+| Implantação (uma vez) | ≈ R$ 76 |
 
 Com as ferramentas que o código usa hoje, o mesmo mês custaria ≈ R$ 142,91. A diferença vem quase
 toda do pacote mínimo de SMS da Zenvia (R$ 100/mês). A troca está em "No radar: mudança de código".
@@ -111,10 +111,9 @@ considera a troca do SMS.
 | Item | Valor |
 |---|---|
 | Domínio `.com.br`, 1º ano (Registro.br) | R$ 40,00 |
-| Chip pré-pago para o número do WhatsApp da API (estimativa). O número não pode estar em uso no aplicativo WhatsApp comum | R$ 20,00 |
 | Primeiro crédito de SMS pré-pago (300 SMS × R$ 0,12; não expira) | R$ 36,00 |
 | Contas no Railway, Brevo, Meta, Cloudflare, Sentry e healthchecks.io (a Meta exige CNPJ; o Railway pede cartão) | R$ 0,00 |
-| **Total** | **R$ 96,00** |
+| **Total** | **R$ 76,00** |
 
 Sem a taxa de ativação de R$ 649 da Zenvia: ela só existe para WhatsApp/RCS pela Zenvia, e o sistema
 fala com a Meta direto.
