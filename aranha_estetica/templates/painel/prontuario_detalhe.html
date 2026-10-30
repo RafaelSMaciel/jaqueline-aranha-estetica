@@ -219,7 +219,7 @@ x-ref dialogo/texto, data-csrf na raiz e data-atendimento-id no botao que abre.
       <li class="item-lista">
         <div class="item-lista-corpo">
           <p class="item-lista-titulo">{{ a.versao_termo.titulo }}</p>
-          <p class="item-lista-meta">LGPD v{{ a.versao_termo.versao }} · {{ a.criado_em|date:"d/m/Y H:i" }}</p>
+          <p class="item-lista-meta">{% if a.versao_termo.tipo == 'SAUDE' %}Dados de saúde{% else %}Privacidade{% endif %} v{{ a.versao_termo.versao }} · {{ a.criado_em|date:"d/m/Y H:i" }}</p>
         </div>
         <c-selo tom="sucesso" icone="check">Aceito</c-selo>
       </li>

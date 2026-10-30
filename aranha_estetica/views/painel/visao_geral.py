@@ -22,7 +22,7 @@ from ...services.retorno import devidos as retornos_devidos
 from ...services.retorno import devidos_na_lista as retorno_devidos_na_lista
 from ...utils.busca import filtrar_clientes
 from ...services.nps import resumo_nps
-from ...services.indicadores import ocupacao_semana
+from ...services.indicadores import STATUS_OCUPAM_AGENDA, ocupacao_semana
 from ...utils.auditoria import registrar_log
 from ...utils.datas import data_local, dias_locais, hoje as hoje_local, inicio_do_dia, ler_data
 from ...utils.parse import id_int
@@ -79,18 +79,18 @@ def painel_overview(request):
 
     agendamentos_hoje = Atendimento.objects.filter(
         **dias_locais('data_hora_inicio', hoje),
-        status__in=STATUS_ATIVOS
+        status__in=STATUS_OCUPAM_AGENDA
     ).count()
 
     agendamentos_semana = Atendimento.objects.filter(
         **dias_locais('data_hora_inicio', inicio_semana, fim_semana),
-        status__in=STATUS_ATIVOS
+        status__in=STATUS_OCUPAM_AGENDA
     ).count()
 
     # mesma conta da semana anterior (seg-dom): base da comparacao do card "Semana"
     agendamentos_semana_anterior = Atendimento.objects.filter(
         **dias_locais('data_hora_inicio', inicio_semana - timedelta(days=7), fim_semana - timedelta(days=7)),
-        status__in=STATUS_ATIVOS
+        status__in=STATUS_OCUPAM_AGENDA
     ).count()
 
     total_clientes = Cliente.objects.filter(ativo=True).count()
@@ -156,7 +156,7 @@ def painel_overview(request):
     agendamentos_por_dia = dict(
         Atendimento.objects.filter(
             **dias_locais('data_hora_inicio', inicio_semana, fim_semana),
-            status__in=(*STATUS_ATIVOS, StatusAtendimento.REALIZADO)
+            status__in=STATUS_OCUPAM_AGENDA
         ).annotate(
             dia=TruncDate('data_hora_inicio')
         ).values('dia').annotate(total=Count('pk')).values_list('dia', 'total')

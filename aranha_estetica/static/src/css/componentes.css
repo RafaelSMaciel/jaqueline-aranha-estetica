@@ -9,6 +9,15 @@
  * em multiplos de 4px; raio 8px (controle), 12px (menu/aviso), 16px (cartao/modal).
  */
 
+/* Tabela responsiva em cartoes: no celular (< 768px, vale sem JS) e sempre que a tabela nao cabe no
+   proprio bloco — painel.js liga .tabela-empilhada no envoltorio (tablet, notebook pequeno, menu
+   lateral aberto). Uma regra so p/ os dois casos: `.x { @variant tabela-empilhada { ... } }` (dentro
+   de cada regra: no topo, o `&` vira :scope e a regra nao casa nada). */
+@custom-variant tabela-empilhada {
+  @media (max-width: 767.98px) { @slot; }
+  :where(.tabela-empilhada) & { @slot; }
+}
+
 /* ── Casca: corpo do painel e do portal ── */
 @layer base {
   .painel-admin { font-size: var(--text-corpo); line-height: 1.55; }
@@ -198,7 +207,8 @@
   a.kpi:hover { border-color: var(--cor-borda-campo); }
   .grade-kpis { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
 
-  /* ── Tabela: <c-tabela legenda responsiva> — tabela no desktop; cartoes empilhados < 768px ── */
+  /* ── Tabela: <c-tabela legenda responsiva> — tabela quando cabe; cartoes empilhados no celular e
+     quando a tabela nao cabe no bloco (variante tabela-empilhada, acima) ── */
   .tabela-rolagem { overflow-x: auto; }
   .tabela-envoltorio { min-width: 0; }   /* responsiva: sem rolagem (o menu "⋯" da linha nao e cortado) */
   .tabela { width: 100%; border-collapse: collapse; font-size: var(--text-corpo); color: var(--cor-texto); }
@@ -215,32 +225,35 @@
   .tabela-compacta td { padding: 0.5rem 1rem; }
   .tabela-compacta th { padding: 0.5rem 1rem; }
   .linha-destaque > td:first-child { box-shadow: inset 4px 0 0 var(--cor-aviso); }
-  @media (max-width: 767.98px) {
-    .tabela-responsiva thead {
-      position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-    }
-    .tabela-responsiva, .tabela-responsiva tbody, .tabela-responsiva tr, .tabela-responsiva td { display: block; width: 100%; }
-    .tabela-responsiva tr { padding: 1rem; border-bottom: 1px solid var(--cor-borda); }
-    .tabela-responsiva tbody tr:last-child { border-bottom: 0; }
-    .tabela-responsiva tbody tr:hover > td { background: none; }
-    .tabela-responsiva td { padding: 0.25rem 0; border: 0; }
-    /* rotulo na 1a coluna; TODO o conteudo da celula empilhado na 2a, alinhado a direita (varios
-       filhos — hora + data, servico + profissional — nao se espalham pela linha) */
-    .tabela-responsiva td[data-rotulo] {
-      display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 1rem;
-      align-items: baseline; justify-items: end; text-align: right;
-    }
-    .tabela-responsiva td[data-rotulo]::before {
+  .tabela-responsiva thead { @variant tabela-empilhada {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  } }
+  .tabela-responsiva, .tabela-responsiva tbody, .tabela-responsiva tr, .tabela-responsiva td {
+    @variant tabela-empilhada { display: block; width: 100%; }
+  }
+  .tabela-responsiva tr { @variant tabela-empilhada { padding: 1rem; border-bottom: 1px solid var(--cor-borda); } }
+  .tabela-responsiva tbody tr:last-child { @variant tabela-empilhada { border-bottom: 0; } }
+  .tabela-responsiva tbody tr:hover > td { @variant tabela-empilhada { background: none; } }
+  .tabela-responsiva td { @variant tabela-empilhada { padding: 0.25rem 0; border: 0; } }
+  /* rotulo na 1a coluna; TODO o conteudo da celula empilhado na 2a, alinhado a direita (varios
+     filhos — hora + data, servico + profissional — nao se espalham pela linha) */
+  .tabela-responsiva td[data-rotulo] { @variant tabela-empilhada {
+    display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 1rem;
+    align-items: baseline; justify-items: end; text-align: right;
+    /* pseudo-elemento aninhado (o seletor :is() da variante nao aceita ::before dentro) */
+    &::before {
       content: attr(data-rotulo); grid-column: 1; grid-row: 1 / span 12; align-self: start; justify-self: start;
       max-width: 9rem; text-align: left;
       font-size: var(--text-legenda); font-weight: 700; color: var(--cor-texto-suave);
     }
-    .tabela-responsiva td[data-rotulo] > * { grid-column: 2; max-width: 100%; }
-    .tabela-responsiva td.num { white-space: normal; }
-    .tabela-responsiva td.acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding-top: 0.75rem; white-space: normal; }
-    .tabela-responsiva .linha-destaque { box-shadow: inset 4px 0 0 var(--cor-aviso); }
-    .tabela-responsiva .linha-destaque > td:first-child { box-shadow: none; }
-  }
+    & > * { grid-column: 2; max-width: 100%; }
+  } }
+  .tabela-responsiva td.num { @variant tabela-empilhada { white-space: normal; } }
+  .tabela-responsiva td.acoes { @variant tabela-empilhada {
+    display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding-top: 0.75rem; white-space: normal;
+  } }
+  .tabela-responsiva .linha-destaque { @variant tabela-empilhada { box-shadow: inset 4px 0 0 var(--cor-aviso); } }
+  .tabela-responsiva .linha-destaque > td:first-child { @variant tabela-empilhada { box-shadow: none; } }
 
   /* ── Abas: <c-abas> + <c-abas.aba> + <c-abas.painel> (painel.js liga role=tab/tabpanel e as setas) ── */
   .abas-lista {

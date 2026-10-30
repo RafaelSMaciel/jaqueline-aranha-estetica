@@ -103,6 +103,22 @@ class OverviewTests(_AdminBase):
         self.assertEqual(resp.context['ticket_medio'], Decimal('200.00'))
         self.assertContains(resp, 'R$ 200,00')
 
+    def test_cards_do_dia_e_da_semana_contam_o_realizado(self):
+        """Realizado continua no card do dia; a semana passada (toda realizada) entra na comparacao."""
+        from aranha_estetica.utils.datas import hoje
+        agora = timezone.localtime()
+        base = agora.replace(hour=10, minute=0, second=0, microsecond=0)
+        cli = criar_cliente()
+        criar_atendimento(cli, self.prof, self.proc, data_hora=base, status='REALIZADO')
+        criar_atendimento(cli, self.prof, self.proc, data_hora=base + timedelta(hours=2), status='FALTOU')
+        criar_atendimento(cli, self.prof, self.proc, data_hora=base + timedelta(hours=3), status='CANCELADO')
+        criar_atendimento(cli, self.prof, self.proc, data_hora=base - timedelta(days=7), status='REALIZADO')
+        resp = self.client.get(reverse('aranha:painel_overview'))
+        self.assertEqual(resp.context['agendamentos_hoje'], 1)
+        self.assertEqual(resp.context['agendamentos_semana_anterior'], 1)
+        self.assertGreaterEqual(resp.context['agendamentos_semana'], 1)
+        self.assertEqual(resp.context['hoje'], hoje())
+
     def test_filtro_profissional_nao_numerico_nao_da_500(self):
         resp = self.client.get(reverse('aranha:painel_agendamentos') + '?profissional=abc')
         self.assertEqual(resp.status_code, 200)

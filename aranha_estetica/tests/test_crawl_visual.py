@@ -1,13 +1,15 @@
 """Varredura visual de TODAS as paginas no navegador (Playwright + Chromium headless + axe-core).
 
-Cada rota PUBLICA/STAFF/PROFISSIONAL de tests/test_rotas.ROTAS e aberta no papel certo em duas
-larguras — desktop (1366px, tema claro) e celular (390px, tema escuro: cobre os dois temas sem
-uma 3a passada) — e reprova em:
+Cada rota PUBLICA/STAFF/PROFISSIONAL de tests/test_rotas.ROTAS e aberta no papel certo em tres
+larguras — desktop (1366px, tema claro), tablet (820px, claro: entre o celular e o menu lateral do
+painel, onde o cabecalho do site e a agenda do painel ja estouraram) e celular (390px, tema escuro:
+cobre os dois temas sem uma 4a passada) — e reprova em:
   - resposta HTTP de erro (a pagina ou qualquer recurso do proprio site);
   - erro de JavaScript (pageerror) ou erro no console (inclui violacao de CSP);
-  - rolagem lateral no celular (a pagina mais larga que a tela);
+  - rolagem lateral (a pagina mais larga que a tela) em qualquer largura;
   - sintaxe de template vazando no texto ({# #}, {% %}, {{ }});
-  - violacao serious/critical do axe-core (WCAG 2.0/2.1 A e AA).
+  - violacao serious/critical do axe-core (WCAG 2.0/2.1 A e AA) — no desktop e no celular (o tablet
+    repete o markup do desktop; la so contam layout, erro e status).
 Excecao conhecida de terceiro so pela lista PERMITIDOS, com o motivo.
 
 O axe vem do node_modules (devDependency, `npm ci`), injetado por add_init_script (fora da CSP da
@@ -34,6 +36,7 @@ except ImportError:  # pragma: no cover - depende do ambiente
 AXE = Path(settings.BASE_DIR) / 'node_modules' / 'axe-core' / 'axe.min.js'
 LARGURAS = {
     'desktop': dict(viewport={'width': 1366, 'height': 900}, color_scheme='light'),
+    'tablet': dict(viewport={'width': 820, 'height': 1180}, color_scheme='light', has_touch=True),
     'celular': dict(viewport={'width': 390, 'height': 844}, color_scheme='dark', is_mobile=True, has_touch=True),
 }
 PAPEL_DO_PERFIL = {rotas.PUBLICA: None, rotas.STAFF: 'admin', rotas.PROFISSIONAL: 'profissional'}
@@ -108,7 +111,7 @@ class VarreduraVisualTests(StaticLiveServerTestCase):
             problemas.append(f'status {resp.status if resp else "sem resposta"}')
         if 'text/html' not in ((resp and resp.headers.get('content-type')) or ''):
             return problemas   # JSON/texto (ex.: liveness): so o status importa
-        if largura == 'celular' and page.evaluate('document.documentElement.scrollWidth > window.innerWidth + 1'):
+        if page.evaluate('document.documentElement.scrollWidth > window.innerWidth + 1'):
             mais_largo = page.evaluate("""() => {
                 const w = window.innerWidth; let pior = null;
                 for (const el of document.querySelectorAll('body *')) {
@@ -117,17 +120,20 @@ class VarreduraVisualTests(StaticLiveServerTestCase):
                 }
                 return pior ? pior.t.slice(0, 80) + ' (' + Math.round(pior.r) + 'px)' : '?';
             }""")
-            problemas.append(f'rolagem lateral no celular: {mais_largo}')
+            problemas.append(f'rolagem lateral ({largura}): {mais_largo}')
         texto = page.evaluate('document.body.innerText')
         for m in VAZAMENTO.finditer(texto):
             problemas.append(f'template vazando no texto: ...{texto[max(0, m.start() - 30):m.end() + 30]!r}...')
             break
-        violacoes = page.evaluate("""async () => {
-            const r = await axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']},
-                                               resultTypes: ['violations']});
-            return r.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')
-              .map(v => ({id: v.id, impact: v.impact, alvos: v.nodes.slice(0, 3).map(n => n.target.join(' '))}));
-        }""")
+        if largura == 'tablet':
+            violacoes = []
+        else:
+            violacoes = page.evaluate("""async () => {
+                const r = await axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']},
+                                                   resultTypes: ['violations']});
+                return r.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')
+                  .map(v => ({id: v.id, impact: v.impact, alvos: v.nodes.slice(0, 3).map(n => n.target.join(' '))}));
+            }""")
         for v in violacoes:
             if (nome, v['id']) not in PERMITIDOS:
                 problemas.append(f"axe {v['id']} [{v['impact']}]: {'; '.join(v['alvos'])[:200]}")
