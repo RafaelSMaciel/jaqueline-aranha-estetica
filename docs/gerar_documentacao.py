@@ -31,10 +31,13 @@ from docx.shared import Inches, Pt, RGBColor
 BASE = os.path.dirname(os.path.abspath(__file__))
 RAIZ = os.path.dirname(BASE)
 PNG = os.path.join(BASE, 'uml', 'png')
+# Versões de apresentação feitas no Lucidchart (mesmo conteúdo, exportadas para docs/uml/lucid/):
+# quando existe a do Lucid, o documento usa ela; senão, a renderização do PlantUML.
+LUCID = os.path.join(BASE, 'uml', 'lucid')
 DADOS = os.path.join(BASE, '_dados_requisitos.json')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 
-VERSAO = '3.2'
+VERSAO = '3.3'
 DATA = date(2026, 10, 29).strftime('%d/%m/%Y')
 # (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
 HISTORICO = [
@@ -64,6 +67,9 @@ HISTORICO = [
                           'com parâmetros, corpos, códigos de erro, autenticação e limites), Swagger UI no '
                           'painel e teste que reprova rota sem documentação; contrato único das respostas '
                           'JSON em todas as rotas do app.'),
+    ('3.3', '29/10/2026', 'Diagramas de apresentação no Lucidchart: MER conceitual (notação de Chen), DER '
+                          'completo e por área, classes do domínio, casos de uso e atividades com raias; '
+                          'as figuras desses cinco tipos passam a ser as do Lucid.'),
 ]
 GOLD = RGBColor(0xC4, 0xA3, 0x5A)
 DARK = RGBColor(0x4A, 0x34, 0x25)
@@ -178,8 +184,11 @@ def _orientar(paisagem):
 
 
 def figura(caminho, legenda, descricao=None):
-    """Diagrama (docs/uml/png/<caminho>) numerado; largo vai em paisagem, alto em retrato."""
-    path = os.path.join(PNG, caminho)
+    """Diagrama numerado (docs/uml/lucid/<caminho> ou docs/uml/png/<caminho>); largo vai em paisagem,
+    alto em retrato."""
+    path = os.path.join(LUCID, caminho)
+    if not os.path.exists(path):
+        path = os.path.join(PNG, caminho)
     if not os.path.exists(path):
         doc.add_paragraph(f'[diagrama ausente: {caminho} — rode python docs/uml/gerar_uml.py]')
         return
@@ -492,6 +501,11 @@ par('O modelo físico é gerado dos models com os tipos reais do PostgreSQL, cha
     'nulidade (* = obrigatório). Nomes seguem o padrão SQL do projeto (tabelas no singular, colunas '
     'eh_*, constraints ck_/uq_/ex_/fk_ e índices ix_). A visão geral mostra todas as tabelas; as demais, '
     'uma área do domínio cada.')
+figura('08-dados/mer-conceitual.png', 'MER conceitual — notação de Chen (entidades, relacionamentos e '
+       'cardinalidades mín./máx.).',
+       'Antes do modelo físico, o modelo conceitual: as 14 entidades de negócio, os relacionamentos '
+       '(losangos) com a cardinalidade (mínima, máxima) junto de cada entidade e os principais atributos '
+       '(elipses; a chave sublinhada). Tabelas técnicas (links, jobs, trilhas) ficam só no modelo físico.')
 for caminho, legenda in (
         ('00-er-visao-geral.png', 'Modelo de dados — visão geral.'),
         ('01-er-agenda-atendimento.png', 'Modelo de dados — agenda e atendimento.'),
