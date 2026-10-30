@@ -299,11 +299,11 @@ verde em SQLite e Postgres).
       página carrega nada dele. Junto com a revisão jurídica da política (item da operação, acima)
 - [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
       [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
-- [ ] Custo (clínica pequena, [`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md) §7): adaptador de
-      SMS pré-pago sem mensalidade em `utils/sms` no lugar da Zenvia, e e-mail pelo Brevo Free (só
-      configuração). Opcionais: código de acesso pelo WhatsApp (template de **autenticação**) com SMS
-      de reserva, e teto diário dos e-mails de marketing na fila. Com 150 atendimentos/mês o custo
-      cai de ≈ R$ 255 para ≈ R$ 67 (planilha `tcc/ShivaZen-Custos-Operacionais.xlsx`)
+- [ ] **No radar (custo)** — a clínica prevê até 60 atendimentos/mês
+      ([`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md) §5): trocar a Zenvia (pacote mínimo de
+      R$ 100/mês) por SMS pré-pago sem mensalidade, com um adaptador em `utils/sms` (≈ R$ 92,80/mês a
+      menos; o sistema passa de ≈ R$ 143 para ≈ R$ 50/mês). Na implantação, e-mail pelo Brevo Free (só
+      configuração). Opcional, depois: código de acesso pelo WhatsApp (template de autenticação).
 - [ ] Decidido não fazer (por ora): UNIQUE de regra de comissão ativa (quebraria o desempate por
       "mais recente"); consentimento de WhatsApp para marketing. (O trigger de `updated_at`
       entrou na 0056; nomes em inglês na 0079.)
