@@ -4,12 +4,13 @@
 > (migrations `0001`–`0079`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
-> pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documento do TCC (requisitos, UML,
-> arquitetura): [`gerar_documentacao.py`](gerar_documentacao.py) → `ShivaZen-Documentacao.docx/.pdf`;
-> regras de negócio, requisitos (RF/RNF com prioridade, verificação e rastreabilidade) e documento
-> técnico em separado: [`gerar_especificacoes.py`](gerar_especificacoes.py) →
-> `ShivaZen-Regras-de-Negocio`, `ShivaZen-Requisitos` e `ShivaZen-Documento-Tecnico` (.docx/.pdf),
-> gerados deste arquivo, do `REGRAS-DE-NEGOCIO.md`, do `ARCHITECTURE.md` e do `_dados_requisitos.json`;
+> pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documentos do TCC em [`tcc/`](tcc/): o geral
+> (requisitos, UML, arquitetura — [`gerar_documentacao.py`](tcc/gerar_documentacao.py) →
+> `ShivaZen-Documentacao.docx/.pdf`) e, em separado, regras de negócio, requisitos (RF/RNF com
+> prioridade, verificação e rastreabilidade) e documento técnico
+> ([`gerar_especificacoes.py`](tcc/gerar_especificacoes.py) → `ShivaZen-Regras-de-Negocio`,
+> `ShivaZen-Requisitos` e `ShivaZen-Documento-Tecnico`), gerados deste arquivo, do
+> `REGRAS-DE-NEGOCIO.md`, do `ARCHITECTURE.md` e do `tcc/_dados_requisitos.json`;
 > diagramas em [`uml/`](uml/README.md) (PlantUML gerado do código + versões de apresentação no
 > Lucidchart de todos os tipos, exportadas em `uml/lucid/`). Custo mensal de operação (provedores,
 > cenários por volume): [`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md); identidade visual, cores,
@@ -212,6 +213,8 @@ clinica/             settings/{base,dev,prod,staging,test}.py (leem e validam a 
                      wsgi.py, apps.py, gunicorn_logger.py, logging_filtros.py (redação de token/PII no log)
 scripts/             backup/ (dump cifrado e teste de restauração, §14 h) e imagens.py (variantes
                      responsivas das fotos do site; Pillow do requirements-dev) — fora da imagem Docker
+docs/                os Markdown vivos (um por assunto; índice no README), specs/ (banco, front, registry),
+                     uml/ (PlantUML gerado do código + Lucidchart) e tcc/ (geradores e os DOCX/PDF do TCC)
 ```
 
 ### 3.2 Camadas e fluxo de uma requisição
@@ -1750,8 +1753,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 - Migrations: nunca editar migration já aplicada em produção; DDL só-Postgres via `RunPython`
   com checagem de vendor; teste no Postgres (CI) antes do merge.
 - Commits: Conventional Commits (`feat(scope)`, `fix(scope)`, `docs(scope)`...).
-- Docs: este arquivo + requisitos (`docs/_dados_requisitos.json`, lido por
-  `python docs/gerar_documentacao.py`) no mesmo PR da mudança.
+- Docs: este arquivo + requisitos (`docs/tcc/_dados_requisitos.json`, lido por
+  `python docs/tcc/gerar_documentacao.py`) no mesmo PR da mudança.
 
 ---
 
@@ -1776,7 +1779,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-29 | Diagramas no Lucidchart (pasta "Shiva Zen — TCC"): MER conceitual em notação de Chen (14 entidades, novo), DER completo com as 37 tabelas agrupadas por área + 5 DERs por área (ERD nativo, pé-de-galinha, gerado dos models), classes do domínio (5 páginas, dos models), casos de uso (7 páginas, formas UML) e atividades (3 páginas, raias no pedido online); PNGs em `docs/uml/lucid/`, usados pelo documento do TCC no lugar da renderização PlantUML |
 | 2026-10-29 | API documentada: OpenAPI 3.1 escrito à mão (`api/openapi.yaml`: 27 caminhos — wizard, portal, LGPD, painel, Web Push, ICS, webhooks, cron, saúde, PWA — com parâmetros, corpos, códigos de erro, autenticação e limites) + Swagger UI no painel (`/painel/api/`, só ADMIN, "Try it out" só GET) e catraca `tests/test_openapi.py`; contrato `{ok, codigo, mensagem}` também no login do portal, nos horários do reagendamento, na anotação clínica e no 403 de 2FA |
 | 2026-10-29 | Metadados de linha em inglês e iguais em todas as tabelas (0079): `created_at` nas 37, `updated_at` nas 24 com UPDATE de negócio (novo em `codigo_otp`/`execucao_job`), `deleted_at`, autoria `created_by_id` + `created_by_name`; `fn_set_updated_at`/`tg_<t>_updated_at`, corpos PL/pgSQL vigentes em `sql/v0079_metadados.py`, catraca `MetadadosDeLinhaTests` ([`specs/padrao-sql.md`](specs/padrao-sql.md) §3.7) |
-| 2026-10-30 | Documentação para o TCC: regras de negócio, requisitos (RF/RNF com prioridade, verificação e rastreabilidade) e documento técnico em documentos próprios (`gerar_especificacoes.py`); custo operacional mensal com preços de 2026 e cenários por volume ([`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md)) e escolhas de design e marketing — psicologia das cores, tipografia, tom, acessibilidade, recursos de marketing ([`DESIGN-E-MARKETING.md`](DESIGN-E-MARKETING.md)) |
+| 2026-10-30 | Documentação para o TCC: regras de negócio, requisitos (RF/RNF com prioridade, verificação e rastreabilidade) e documento técnico em documentos próprios (`tcc/gerar_especificacoes.py`); custo operacional mensal com preços de 2026 e cenários por volume ([`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md)) e escolhas de design e marketing — psicologia das cores, tipografia, tom, acessibilidade, recursos de marketing ([`DESIGN-E-MARKETING.md`](DESIGN-E-MARKETING.md)) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-30

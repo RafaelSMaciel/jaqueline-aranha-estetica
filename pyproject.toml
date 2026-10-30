@@ -21,7 +21,6 @@ select = ["E4", "E7", "E9", "F", "DTZ", "TID251"]
 # testes montam datetime naive de proposito antes do make_aware (ou p/ o relogio do navegador) e
 # montam o ambiente dos processos que importam os settings
 "aranha_estetica/tests/**" = ["DTZ001", "DTZ007", "TID251"]
-"docs/gerar_requisitos.py" = ["E702"]
 # quem le o ambiente: os settings, os pontos de entrada (DJANGO_SETTINGS_MODULE), os geradores da
 # documentacao, os comandos do pre-deploy (ADMIN_*) e as opcoes do Sentry (montadas durante o import
 # dos settings). Os prazos LGPD sairam do ambiente: settings.RETENCAO_* (fixos, publicados no termo).

@@ -66,9 +66,6 @@ Thumbs.db
 /*.webp
 screenshots/
 
-# ── Render local dos diagramas (caminho do Chrome) ──
-docs/diagramas/puppeteer.json
-
 # Temporarios do Word/Office (trava e rascunho do gerar_documentacao.py)
 ~$*
-docs/~rascunho-*.docx
+docs/tcc/~rascunho-*.docx

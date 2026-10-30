@@ -215,10 +215,12 @@ if DATABASE_URL:
 else:
     _dev_engine = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
     if _dev_engine == 'django.db.backends.sqlite3':
+        _banco_dev = BASE_DIR / '.cache' / 'db_dev.sqlite3'   # .cache/ (ignorado): raiz do repo limpa
+        _banco_dev.parent.mkdir(exist_ok=True)
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db_dev.sqlite3',
+                'NAME': _banco_dev,
             }
         }
     else:

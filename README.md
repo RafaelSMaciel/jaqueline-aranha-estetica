@@ -89,7 +89,7 @@ pre-commit install                   # ruff + camadas + migrations antes de cada
 # 2. Ambiente
 cp .env.example .env                 # DEBUG=True basta p/ dev; o resto tem default
 
-# 3. Banco (sem DATABASE_URL = SQLite em db_dev.sqlite3)
+# 3. Banco (sem DATABASE_URL = SQLite em .cache/db_dev.sqlite3)
 python manage.py migrate
 python manage.py seed --demo         # catálogo real, profissional, agenda, termo LGPD,
                                      # anamnese padrão, feriados + clientes/atendimentos fictícios
@@ -165,7 +165,7 @@ aranha_estetica/                 app Django
 └── tests/                       por área: conta/, infra/, jobs/, painel/, publico/, servicos/, utils/ + raiz
 clinica/                         settings (base/dev/prod/staging/test), urls, wsgi, gunicorn_logger,
                                  logging_filtros
-docs/                            documentação (abaixo)
+docs/                            documentação (abaixo): Markdown vivos, specs/, uml/ e tcc/ (DOCX/PDF gerados)
 Dockerfile · railway.json · railway.cron.json · .github/workflows/ci.yml · package.json · vite.config.js
 requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 ```
@@ -185,8 +185,9 @@ requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 | [docs/DESIGN-E-MARKETING.md](docs/DESIGN-E-MARKETING.md) | Identidade visual (psicologia das cores, tipografia), tom de voz, acessibilidade e recursos de marketing |
 | [aranha_estetica/api/openapi.yaml](aranha_estetica/api/openapi.yaml) | Contrato HTTP (OpenAPI 3.1) das rotas de máquina: wizard, portal, painel, webhooks, cron, ICS, saúde. Navegável no Swagger UI em `/painel/api/` |
 | [docs/LGPD.md](docs/LGPD.md) | Registro das operações (art. 37), operadores, relatório de impacto do dado de saúde, plano de incidente |
-| [docs/specs/](docs/specs/) | Specs por assunto: banco (remodelagem 0027–0047 e padrão SQL 0048+), front, registry de regras |
-| [docs/uml/](docs/uml/README.md) + [docs/gerar_documentacao.py](docs/gerar_documentacao.py) | UML completa (PlantUML: casos de uso, classes geradas do código, sequência, estados, atividades, componentes, implantação, ER) e a documentação técnica do TCC (`ShivaZen-Documentacao.docx/.pdf`) |
+| [docs/specs/](docs/specs/) | Specs por assunto: banco (padrão SQL 0048+; a remodelagem 0027–0047 fica como histórico, citada pelas migrations), front (design system), registry de regras |
+| [docs/uml/](docs/uml/README.md) | UML completa: PlantUML gerado do código (casos de uso, classes, sequência, estados, atividades, componentes, implantação, ER) e as versões de apresentação do Lucidchart |
+| [docs/tcc/](docs/tcc/) | Documentos do TCC gerados dos Markdown acima (DOCX + PDF): `ShivaZen-Documentacao` (geral), `-Regras-de-Negocio`, `-Requisitos` e `-Documento-Tecnico`, com os geradores (`gerar_documentacao.py`, `gerar_especificacoes.py`) e os dados dos requisitos |
 
 ---
 

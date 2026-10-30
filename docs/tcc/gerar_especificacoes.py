@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Gera três documentos do TCC (DOCX + PDF em docs/), a partir das mesmas fontes do código:
+Gera três documentos do TCC (DOCX + PDF em docs/tcc/), a partir das mesmas fontes do código:
 
     ShivaZen-Regras-de-Negocio   catálogo RN01..RNnn + a especificação completa de
                                  docs/REGRAS-DE-NEGOCIO.md + diagramas de apoio
@@ -11,9 +11,9 @@ Gera três documentos do TCC (DOCX + PDF em docs/), a partir das mesmas fontes d
                                  (seções de docs/PROJECT.md, docs/ARCHITECTURE.md,
                                  docs/specs/padrao-sql.md e aranha_estetica/api/openapi.yaml)
 
-Requisitos, regras e casos de uso: docs/_dados_requisitos.json. Mudou regra/requisito? Atualize o
+Requisitos, regras e casos de uso: docs/tcc/_dados_requisitos.json. Mudou regra/requisito? Atualize o
 JSON e o Markdown de origem e rode de novo (no Windows o PDF sai pelo Word):
-    python docs/gerar_especificacoes.py [regras|requisitos|tecnico]
+    python docs/tcc/gerar_especificacoes.py [regras|requisitos|tecnico]
 """
 import json
 import os
@@ -24,12 +24,12 @@ from datetime import date
 
 import yaml
 
-from _docx_base import BASE, RAIZ, Documento, abrir_word, corpo_md, secao_md
+from _docx_base import BASE, RAIZ, TCC, Documento, abrir_word, corpo_md, secao_md
 
 VERSAO = '1.1'
 DATA = date(2026, 10, 30).strftime('%d/%m/%Y')
 APP = os.path.join(RAIZ, 'aranha_estetica')
-D = json.load(open(os.path.join(BASE, '_dados_requisitos.json'), encoding='utf-8'))
+D = json.load(open(os.path.join(TCC, '_dados_requisitos.json'), encoding='utf-8'))
 RR = D['regras-requisitos']
 PROJECT = os.path.join(BASE, 'PROJECT.md')
 REGRAS_MD = os.path.join(BASE, 'REGRAS-DE-NEGOCIO.md')
@@ -185,7 +185,7 @@ def requisitos(word):
     d.h2('1.4 Origem e manutenção')
     d.par('Os requisitos foram levantados com a dona da clínica a partir do fluxo real de atendimento e '
           'conferidos contra o código: cada RF existe numa tela, rota ou rotina, e cada RNF é cobrado por '
-          'teste automatizado ou etapa do CI. A fonte é docs/_dados_requisitos.json, a mesma do documento '
+          'teste automatizado ou etapa do CI. A fonte é docs/tcc/_dados_requisitos.json, a mesma do documento '
           'geral do TCC; este documento é gerado dela.')
 
     d.h1('2. Atores')
