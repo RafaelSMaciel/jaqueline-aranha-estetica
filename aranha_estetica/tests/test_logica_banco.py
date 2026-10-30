@@ -214,7 +214,7 @@ class HousekeepingLinksETrilhaTests(TestCase):
             for tabela, dias in (('preco', 365 * 5 + 3), ('prontuario', 365 * 5 + 3), ('preco', 1)):
                 cursor.execute(
                     'INSERT INTO historico_alteracao (tabela, registro_pk, operacao, colunas_alteradas, '
-                    'dados_depois, ip_origem, origem, transacao_ref, criado_em) '
+                    'dados_depois, ip_origem, origem, transacao_ref, created_at) '
                     "VALUES (%s, 1, 'INSERT', %s, %s, NULL, '', 1, %s)",
                     [tabela, '[]', '{}', agora - timedelta(days=dias)],
                 )

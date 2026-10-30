@@ -158,7 +158,7 @@ class TriggersDaTrilhaTests(TestCase):
         antes = HistoricoAlteracao.objects.filter(tabela='prontuario').count()
         Prontuario.objects.filter(pk=pront.pk).update(atualizado_em=timezone.now() + timedelta(seconds=5))
         self.assertEqual(HistoricoAlteracao.objects.filter(tabela='prontuario').count(), antes)
-        # QuerySet.update() sem atualizado_em: o tg_<t>_atualizado_em preenche (o ORM nao manda)
+        # QuerySet.update() sem atualizado_em: o tg_<t>_updated_at preenche (o ORM nao manda)
         marcado = Prontuario.objects.get(pk=pront.pk).atualizado_em
         Prontuario.objects.filter(pk=pront.pk).update(alergias='Latex, iodo')
         self.assertNotEqual(Prontuario.objects.get(pk=pront.pk).atualizado_em, marcado)
@@ -202,7 +202,7 @@ class TriggersDaTrilhaTests(TestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             _sql('DELETE FROM historico_alteracao WHERE id = %s', [h.pk])
         # so o SET NULL do autor passa (usuario excluido)
-        _sql('UPDATE historico_alteracao SET usuario_autor_id = NULL WHERE id = %s', [h.pk])
+        _sql('UPDATE historico_alteracao SET created_by_id = NULL WHERE id = %s', [h.pk])
 
         def _purgar(pk):
             with transaction.atomic():
@@ -237,7 +237,7 @@ class TriggersDaTrilhaTests(TestCase):
         for sql_forjado in (
             "UPDATE log_auditoria SET acao = 'nada aconteceu' WHERE id = %s",
             "UPDATE log_auditoria SET ip_origem = '10.9.9.9' WHERE id = %s",
-            "UPDATE log_auditoria SET criado_em = now() - interval '10 years' WHERE id = %s",
+            "UPDATE log_auditoria SET created_at = now() - interval '10 years' WHERE id = %s",
             "UPDATE log_auditoria SET detalhes = '{}'::jsonb WHERE id = %s",
             'DELETE FROM log_auditoria WHERE id = %s',
         ):

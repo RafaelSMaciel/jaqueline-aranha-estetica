@@ -89,7 +89,9 @@ class LinkAcesso(models.Model):
         blank=True, null=True,
         db_comment='Revogado (rotacao do ICS, anonimizacao). Link revogado = 404.',
     )
-    criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)
+    criado_em = models.DateTimeField(
+        default=timezone.now, db_default=Now(), editable=False, db_column='created_at',
+    )
 
     class Meta:
         db_table = 'link_acesso'

@@ -65,11 +65,12 @@ TRIGGERS_SO_PG = {
     'tg_historico_alteracao_imutavel': ('0056', 'historico_alteracao'),
     'tg_log_auditoria_imutavel': ('0059', 'log_auditoria'),
     'tg_regra_comissao_validar': ('0066', 'regra_comissao'),
-    **{f'tg_{t}_atualizado_em': ('0056', t) for t in (
+    **{f'tg_{t}_updated_at': ('0056/0079', t) for t in (
         'usuario', 'assinatura_push', 'cliente', 'profissional', 'procedimento', 'preco', 'promocao',
         'agenda_horario', 'agenda_excecao', 'atendimento', 'notificacao', 'lista_espera', 'avaliacao_nps',
         'prontuario', 'formulario', 'resposta_formulario', 'versao_termo', 'pacote', 'compra_pacote',
         'carteira', 'regra_comissao', 'configuracao')},
+    **{f'tg_{t}_updated_at': ('0079', t) for t in ('codigo_otp', 'execucao_job')},
     **{f'tg_{t}_historico': ('0056', t) for t in (
         'prontuario', 'atendimento', 'compra_pacote', 'carteira', 'regra_comissao', 'preco', 'promocao',
         'pacote', 'versao_termo', 'usuario', 'configuracao')},
@@ -80,7 +81,7 @@ ROTINAS_SO_PG = {
         'fn_bloquear_mutacao', 'fn_aceite_termo_imutavel', 'fn_versao_termo_imutavel',
         'fn_prontuario_versao_imutavel', 'fn_link_acesso_imutavel', 'fn_consentimento_imutavel',
         'fn_consumo_sessao_validar', 'fn_movimento_comissao_validar',
-        'fn_definir_atualizado_em', 'fn_historico_alteracao_imutavel', 'fn_registrar_historico',   # 0056
+        'fn_set_updated_at', 'fn_historico_alteracao_imutavel', 'fn_registrar_historico',   # 0056 (0079)
         'fn_fuso_clinica', 'fn_data_local', 'fn_sem_acento',                                         # 0057
         'fn_recorrencia_casa_dia', 'fn_ocorrencias_recorrencia', 'fn_horarios_livres', 'fn_saldo_pacote',
         'fn_nps_periodo', 'fn_saldo_comissao', 'fn_tem_consentimento', 'fn_clientes_para_anonimizar',
@@ -126,7 +127,7 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(triggers, {nome: tabela for nome, (_, tabela) in TRIGGERS_SO_PG.items()})
 
     def test_logica_no_banco_rotinas_views_e_indice_trigram(self):
-        """L1-L3 (0056-0059, spec §5) + 0066 + 0077: 47 triggers, 25 funcoes, 4 procedures, 9 views, trigram."""
+        """L1-L3 (0056-0059, spec §5) + 0066 + 0077 + 0079: 49 triggers, 25 funcoes, 4 procedures, 9 views, trigram."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT p.proname, p.prokind FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
@@ -148,7 +149,7 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(rotinas, ROTINAS_SO_PG)
         self.assertEqual(views, VIEWS_SO_PG)
         self.assertEqual(qtd_triggers, len(TRIGGERS_SO_PG))
-        self.assertEqual(len(TRIGGERS_SO_PG), 47)
+        self.assertEqual(len(TRIGGERS_SO_PG), 49)
         self.assertEqual(extensoes, {'pg_trgm', 'unaccent'})
         self.assertIn('fn_sem_acento', indice)
         self.assertEqual(sem_acento, ('joao avila', 'joao avila'))
@@ -285,7 +286,7 @@ class DDLSoPostgresTests(TestCase):
             ("UPDATE link_acesso SET expira_em = now() + interval '1 year' WHERE id = %s", link.pk),
             ("UPDATE link_acesso SET token_hash = %s WHERE id = %s", links.sha256_hex('outro'), link.pk),
             ("UPDATE link_acesso SET finalidade = 'TERMO' WHERE id = %s", link.pk),
-            ("UPDATE link_acesso SET criado_em = now() - interval '1 day' WHERE id = %s", link.pk),
+            ("UPDATE link_acesso SET created_at = now() - interval '1 day' WHERE id = %s", link.pk),
         )
         for sql, *params in bloqueados:
             with self.subTest(sql=sql), self.assertRaises(DatabaseError), transaction.atomic():
@@ -438,7 +439,7 @@ class DDLSoPostgresTests(TestCase):
             ('DELETE FROM aceite_termo WHERE id = %s', aceite.pk),
             ("UPDATE versao_termo SET conteudo = 'Outro texto' WHERE id = %s", termo.pk),
             ("UPDATE prontuario_versao SET dados = '{}'::jsonb WHERE id = %s", versao.pk),
-            ("UPDATE prontuario_versao SET usuario_autor_nome = 'x' WHERE id = %s", versao.pk),
+            ("UPDATE prontuario_versao SET created_by_name = 'x' WHERE id = %s", versao.pk),
             ('DELETE FROM prontuario_versao WHERE id = %s', versao.pk),
         )
         for sql, pk in bloqueados:
@@ -448,7 +449,7 @@ class DDLSoPostgresTests(TestCase):
         # permitido: desativar o termo e o SET_NULL das FKs
         self._sql('UPDATE versao_termo SET eh_ativo = false WHERE id = %s', [termo.pk])
         self._sql('UPDATE aceite_termo SET atendimento_id = NULL WHERE id = %s', [aceite.pk])
-        self._sql('UPDATE prontuario_versao SET usuario_autor_id = NULL WHERE id = %s', [versao.pk])
+        self._sql('UPDATE prontuario_versao SET created_by_id = NULL WHERE id = %s', [versao.pk])
         aceite.refresh_from_db()
         self.assertEqual((aceite.ip, aceite.atendimento_id), (None, None))
 
@@ -679,8 +680,8 @@ class DDLSoPostgresTests(TestCase):
                 "   AND a.attname = c.column_name "
                 " WHERE (table_name, column_name) IN (('log_auditoria', 'registro_pk'), ('codigo_otp', 'codigo_hash'), "
                 "       ('aceite_termo', 'conteudo_hash'), ('codigo_otp', 'qtd_tentativas'), "
-                "       ('procedimento', 'duracao_retorno_minutos'), ('cliente', 'atualizado_em'), "
-                "       ('usuario', 'criado_em'), ('log_auditoria', 'tabela'), ('cliente', 'eh_ativo'))"
+                "       ('procedimento', 'duracao_retorno_minutos'), ('cliente', 'updated_at'), "
+                "       ('usuario', 'created_at'), ('log_auditoria', 'tabela'), ('cliente', 'eh_ativo'))"
             )
             colunas = {nome: (tipo, nulo, default) for nome, tipo, nulo, default in cursor.fetchall()}
             cursor.execute("SELECT to_regclass('pacote_item'), to_regclass('formulario'), "
@@ -692,8 +693,8 @@ class DDLSoPostgresTests(TestCase):
         self.assertEqual(colunas['aceite_termo.conteudo_hash'][:2], ('character(64)', 'YES'))
         self.assertEqual(colunas['codigo_otp.qtd_tentativas'], ('smallint', 'NO', '0'))
         self.assertEqual(colunas['procedimento.duracao_retorno_minutos'], ('smallint', 'NO', '30'))
-        self.assertEqual(colunas['cliente.atualizado_em'][1], 'NO')
-        self.assertIn('statement_timestamp', colunas['usuario.criado_em'][2])
+        self.assertEqual(colunas['cliente.updated_at'][1], 'NO')
+        self.assertIn('statement_timestamp', colunas['usuario.created_at'][2])
         self.assertEqual(colunas['log_auditoria.tabela'][1:], ('NO', "''::character varying"))
         self.assertEqual(colunas['cliente.eh_ativo'][2], 'true')
         self.assertEqual(tabelas, ('pacote_item', 'formulario', 'resposta_formulario', None, None, None))

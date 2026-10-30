@@ -155,7 +155,7 @@ class CompraPacote(models.Model):
         max_length=150,
         db_comment='Nome do pacote no momento da venda (o catalogo pode mudar depois).',
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
     atualizado_em = atualizado_em_legado()
     valor_pago = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0)],
@@ -191,7 +191,7 @@ class CompraPacote(models.Model):
             Indice(fields=['cliente', 'status'], name='ix_compra_pacote_cliente_status'),
             Indice(fields=['pacote'], name='ix_compra_pacote_pacote'),
             # receita de pacotes por periodo (dashboard, financeiro)
-            Indice(fields=['criado_em'], name='ix_compra_pacote_criado_em'),
+            Indice(fields=['criado_em'], name='ix_compra_pacote_created_at'),
             # expiracao (job_expirar_pacotes, job_verificar_pacotes_expirando)
             Indice(
                 fields=['data_expiracao'], condition=models.Q(status='ATIVO'),
@@ -398,7 +398,9 @@ class CompraPacoteItem(models.Model):
             'venda (uniforme sem preco) - base da comissao da sessao de pacote (D20). 0 = reconstruido pela 0052.'
         ),
     )
-    criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)
+    criado_em = models.DateTimeField(
+        default=timezone.now, db_default=Now(), editable=False, db_column='created_at',
+    )
 
     objects = CompraPacoteItemQuerySet.as_manager()
 
@@ -450,7 +452,7 @@ class ConsumoSessao(models.Model):
     atendimento = models.OneToOneField(
         'Atendimento', on_delete=models.RESTRICT, related_name='sessao_pacote_vinculada'
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
 
     class Meta:
         managed = True

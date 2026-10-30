@@ -17,8 +17,8 @@ entity "notificacao" as notificacao {
   respondido_em : timestamptz
   * tentativas : smallint
   proxima_tentativa_em : timestamptz
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "avaliacao_nps" as avaliacao_nps {
@@ -30,8 +30,8 @@ entity "avaliacao_nps" as avaliacao_nps {
   * eh_publicacao_autorizada : boolean
   * eh_publicacao_aprovada : boolean
   * eh_alerta_enviado : boolean
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "assinatura_push" as assinatura_push {
@@ -43,9 +43,9 @@ entity "assinatura_push" as assinatura_push {
   * chave_auth : varchar(80)
   * user_agent : varchar(300)
   * eh_ativo : boolean
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
   ultima_falha_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "link_acesso" as link_acesso {
@@ -60,7 +60,7 @@ entity "link_acesso" as link_acesso {
   expira_em : timestamptz
   usado_em : timestamptz
   revogado_em : timestamptz
-  * criado_em : timestamptz
+  * created_at : timestamptz
 }
 
 entity "codigo_otp" as codigo_otp {
@@ -71,11 +71,12 @@ entity "codigo_otp" as codigo_otp {
   * canal : varchar(10)
   * codigo_hash : char(64)
   * proposito : varchar(20)
-  * criado_em : timestamptz
   * expira_em : timestamptz
   usado_em : timestamptz
   * qtd_tentativas : smallint
   ip_origem : inet
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "execucao_job" as execucao_job {
@@ -83,9 +84,10 @@ entity "execucao_job" as execucao_job {
   --
   * job : varchar(40)
   * dia : date
-  * iniciado_em : timestamptz
   concluido_em : timestamptz
   * resultado : text
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "atendimento" as atendimento #F2F2F2 {

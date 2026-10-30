@@ -27,7 +27,7 @@ class AssinaturaPush(models.Model):
     )
     user_agent = models.CharField(max_length=300, blank=True, default='', db_default='')
     ativo = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
     atualizado_em = atualizado_em_legado()
     ultima_falha_em = models.DateTimeField(blank=True, null=True)
 

@@ -41,7 +41,7 @@ def envelhecer_trilha(model, pk, criado_em):
     transacional — volta com o rollback do teste)."""
     from django.db import connection
 
-    tabela = model._meta.db_table
+    tabela, coluna = model._meta.db_table, model._meta.get_field('criado_em').column
     if connection.vendor != 'postgresql':
         model._base_manager.filter(pk=pk).update(criado_em=criado_em)
         return
@@ -49,7 +49,7 @@ def envelhecer_trilha(model, pk, criado_em):
         # FKs deferidas do teste pendentes impedem o ALTER TABLE: checa agora e volta a deferir
         cursor.execute('SET CONSTRAINTS ALL IMMEDIATE')
         cursor.execute(f'ALTER TABLE {tabela} DISABLE TRIGGER tg_{tabela}_imutavel')
-        cursor.execute(f'UPDATE {tabela} SET criado_em = %s WHERE id = %s', [criado_em, pk])
+        cursor.execute(f'UPDATE {tabela} SET {coluna} = %s WHERE id = %s', [criado_em, pk])
         cursor.execute(f'ALTER TABLE {tabela} ENABLE TRIGGER tg_{tabela}_imutavel')
         cursor.execute('SET CONSTRAINTS ALL DEFERRED')
 

@@ -77,9 +77,11 @@ class Cliente(models.Model):
     # migration 0050) — ler/gravar por services/consentimentos. O link de
     # descadastro e emitido por e-mail de marketing (link_acesso DESCADASTRO).
 
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
-    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL)
-    deletado_em = models.DateTimeField(blank=True, null=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
+    atualizado_em = models.DateTimeField(
+        auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL, db_column='updated_at',
+    )
+    deletado_em = models.DateTimeField(blank=True, null=True, db_column='deleted_at')
 
     objects = ClienteAtivosManager()
     # all_objects: Manager nu de proposito — retorna TODOS (inclui soft-deleted),
@@ -92,7 +94,7 @@ class Cliente(models.Model):
         db_table = 'cliente'
         db_table_comment = (
             'Cliente da clinica. Telefone (so digitos, 10-11) e a chave natural do agendamento publico '
-            '(uq_cliente_telefone_ativo). Soft delete em deletado_em; anonimizacao LGPD troca nome por '
+            '(uq_cliente_telefone_ativo). Soft delete em deleted_at; anonimizacao LGPD troca nome por '
             '[ANONIMIZADO-<id>] (sp_anonimizar_cliente). Consentimentos em consentimento.'
         )
         indexes = [
@@ -104,7 +106,7 @@ class Cliente(models.Model):
             # purga LGPD (deletado_em < limite); IS NULL (quase todos) nao e seletivo
             Indice(
                 fields=['deletado_em'], condition=models.Q(deletado_em__isnull=False),
-                name='ix_cliente_deletado_em_parcial',
+                name='ix_cliente_deleted_at_parcial',
             ),
         ]
         constraints = [

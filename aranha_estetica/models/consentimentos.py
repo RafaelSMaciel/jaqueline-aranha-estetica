@@ -94,13 +94,15 @@ class Consentimento(models.Model):
     # PROTECT (= NO ACTION): o trigger nao deixa a autoria mudar depois
     usuario_autor = models.ForeignKey(
         'Usuario', on_delete=models.PROTECT, null=True, blank=True, related_name='+',
-        db_index=False,
+        db_index=False, db_column='created_by_id',
     )
     registrado_em = models.DateTimeField(
         default=timezone.now, db_default=Now(),
         db_comment='Quando o titular concedeu/revogou (na migracao = data original de consent_*_em).',
     )
-    criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)
+    criado_em = models.DateTimeField(
+        default=timezone.now, db_default=Now(), editable=False, db_column='created_at',
+    )
 
     objects = ConsentimentoQuerySet.as_manager()
 
@@ -143,7 +145,7 @@ class Consentimento(models.Model):
             ),
             Indice(
                 fields=['usuario_autor'], condition=Q(usuario_autor__isnull=False),
-                name='ix_consentimento_usuario_autor_parcial',
+                name='ix_consentimento_created_by_parcial',
             ),
         ]
 

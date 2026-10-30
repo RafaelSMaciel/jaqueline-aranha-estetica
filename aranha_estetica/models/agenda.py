@@ -61,8 +61,10 @@ class AgendaHorario(models.Model):
     )
     hora_inicio = models.TimeField()
     hora_fim = models.TimeField()
-    criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)
-    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now())
+    criado_em = models.DateTimeField(
+        default=timezone.now, db_default=Now(), editable=False, db_column='created_at',
+    )
+    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_column='updated_at')
 
     class Meta:
         db_table = 'agenda_horario'
@@ -199,10 +201,12 @@ class AgendaExcecao(models.Model):
     ativo = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
     usuario_autor = models.ForeignKey(
         'Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
-        db_index=False, editable=False,
+        db_index=False, editable=False, db_column='created_by_id',
     )
-    criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)
-    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now())
+    criado_em = models.DateTimeField(
+        default=timezone.now, db_default=Now(), editable=False, db_column='created_at',
+    )
+    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_column='updated_at')
 
     objects = AgendaExcecaoQuerySet.as_manager()
 
@@ -278,7 +282,7 @@ class AgendaExcecao(models.Model):
             ),
             Indice(
                 fields=['usuario_autor'], condition=Q(usuario_autor__isnull=False),
-                name='ix_agenda_excecao_usuario_autor_parcial',
+                name='ix_agenda_excecao_created_by_parcial',
             ),
         ]
 

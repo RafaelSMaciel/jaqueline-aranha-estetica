@@ -20,9 +20,9 @@ entity "cliente" as cliente {
   saude_revogada_em : timestamptz
   cliente_indicador_id : bigint <<FK>>
   codigo_indicacao : varchar(12)
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
-  deletado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
+  deleted_at : timestamptz
 }
 
 entity "prontuario" as prontuario {
@@ -35,28 +35,28 @@ entity "prontuario" as prontuario {
   * medicamentos_uso : text
   * observacoes_gerais : text
   * respostas : jsonb
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "prontuario_versao" as prontuario_versao {
   * <b>id</b> : bigint <<PK>>
   --
   * prontuario_id : bigint <<FK>>
-  usuario_autor_id : bigint <<FK>>
-  * usuario_autor_nome : varchar(100)
-  * criado_em : timestamptz
   * dados : jsonb
+  * created_at : timestamptz
+  created_by_id : bigint <<FK>>
+  * created_by_name : varchar(100)
 }
 
 entity "anotacao_sessao" as anotacao_sessao {
   * <b>id</b> : bigint <<PK>>
   --
   * atendimento_id : bigint <<FK>>
-  usuario_autor_id : bigint <<FK>>
-  * usuario_autor_nome : varchar(100)
   * texto : text
-  * criado_em : timestamptz
+  * created_at : timestamptz
+  created_by_id : bigint <<FK>>
+  * created_by_name : varchar(100)
 }
 
 entity "formulario" as formulario {
@@ -70,8 +70,8 @@ entity "formulario" as formulario {
   * perguntas : jsonb
   * eh_ativo : boolean
   * eh_obrigatorio : boolean
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "resposta_formulario" as resposta_formulario {
@@ -81,9 +81,9 @@ entity "resposta_formulario" as resposta_formulario {
   * cliente_id : bigint <<FK>>
   atendimento_id : bigint <<FK>>
   * respostas : jsonb
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
   respondido_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "aceite_termo" as aceite_termo #F2F2F2 {
@@ -118,9 +118,9 @@ cliente ||--o{ consentimento : cliente_id
 cliente ||--o{ atendimento : cliente_id
 cliente ||--o| prontuario : cliente_id
 prontuario ||--o{ prontuario_versao : prontuario_id
-usuario |o--o{ prontuario_versao : usuario_autor_id
+usuario |o--o{ prontuario_versao : created_by_id
 atendimento ||--o{ anotacao_sessao : atendimento_id
-usuario |o--o{ anotacao_sessao : usuario_autor_id
+usuario |o--o{ anotacao_sessao : created_by_id
 cliente ||--o{ aceite_termo : cliente_id
 cliente ||--o{ compra_pacote : cliente_id
 cliente |o--o{ lista_espera : cliente_id

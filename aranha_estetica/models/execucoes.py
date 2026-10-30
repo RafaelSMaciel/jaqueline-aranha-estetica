@@ -2,6 +2,8 @@
 from django.db import models
 from django.db.models.functions import Now
 
+from .mixins import ATUALIZADO_EM_0079
+
 
 class ExecucaoJob(models.Model):
     """Um job diario (jobs.JOBS_UMA_VEZ_POR_DIA) ja rodou neste dia local.
@@ -12,10 +14,16 @@ class ExecucaoJob(models.Model):
     erro: rodar de novo no mesmo dia e decisao da equipe (``rodar_job <job> --forcar``)."""
     job = models.CharField(max_length=40)
     dia = models.DateField(db_comment='Dia local (America/Sao_Paulo) da execucao.')
-    iniciado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    iniciado_em = models.DateTimeField(
+        auto_now_add=True, db_default=Now(), db_column='created_at',
+        db_comment='Inicio da execucao: a linha nasce antes do job.',
+    )
     concluido_em = models.DateTimeField(blank=True, null=True, db_comment='NULL = em andamento ou falhou.')
     resultado = models.TextField(blank=True, default='', db_default='',
                                  db_comment='Resumo devolvido pelo job ou o erro (tipo da excecao).')
+    atualizado_em = models.DateTimeField(
+        auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_0079, db_column='updated_at',
+    )
 
     class Meta:
         managed = True

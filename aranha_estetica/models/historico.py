@@ -76,7 +76,7 @@ class HistoricoAlteracao(models.Model):
     # sem indice de FK proprio: ix_historico_alteracao_usuario_autor_parcial (1a coluna) cobre
     usuario_autor = models.ForeignKey(
         'Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
-        db_index=False,
+        db_index=False, db_column='created_by_id',
     )
     ip_origem = models.GenericIPAddressField(blank=True, null=True)
     origem = models.CharField(
@@ -86,7 +86,7 @@ class HistoricoAlteracao(models.Model):
     transacao_ref = models.BigIntegerField(
         db_comment='pg_current_xact_id() - agrupa as linhas de uma mesma transacao/request.',
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
 
     objects = HistoricoAlteracaoQuerySet.as_manager()
 
@@ -118,10 +118,10 @@ class HistoricoAlteracao(models.Model):
             Indice(
                 fields=['tabela', 'registro_pk', '-criado_em'], name='ix_historico_alteracao_tabela_registro',
             ),
-            Indice(fields=['criado_em'], name='ix_historico_alteracao_criado_em'),
+            Indice(fields=['criado_em'], name='ix_historico_alteracao_created_at'),
             Indice(
                 fields=['usuario_autor', '-criado_em'], condition=Q(usuario_autor__isnull=False),
-                name='ix_historico_alteracao_usuario_autor_parcial',
+                name='ix_historico_alteracao_created_by_parcial',
             ),
         ]
 

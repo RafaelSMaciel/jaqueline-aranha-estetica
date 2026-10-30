@@ -12,8 +12,8 @@ entity "pacote" as pacote {
   * valor_total : numeric(10,2)
   * eh_ativo : boolean
   * validade_meses : smallint
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "pacote_item" as pacote_item {
@@ -22,7 +22,7 @@ entity "pacote_item" as pacote_item {
   * pacote_id : bigint <<FK>>
   * procedimento_id : bigint <<FK>>
   * qtd_sessoes : smallint
-  * criado_em : timestamptz
+  * created_at : timestamptz
 }
 
 entity "compra_pacote" as compra_pacote {
@@ -31,13 +31,13 @@ entity "compra_pacote" as compra_pacote {
   * cliente_id : bigint <<FK>>
   * pacote_id : bigint <<FK>>
   * pacote_nome : varchar(150)
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
   * valor_pago : numeric(10,2)
   * valor_reembolsado : numeric(10,2)
   * status : varchar(20)
   data_expiracao : date
   cancelado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "compra_pacote_item" as compra_pacote_item {
@@ -48,7 +48,7 @@ entity "compra_pacote_item" as compra_pacote_item {
   * procedimento_nome : varchar(100)
   * qtd_sessoes : smallint
   * valor_unitario : numeric(10,2)
-  * criado_em : timestamptz
+  * created_at : timestamptz
 }
 
 entity "consumo_sessao" as consumo_sessao {
@@ -57,19 +57,19 @@ entity "consumo_sessao" as consumo_sessao {
   * compra_pacote_id : bigint <<FK>>
   * compra_pacote_item_id : bigint <<FK>>
   * atendimento_id : bigint <<FK,UK>>
-  * criado_em : timestamptz
+  * created_at : timestamptz
 }
 
 entity "regra_comissao" as regra_comissao {
   * <b>id</b> : bigint <<PK>>
   --
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
   profissional_id : bigint <<FK>>
   procedimento_id : bigint <<FK>>
   percentual : numeric(5,2)
   valor_fixo : numeric(10,2)
   * eh_ativo : boolean
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "movimento_comissao" as movimento_comissao {
@@ -84,17 +84,17 @@ entity "movimento_comissao" as movimento_comissao {
   percentual_aplicado : numeric(5,2)
   movimento_comissao_origem_id : bigint <<FK>>
   * observacao : text
-  usuario_autor_id : bigint <<FK>>
-  * criado_em : timestamptz
+  * created_at : timestamptz
+  created_by_id : bigint <<FK>>
 }
 
 entity "carteira" as carteira {
   * <b>id</b> : bigint <<PK>>
   --
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
   * cliente_id : bigint <<FK,UK>>
   * valor_saldo : numeric(10,2)
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "movimento_carteira" as movimento_carteira {
@@ -107,8 +107,8 @@ entity "movimento_carteira" as movimento_carteira {
   * valor_saldo_resultante : numeric(10,2)
   atendimento_id : bigint <<FK>>
   * observacao : text
-  usuario_autor_id : bigint <<FK>>
-  * criado_em : timestamptz
+  * created_at : timestamptz
+  created_by_id : bigint <<FK>>
 }
 
 entity "atendimento" as atendimento #F2F2F2 {
@@ -138,12 +138,12 @@ atendimento ||--o| consumo_sessao : atendimento_id
 cliente ||--o| carteira : cliente_id
 carteira ||--o{ movimento_carteira : carteira_id
 atendimento |o--o{ movimento_carteira : atendimento_id
-usuario |o--o{ movimento_carteira : usuario_autor_id
+usuario |o--o{ movimento_carteira : created_by_id
 profissional |o--o{ regra_comissao : profissional_id
 procedimento |o--o{ regra_comissao : procedimento_id
 profissional ||--o{ movimento_comissao : profissional_id
 atendimento ||--o{ movimento_comissao : atendimento_id
 regra_comissao |o--o{ movimento_comissao : regra_comissao_id
 movimento_comissao |o--o{ movimento_comissao : movimento_comissao_origem_id
-usuario |o--o{ movimento_comissao : usuario_autor_id
+usuario |o--o{ movimento_comissao : created_by_id
 @enduml

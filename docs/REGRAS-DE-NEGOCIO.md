@@ -51,7 +51,7 @@ O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
   revisão ("suspenso depois de faltas seguidas sem aviso ou por decisão da clínica; para pedir a
   revisão ou marcar, fale conosco pelo WhatsApp" — decisão automatizada, LGPD art. 20). Comparecer
   (REALIZADO) zera o contador **e** desbloqueia. O painel ainda agenda cliente bloqueada.
-- **Exclusão:** `Cliente.delete()` é soft delete (`deletado_em`); apagar de verdade só com
+- **Exclusão:** `Cliente.delete()` é soft delete (`deleted_at`); apagar de verdade só com
   `hard=True`. Pseudonimização (o "esquecimento"): §22.
 
 ---
