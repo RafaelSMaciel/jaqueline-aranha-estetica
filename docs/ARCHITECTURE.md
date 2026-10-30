@@ -125,7 +125,7 @@ cards e dias são `<button>` (teclado) e o estado sobrevive a recusa do servidor
 | D1 | Backend Django server-render mantido | Sólido, SEO grátis, 1 mantenedor |
 | D2 | Não vira SPA; **Alpine CSP, sem HTMX** | Nenhuma tela precisava de parcial por HTMX; CSP estrita |
 | D3 | Tailwind v4 (não Bootstrap) | 1 config de tokens para site + painel |
-| D4 | Direção visual "Clínico-premium" (dourado #C9A84C, serif + sans) | Confiança; afunila para o agendamento |
+| D4 | Direção visual "Clínico-premium" (dourado #C9A84C, serif + sans) | Confiança; afunila para o agendamento. Porquê das cores, fontes e tom: [`DESIGN-E-MARKETING.md`](DESIGN-E-MARKETING.md) |
 | D5 | Painel como PWA app-shell | Uso como app instalado |
 | D6 | Fase 7 do banco em PR dedicada | Mexe no cálculo de slots |
 | D7 | **Todo agendamento público exige OTP do celular**; a identidade é o telefone, e-mail nunca é identidade | Anti-sequestro de cadastro; sem enumeração |
