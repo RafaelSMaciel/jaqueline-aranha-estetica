@@ -486,11 +486,11 @@ def _foto_lgpd():
     return {
         'cliente': _q(
             'SELECT id, nome, cpf, email, telefone, cep, endereco, data_nascimento, '
-            'eh_ativo, deletado_em IS NOT NULL, qtd_faltas_consecutivas, eh_bloqueado_online '
+            'eh_ativo, deleted_at IS NOT NULL, qtd_faltas_consecutivas, eh_bloqueado_online '
             'FROM cliente ORDER BY id'),
         'consentimento': _ordenado(_q(
             'SELECT cliente_id, finalidade, canal, eh_concedido, origem, texto, host(ip_origem), user_agent, '
-            'usuario_autor_id FROM consentimento')),
+            'created_by_id FROM consentimento')),
         'consentimento_vigente': _q(
             'SELECT cliente_id, finalidade, canal, eh_concedido, origem FROM vw_consentimento_atual ORDER BY 1, 2, 3'),
         'link_acesso': _q('SELECT id, finalidade, revogado_em IS NOT NULL FROM link_acesso ORDER BY id'),
@@ -501,7 +501,7 @@ def _foto_lgpd():
         'avaliacao_nps': _q('SELECT id, nota, comentario, eh_publicacao_autorizada, eh_publicacao_aprovada '
                             'FROM avaliacao_nps ORDER BY id'),
         'log_auditoria': _ordenado(_q(
-            'SELECT usuario_autor_id, usuario_autor_nome, acao, tabela, registro_pk, detalhes::text, '
+            'SELECT created_by_id, created_by_name, acao, tabela, registro_pk, detalhes::text, '
             'host(ip_origem) FROM log_auditoria')),
         'django_admin_log': _q('SELECT id, object_repr FROM django_admin_log ORDER BY id'),
         'prontuario': _q('SELECT id, cliente_id, alergias FROM prontuario ORDER BY id'),
@@ -753,7 +753,7 @@ class ParidadeManutencaoTests(TestCase):
         # trilha: antiga (preco: sai; prontuario: 20 anos, fica) e recente
         for tabela, dias in (('preco', 365 * 5 + 2), ('prontuario', 365 * 5 + 2), ('preco', 5)):
             _exec("INSERT INTO historico_alteracao (tabela, registro_pk, operacao, colunas_alteradas, dados_depois, "
-               "transacao_ref, criado_em) VALUES (%s, 1, 'INSERT', '[]', '{}', 1, now() - make_interval(days => %s))",
+               "transacao_ref, created_at) VALUES (%s, 1, 'INSERT', '[]', '{}', 1, now() - make_interval(days => %s))",
                [tabela, dias])
 
         antes = self._foto()

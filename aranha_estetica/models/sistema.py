@@ -14,7 +14,7 @@ from ..db.campos import HashSha256Field
 from ..db.indices import Indice
 
 from .clientes import Cliente
-from .mixins import atualizado_em_legado
+from .mixins import ATUALIZADO_EM_0079, atualizado_em_legado
 from .procedimentos import Procedimento
 from .profissionais import Profissional
 
@@ -64,7 +64,7 @@ class ListaEspera(models.Model):
         blank=True, null=True,
         db_comment='E-mail digitado no formulario publico com o celular verificado (nao reescreve o cadastro).',
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
     atualizado_em = atualizado_em_legado()
 
     class Meta:
@@ -177,11 +177,11 @@ class LogAuditoria(models.Model):
     """
     # sem indice de FK: autoria (spec §2.11 — usuario nunca e excluido; nenhuma tela filtra por autor)
     usuario = models.ForeignKey(
-        'Usuario', on_delete=models.SET_NULL, blank=True, null=True, db_column='usuario_autor_id',
+        'Usuario', on_delete=models.SET_NULL, blank=True, null=True, db_column='created_by_id',
         db_index=False,
     )
     usuario_nome = models.CharField(
-        max_length=255, blank=True, default='', db_default='', db_column='usuario_autor_nome',
+        max_length=255, blank=True, default='', db_default='', db_column='created_by_name',
         db_comment='Snapshot "Nome <email>" do autor no momento da acao.',
     )
     acao = models.TextField()
@@ -193,7 +193,7 @@ class LogAuditoria(models.Model):
     )
     detalhes = models.JSONField(blank=True, null=True)
     ip_origem = models.GenericIPAddressField(blank=True, null=True)
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
 
     class Meta:
         managed = True
@@ -204,7 +204,7 @@ class LogAuditoria(models.Model):
             'autor). Retencao 5 anos. A trilha de DADOS (antes/depois) fica em historico_alteracao.'
         )
         indexes = [
-            Indice(fields=['-criado_em'], name='ix_log_auditoria_criado_em'),
+            Indice(fields=['-criado_em'], name='ix_log_auditoria_created_at'),
             Indice(fields=['tabela', 'registro_id'], name='ix_log_auditoria_tabela_registro'),
         ]
 
@@ -268,13 +268,16 @@ class CodigoOtp(models.Model):
     proposito = models.CharField(
         max_length=20, choices=PROPOSITO_CHOICES, default=PROPOSITO_AGENDAMENTO, db_default=PROPOSITO_AGENDAMENTO,
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
     expira_em = models.DateTimeField()
     usado_em = models.DateTimeField(blank=True, null=True)
     tentativas = models.SmallIntegerField(
         default=0, db_default=0, validators=[MinValueValidator(0)], db_column='qtd_tentativas',
     )
     ip_origem = models.GenericIPAddressField(blank=True, null=True)
+    atualizado_em = models.DateTimeField(
+        auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_0079, db_column='updated_at',
+    )
 
     class Meta:
         managed = True
@@ -298,7 +301,7 @@ class CodigoOtp(models.Model):
             ),
         ]
         indexes = [
-            Indice(fields=['email', 'proposito', '-criado_em'], name='ix_codigo_otp_identificador_proposito_criado_em'),
+            Indice(fields=['email', 'proposito', '-criado_em'], name='ix_codigo_otp_identificador_proposito_created_at'),
         ]
 
     def __str__(self):

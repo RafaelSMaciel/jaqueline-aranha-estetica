@@ -165,7 +165,7 @@ class AceiteTermo(models.Model):
         blank=True, null=True, db_column='conteudo_hash',
         db_comment='SHA-256 do versao_termo.conteudo aceito; NULL = aceite anterior a 0044 (sem prova do texto).',
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
 
     class Meta:
         managed = True

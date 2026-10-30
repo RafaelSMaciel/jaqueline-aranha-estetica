@@ -77,7 +77,7 @@ class Notificacao(models.Model):
         blank=True, null=True,
         db_comment='Fila de e-mail: quando o cron reenvia (NULL = fora da fila).',
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
     atualizado_em = atualizado_em_legado()
 
     class Meta:
@@ -90,7 +90,7 @@ class Notificacao(models.Model):
         )
         indexes = [
             Indice(fields=['atendimento', 'tipo'], name='ix_notificacao_atendimento_tipo'),
-            Indice(fields=['-criado_em'], name='ix_notificacao_criado_em'),
+            Indice(fields=['-criado_em'], name='ix_notificacao_created_at'),
             Indice(
                 fields=['proxima_tentativa_em'], name='ix_notificacao_fila_email',
                 condition=models.Q(status=StatusNotificacao.PENDENTE, canal=CanalNotificacao.EMAIL),

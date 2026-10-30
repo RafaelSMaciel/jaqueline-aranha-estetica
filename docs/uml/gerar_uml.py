@@ -67,6 +67,16 @@ def _tipo(field, pg):
     return re.sub(r'numeric\((\d+), (\d+)\)', r'numeric(\1,\2)', tipo)
 
 
+# metadados de linha (padrao-sql §1.2) vao por ultimo, nesta ordem, como no DER do Lucid
+METADADOS = ('created_at', 'updated_at', 'deleted_at', 'created_by_id', 'created_by_name')
+
+
+def _colunas(model):
+    def chave(f):
+        return METADADOS.index(f.column) + 1 if f.column in METADADOS else 0
+    return sorted(model._meta.concrete_fields, key=chave)   # sort estavel: o resto na ordem do model
+
+
 def _entidade(model, pg, completa=True):
     tabela = model._meta.db_table
     if not completa:
@@ -75,7 +85,7 @@ def _entidade(model, pg, completa=True):
     pk = model._meta.pk
     linhas.append(f'  * <b>{pk.column}</b> : {_tipo(pk, pg)} <<PK>>')
     linhas.append('  --')
-    for f in model._meta.concrete_fields:
+    for f in _colunas(model):
         if f.primary_key:
             continue
         marcas = []

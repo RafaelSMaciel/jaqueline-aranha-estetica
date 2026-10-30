@@ -13,8 +13,8 @@ from django.conf import settings
 from django.test import SimpleTestCase
 
 from aranha_estetica import inventario_lgpd as inv
-from aranha_estetica.migrations.sql import v0077_retencao as procs   # versao vigente das procedures
-from aranha_estetica.migrations.sql import v0077_retencao as anonimizar   # versao vigente
+from aranha_estetica.migrations.sql import v0079_metadados as procs   # versao vigente das procedures
+from aranha_estetica.migrations.sql import v0079_metadados as anonimizar   # versao vigente
 
 # nome de coluna que costuma guardar dado de pessoa (o detector e largo; falso positivo = declarar)
 DETECTOR = re.compile(

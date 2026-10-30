@@ -201,7 +201,7 @@ class ChecksProducaoTests(SimpleTestCase):
 
     def test_minimo_da_trilha_bate_com_o_trigger(self):
         from aranha_estetica.constants import TRILHA_RETENCAO_MINIMA_DIAS
-        from aranha_estetica.migrations.sql import v0059_trilha_append_only as sql
+        from aranha_estetica.migrations.sql import v0079_metadados as sql
 
         intervalo = f"interval '{TRILHA_RETENCAO_MINIMA_DIAS} days'"
         self.assertIn(intervalo, sql.FN_LOG_AUDITORIA_IMUTAVEL)

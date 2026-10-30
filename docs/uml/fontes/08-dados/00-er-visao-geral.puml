@@ -54,10 +54,10 @@ package "LGPD, termos, auditoria e acesso" {
 profissional |o--o| usuario : profissional_id
 profissional ||--o{ agenda_horario : profissional_id
 profissional |o--o{ agenda_excecao : profissional_id
-usuario |o--o{ agenda_excecao : usuario_autor_id
+usuario |o--o{ agenda_excecao : created_by_id
 cliente |o--o{ cliente : cliente_indicador_id
 cliente ||--o{ consentimento : cliente_id
-usuario |o--o{ consentimento : usuario_autor_id
+usuario |o--o{ consentimento : created_by_id
 profissional ||--o{ habilitacao : profissional_id
 procedimento ||--o{ habilitacao : procedimento_id
 procedimento ||--o{ preco : procedimento_id
@@ -72,9 +72,9 @@ atendimento |o--o{ atendimento : atendimento_origem_id
 atendimento ||--o{ notificacao : atendimento_id
 cliente ||--o| prontuario : cliente_id
 prontuario ||--o{ prontuario_versao : prontuario_id
-usuario |o--o{ prontuario_versao : usuario_autor_id
+usuario |o--o{ prontuario_versao : created_by_id
 atendimento ||--o{ anotacao_sessao : atendimento_id
-usuario |o--o{ anotacao_sessao : usuario_autor_id
+usuario |o--o{ anotacao_sessao : created_by_id
 procedimento |o--o{ versao_termo : procedimento_id
 cliente ||--o{ aceite_termo : cliente_id
 versao_termo ||--o{ aceite_termo : versao_termo_id
@@ -92,7 +92,7 @@ atendimento ||--o| consumo_sessao : atendimento_id
 cliente |o--o{ lista_espera : cliente_id
 procedimento ||--o{ lista_espera : procedimento_id
 profissional |o--o{ lista_espera : profissional_desejado_id
-usuario |o--o{ log_auditoria : usuario_autor_id
+usuario |o--o{ log_auditoria : created_by_id
 usuario ||--o{ assinatura_push : usuario_id
 procedimento |o--o{ formulario : procedimento_id
 formulario ||--o{ resposta_formulario : formulario_id
@@ -102,16 +102,16 @@ notificacao |o--o{ link_acesso : notificacao_id
 resposta_formulario |o--o{ link_acesso : resposta_formulario_id
 cliente |o--o{ link_acesso : cliente_id
 profissional |o--o{ link_acesso : profissional_id
-usuario |o--o{ historico_alteracao : usuario_autor_id
+usuario |o--o{ historico_alteracao : created_by_id
 cliente ||--o| carteira : cliente_id
 carteira ||--o{ movimento_carteira : carteira_id
 atendimento |o--o{ movimento_carteira : atendimento_id
-usuario |o--o{ movimento_carteira : usuario_autor_id
+usuario |o--o{ movimento_carteira : created_by_id
 profissional |o--o{ regra_comissao : profissional_id
 procedimento |o--o{ regra_comissao : procedimento_id
 profissional ||--o{ movimento_comissao : profissional_id
 atendimento ||--o{ movimento_comissao : atendimento_id
 regra_comissao |o--o{ movimento_comissao : regra_comissao_id
 movimento_comissao |o--o{ movimento_comissao : movimento_comissao_origem_id
-usuario |o--o{ movimento_comissao : usuario_autor_id
+usuario |o--o{ movimento_comissao : created_by_id
 @enduml

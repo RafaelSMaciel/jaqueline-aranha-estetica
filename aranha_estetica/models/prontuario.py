@@ -53,7 +53,7 @@ class Prontuario(models.Model):
         ),
     )
     criado_em = criado_em_legado()
-    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now())
+    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_column='updated_at')
 
     class Meta:
         managed = True
@@ -98,13 +98,13 @@ class ProntuarioVersao(models.Model):
     # FKs sem indice automatico: prontuario coberto pelo ix_; autor = autoria (spec §2.11)
     prontuario = models.ForeignKey(Prontuario, on_delete=models.PROTECT, related_name='versoes', db_index=False)
     autor = models.ForeignKey(
-        'Usuario', on_delete=models.SET_NULL, null=True, blank=True, db_column='usuario_autor_id',
+        'Usuario', on_delete=models.SET_NULL, null=True, blank=True, db_column='created_by_id',
         db_index=False,
     )
     autor_nome = models.CharField(
-        max_length=100, blank=True, default='', db_default='', db_column='usuario_autor_nome',
+        max_length=100, blank=True, default='', db_default='', db_column='created_by_name',
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
     dados = JsonCifrado(
         default=dict, db_default={},
         db_comment=(
@@ -120,10 +120,10 @@ class ProntuarioVersao(models.Model):
         db_table = 'prontuario_versao'
         db_table_comment = (
             'Historico append-only do prontuario (CFM 1.638/2002): foto do estado ANTERIOR a cada edicao. '
-            'Imutavel (tg_prontuario_versao_imutavel; so anular usuario_autor_id e aceito).'
+            'Imutavel (tg_prontuario_versao_imutavel; so anular created_by_id e aceito).'
         )
         indexes = [
-            Indice(fields=['prontuario', '-criado_em'], name='ix_prontuario_versao_prontuario_criado_em'),
+            Indice(fields=['prontuario', '-criado_em'], name='ix_prontuario_versao_prontuario_created_at'),
         ]
 
     def __str__(self):
@@ -205,14 +205,14 @@ class AnotacaoSessao(models.Model):
         'Atendimento', on_delete=models.PROTECT, related_name='anotacoes', db_index=False,
     )
     autor = models.ForeignKey(
-        'Usuario', on_delete=models.PROTECT, null=True, blank=True, db_column='usuario_autor_id',
+        'Usuario', on_delete=models.PROTECT, null=True, blank=True, db_column='created_by_id',
         db_index=False,
     )
     autor_nome = models.CharField(
-        max_length=100, blank=True, default='', db_default='', db_column='usuario_autor_nome',
+        max_length=100, blank=True, default='', db_default='', db_column='created_by_name',
     )
     texto = TextoCifrado(db_comment='Cifrado (cif1:; utils/cifragem).')
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
 
     objects = AnotacaoSessaoQuerySet.as_manager()
 
@@ -223,7 +223,7 @@ class AnotacaoSessao(models.Model):
             'Nota clinica de um atendimento, append-only (correcao = nova anotacao; tg_anotacao_sessao_imutavel).'
         )
         indexes = [
-            Indice(fields=['atendimento', '-criado_em'], name='ix_anotacao_sessao_atendimento_criado_em'),
+            Indice(fields=['atendimento', '-criado_em'], name='ix_anotacao_sessao_atendimento_created_at'),
         ]
 
     def save(self, *args, **kwargs):

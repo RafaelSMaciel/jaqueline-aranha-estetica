@@ -15,8 +15,8 @@ entity "profissional" as profissional {
   * eh_ativo : boolean
   * antecedencia_minima_horas : smallint
   * antecedencia_maxima_dias : smallint
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "procedimento" as procedimento {
@@ -35,8 +35,8 @@ entity "procedimento" as procedimento {
   retorno_minimo_dias : smallint
   retorno_maximo_dias : smallint
   * duracao_retorno_minutos : smallint
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "habilitacao" as habilitacao {
@@ -44,7 +44,7 @@ entity "habilitacao" as habilitacao {
   --
   * profissional_id : bigint <<FK>>
   * procedimento_id : bigint <<FK>>
-  * criado_em : timestamptz
+  * created_at : timestamptz
 }
 
 entity "preco" as preco {
@@ -55,8 +55,8 @@ entity "preco" as preco {
   * valor : numeric(10,2)
   * descricao : text
   * data_inicio_vigencia : date
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "promocao" as promocao {
@@ -73,8 +73,8 @@ entity "promocao" as promocao {
   * url_imagem : text
   envio_cursor : bigint
   disparada_em : timestamptz
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "agenda_horario" as agenda_horario {
@@ -84,8 +84,8 @@ entity "agenda_horario" as agenda_horario {
   * dia_semana : smallint
   * hora_inicio : time
   * hora_fim : time
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "agenda_excecao" as agenda_excecao {
@@ -105,9 +105,9 @@ entity "agenda_excecao" as agenda_excecao {
   * motivo : text
   * observacao : text
   * eh_ativo : boolean
-  usuario_autor_id : bigint <<FK>>
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
+  created_by_id : bigint <<FK>>
 }
 
 entity "atendimento" as atendimento {
@@ -126,8 +126,8 @@ entity "atendimento" as atendimento {
   valor_original : numeric(10,2)
   * descricao_preco : text
   * status : varchar(20)
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "lista_espera" as lista_espera {
@@ -142,8 +142,8 @@ entity "lista_espera" as lista_espera {
   turno_desejado : varchar(20)
   ultimo_aviso_em : timestamptz
   email_contato : varchar(254)
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "aceite_termo" as aceite_termo #F2F2F2 {
@@ -197,7 +197,7 @@ entity "versao_termo" as versao_termo #F2F2F2 {
 profissional |o--o| usuario : profissional_id
 profissional ||--o{ agenda_horario : profissional_id
 profissional |o--o{ agenda_excecao : profissional_id
-usuario |o--o{ agenda_excecao : usuario_autor_id
+usuario |o--o{ agenda_excecao : created_by_id
 profissional ||--o{ habilitacao : profissional_id
 procedimento ||--o{ habilitacao : procedimento_id
 procedimento ||--o{ preco : procedimento_id

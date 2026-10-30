@@ -142,8 +142,10 @@ class Atendimento(models.Model):
         choices=StatusAtendimento.choices,
     )
     # Reagendar/cancelar pela cliente: portal "Meus agendamentos" (id + sessao do OTP), sem token.
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
-    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
+    atualizado_em = models.DateTimeField(
+        auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL, db_column='updated_at',
+    )
 
     # ───────── FSM transitions (campo continua CharField) ─────────
     # TODA mudanca de status em views/services/admin passa por estes metodos

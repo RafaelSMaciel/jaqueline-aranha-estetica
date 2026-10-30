@@ -81,16 +81,16 @@ class MovimentoCarteira(models.Model):
     observacoes = models.TextField(blank=True, default='', db_default='', db_column='observacao')
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True,
-        db_column='usuario_autor_id', db_index=False,
+        db_column='created_by_id', db_index=False,
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
 
     class Meta:
         managed = True
         db_table = 'movimento_carteira'
         db_table_comment = 'Ledger append-only da carteira (tg_movimento_carteira_imutavel). Estorno = novo movimento.'
         indexes = [
-            Indice(fields=['carteira', '-criado_em'], name='ix_movimento_carteira_carteira_criado_em'),
+            Indice(fields=['carteira', '-criado_em'], name='ix_movimento_carteira_carteira_created_at'),
             Indice(
                 fields=['atendimento'], condition=models.Q(atendimento__isnull=False),
                 name='ix_movimento_carteira_atendimento_parcial',

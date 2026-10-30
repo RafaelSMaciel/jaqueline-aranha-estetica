@@ -7,8 +7,9 @@ on_delete do model (ou FK sem DEFERRABLE INITIALLY DEFERRED), tabela sem COMMENT
 *_pattern_ops (o "_like" do Django), coluna _id que nao e FK e nome fora de [a-z0-9_].
 
 Tabelas de terceiros (auth_*, django_*, axes_*, otp_*: §1.5) ficam fora por allowlist.
-"Tabela com atualizado_em sem tg_<t>_atualizado_em" vale desde a fase de logica (L1, 0056): tabela
-nova com atualizado_em precisa do trigger na mesma migration (fn_definir_atualizado_em).
+"Tabela com updated_at sem tg_<t>_updated_at" vale desde a fase de logica (L1, 0056; nomes em ingles
+desde a 0079): tabela nova com updated_at precisa do trigger na mesma migration
+(sql/v0079_metadados.tg_updated_at -> fn_set_updated_at).
 
 Quando reprovar depois de um AlterField novo numa FK (o Django recria a FK com nome de hash e sem
 ON DELETE, §3.6.1 item 4): acrescente PadronizarNomes() ao fim da migration (e idempotente).
@@ -18,7 +19,7 @@ from unittest import skipUnless
 
 from django.apps import apps
 from django.db import connection, models
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 PG = connection.vendor == 'postgresql'
 APP = 'aranha_estetica'
@@ -26,9 +27,19 @@ LIMITE = 63  # NAMEDATALEN - 1
 NOME_OK = re.compile(r'^[a-z][a-z0-9_]*$')
 # FK de autoria sem indice (spec §2.11 item 2): usuario nunca e excluido e nenhuma tela filtra por autor
 AUTORIA_SEM_INDICE = {
-    ('prontuario_versao', 'usuario_autor_id'), ('anotacao_sessao', 'usuario_autor_id'),
-    ('movimento_carteira', 'usuario_autor_id'), ('movimento_comissao', 'usuario_autor_id'),
-    ('log_auditoria', 'usuario_autor_id'),
+    ('prontuario_versao', 'created_by_id'), ('anotacao_sessao', 'created_by_id'),
+    ('movimento_carteira', 'created_by_id'), ('movimento_comissao', 'created_by_id'),
+    ('log_auditoria', 'created_by_id'),
+}
+# nomes dos metadados de linha antes da 0079 (o padrao agora e ingles: created_at, updated_at, ...)
+METADADOS_ANTIGOS = ('criado_em', 'atualizado_em', 'deletado_em', 'usuario_autor_id', 'usuario_autor_nome')
+# sem updated_at de proposito (§1.2): imutavel por trigger, so INSERT/DELETE, ou o unico UPDATE
+# aceito e um carimbo proprio de uma vez (link_acesso.usado_em/revogado_em)
+SEM_UPDATED_AT = {
+    'log_auditoria', 'historico_alteracao', 'movimento_carteira', 'movimento_comissao', 'prontuario_versao',
+    'anotacao_sessao', 'aceite_termo', 'compra_pacote_item', 'consentimento',     # append-only / imutavel
+    'habilitacao', 'pacote_item', 'consumo_sessao',                                # so INSERT/DELETE
+    'link_acesso',                                                                 # carimbo unico
 }
 # objetos so-PG (fora do estado do Django) que o padrao exige
 SO_PG = {
@@ -211,13 +222,61 @@ class NomesPadraoTests(TestCase):
         self._falhar_se(rotinas, 'funcao/procedure fora de fn_/sp_')
         self._falhar_se(views, 'view fora de vw_')
 
-    def test_atualizado_em_tem_trigger(self):
-        """§5.2 (L1, 0056): toda tabela com atualizado_em tem tg_<t>_atualizado_em (fn_definir_atualizado_em)."""
+    def test_updated_at_tem_trigger(self):
+        """§5.2 (L1, 0056; 0079): toda tabela com updated_at tem tg_<t>_updated_at (fn_set_updated_at)."""
         com_coluna = {t for (t,) in self._linhas(
             "SELECT attrelid::regclass::text FROM pg_attribute WHERE attrelid = ANY(%s::regclass[]) "
-            "AND attname = 'atualizado_em' AND NOT attisdropped", [self.tabelas])}
+            "AND attname = 'updated_at' AND NOT attisdropped", [self.tabelas])}
         com_trigger = {t for (t,) in self._linhas(
             "SELECT tgrelid::regclass::text FROM pg_trigger WHERE NOT tgisinternal "
-            "AND tgname = 'tg_' || tgrelid::regclass::text || '_atualizado_em' "
-            "AND tgfoid = 'fn_definir_atualizado_em'::regproc")}
-        self._falhar_se(com_coluna - com_trigger, 'tabela com atualizado_em sem tg_<t>_atualizado_em')
+            "AND tgname = 'tg_' || tgrelid::regclass::text || '_updated_at' "
+            "AND tgfoid = 'fn_set_updated_at'::regproc")}
+        self._falhar_se(com_coluna - com_trigger, 'tabela com updated_at sem tg_<t>_updated_at')
+
+    def test_corpo_de_funcao_sem_coluna_de_metadado_antiga(self):
+        """0079: corpo PL/pgSQL e texto (nao segue o RENAME COLUMN); nem view expoe o nome antigo."""
+        antigas = r'\m(' + '|'.join(METADADOS_ANTIGOS) + r')\M'
+        rotinas = [n for (n,) in self._linhas(
+            "SELECT p.proname FROM pg_proc p JOIN pg_namespace s ON s.oid = p.pronamespace "
+            "WHERE s.nspname = 'public' AND p.prosqlbody IS NULL AND p.prosrc ~ %s", [antigas])]
+        colunas = [f'{v}.{c}' for v, c in self._linhas(
+            "SELECT c.relname, a.attname FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'v' "
+            "AND a.attnum > 0 AND a.attname = ANY(%s)", [list(METADADOS_ANTIGOS)])]
+        self._falhar_se(rotinas, 'funcao/procedure cita coluna de metadado antiga')
+        self._falhar_se(colunas, 'view com coluna de metadado antiga')
+
+
+class MetadadosDeLinhaTests(SimpleTestCase):
+    """Metadados de linha iguais em todas as tabelas (padrao-sql §1.2; ingles desde a 0079).
+
+    created_at em toda tabela; updated_at em toda tabela com UPDATE de negocio; autoria em
+    created_by_id (FK usuario) + created_by_name (snapshot). Tabela nova sem updated_at: declare
+    em SEM_UPDATED_AT com o motivo.
+    """
+
+    def _colunas(self):
+        return {m._meta.db_table: {f.column: f for f in m._meta.concrete_fields} for m in _modelos()}
+
+    def test_toda_tabela_tem_created_at(self):
+        sem = [t for t, cols in self._colunas().items()
+               if not isinstance(cols.get('created_at'), models.DateTimeField) or cols['created_at'].null]
+        self.assertEqual(sorted(sem), [])
+
+    def test_updated_at_onde_ha_update(self):
+        sem = {t for t, cols in self._colunas().items() if 'updated_at' not in cols}
+        self.assertEqual(sorted(sem), sorted(SEM_UPDATED_AT))
+
+    def test_nenhuma_coluna_com_nome_antigo(self):
+        antigas = [f'{t}.{c}' for t, cols in self._colunas().items() for c in cols if c in METADADOS_ANTIGOS]
+        self.assertEqual(sorted(antigas), [])
+
+    def test_autoria_e_fk_de_usuario_e_snapshot_acompanha(self):
+        ruins = []
+        for t, cols in self._colunas().items():
+            autor = cols.get('created_by_id')
+            if autor is not None and not (autor.is_relation and autor.related_model._meta.db_table == 'usuario'):
+                ruins.append(f'{t}.created_by_id nao e FK de usuario')
+            if 'created_by_name' in cols and autor is None:
+                ruins.append(f'{t}.created_by_name sem created_by_id')
+        self.assertEqual(ruins, [])

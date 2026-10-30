@@ -234,7 +234,7 @@ verde em SQLite e Postgres).
       **antes do primeiro deploy de produção** — a `0045` grava esse texto no banco novo e, depois do
       1º aceite, mudar exige versão nova (runbook §14 a; [`LGPD.md`](LGPD.md))
 - [ ] Backup configurado antes do 1º cliente real (o go-live cria o banco novo; ensaio
-      0026→0078 só se o banco antigo for reaproveitado — runbook §14 a.1)
+      0026→0079 só se o banco antigo for reaproveitado — runbook §14 a.1)
 - [ ] Env no Railway (`DATABASE_URL` por referência, ADMIN_*, SITE_URL, ZENVIA_*, EMAIL_BACKEND +
       provedor, WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL; CRON_TOKEN só com o cron HTTP)
       e remover `STATIC_ROOT` e as legadas (`GOOGLE_OAUTH_*`, `AWS_*`)
@@ -275,8 +275,8 @@ verde em SQLite e Postgres).
 - [x] ~~Baixa: `isdigit()` aceita "²"~~ resolvido (`utils/parse.id_int` e nota NPS por regex).
 - [x] ~~Baixa: `ListaEspera.token_reserva`/`expira_em` e o fallback `LEMBRETE/EMAIL` de
       `services/termos.Q_NOTIF_TERMO`~~ saíram (o lembrete D-1 por e-mail é LEMBRETE/EMAIL de verdade).
-- [ ] Baixa: docstring de `utils/dois_fatores.verificar_token` ainda descreve o `--force` antigo
-      ("device novo ao lado do antigo"; hoje o `--force` apaga todos)
+- [x] ~~Baixa: docstring de `utils/dois_fatores.verificar_token` descrevia o `--force` antigo~~
+      corrigida (2026-10-29: o `--force` apaga todos os devices)
 - [ ] Baixa: `painel/termo_link.html` oferece `mailto:` para o e-mail do cadastro (não verificado)
 - [x] ~~Revogar o consentimento de saúde não invalidava a ficha em dia~~ resolvido: `valida_desde`
       considera `saude_revogada_em` (wizard e marcador do painel) — o próximo atendimento pede ficha
@@ -300,8 +300,8 @@ verde em SQLite e Postgres).
 - [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
       [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
 - [ ] Decidido não fazer (por ora): UNIQUE de regra de comissão ativa (quebraria o desempate por
-      "mais recente"); consentimento de WhatsApp para marketing. (O trigger de `atualizado_em`
-      entrou na 0056.)
+      "mais recente"); consentimento de WhatsApp para marketing. (O trigger de `updated_at`
+      entrou na 0056; nomes em inglês na 0079.)
 - [x] Revisão de 2026-10 (fases 0–5: bugs, testes/CI, arquitetura, front, banco e performance)
       concluída — o que entrou está no [`PROJECT.md` §16](PROJECT.md#16-histórico); fora do código
       ficaram as ações do dono e o go-live (Railway em stand-by).

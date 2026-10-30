@@ -22,7 +22,7 @@ class AvaliacaoNPS(models.Model):
         default=False, db_default=False, db_column='eh_alerta_enviado',
         db_comment='Detrator (nota <= 6) ja avisado por e-mail a clinica.',
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
     atualizado_em = atualizado_em_legado()
 
     class Meta:
@@ -43,7 +43,7 @@ class AvaliacaoNPS(models.Model):
             ),
         ]
         indexes = [
-            Indice(fields=['criado_em'], name='ix_avaliacao_nps_criado_em'),
+            Indice(fields=['criado_em'], name='ix_avaliacao_nps_created_at'),
             # services/nps.alertar_detratores: quase sempre vazio
             Indice(
                 fields=['criado_em'], condition=models.Q(nota__lte=6, alerta_enviado=False),

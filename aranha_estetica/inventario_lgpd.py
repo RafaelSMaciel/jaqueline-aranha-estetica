@@ -84,8 +84,8 @@ COLUNAS = {
     ('usuario', 'nome'): EQUIPE, ('usuario', 'email'): EQUIPE,
     ('profissional', 'nome'): EQUIPE, ('profissional', 'url_foto'): EQUIPE, ('profissional', 'biografia'): EQUIPE,
     ('assinatura_push', 'user_agent'): EQUIPE, ('assinatura_push', 'endpoint'): EQUIPE,
-    ('prontuario_versao', 'usuario_autor_nome'): EQUIPE, ('anotacao_sessao', 'usuario_autor_nome'): EQUIPE,
-    ('log_auditoria', 'usuario_autor_nome'): EQUIPE,
+    ('prontuario_versao', 'created_by_name'): EQUIPE, ('anotacao_sessao', 'created_by_name'): EQUIPE,
+    ('log_auditoria', 'created_by_name'): EQUIPE,
     ('movimento_comissao', 'observacao'): EQUIPE,
     ('agenda_excecao', 'motivo'): EQUIPE, ('agenda_excecao', 'observacao'): EQUIPE,
 }

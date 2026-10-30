@@ -68,8 +68,8 @@ def marcar_verificado(request, device) -> None:
 def verificar_token(user, token):
     """Confere o codigo em todos os devices confirmados (TOTP + backup do setup_2fa).
 
-    Devolve o device que aceitou ou None. Cobre a recuperacao via
-    `setup_2fa <email> --force`, que cria um device novo ao lado do antigo.
+    Devolve o device que aceitou ou None. Depois de `setup_2fa <email> --force` (apaga todos os
+    devices e cria TOTP + backup novos) so os codigos novos passam.
     """
     from django_otp import match_token
     token = (token or '').strip().replace(' ', '')

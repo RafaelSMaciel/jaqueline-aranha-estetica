@@ -15,9 +15,9 @@ entity "consentimento" as consentimento {
   * texto : text
   ip_origem : inet
   * user_agent : varchar(500)
-  usuario_autor_id : bigint <<FK>>
   * registrado_em : timestamptz
-  * criado_em : timestamptz
+  * created_at : timestamptz
+  created_by_id : bigint <<FK>>
 }
 
 entity "versao_termo" as versao_termo {
@@ -30,8 +30,8 @@ entity "versao_termo" as versao_termo {
   * versao : varchar(20)
   * data_inicio_vigencia : date
   * eh_ativo : boolean
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "aceite_termo" as aceite_termo {
@@ -43,20 +43,20 @@ entity "aceite_termo" as aceite_termo {
   ip_origem : inet
   * user_agent : varchar(500)
   conteudo_hash : char(64)
-  * criado_em : timestamptz
+  * created_at : timestamptz
 }
 
 entity "log_auditoria" as log_auditoria {
   * <b>id</b> : bigint <<PK>>
   --
-  usuario_autor_id : bigint <<FK>>
-  * usuario_autor_nome : varchar(255)
   * acao : text
   * tabela : varchar(100)
   registro_pk : bigint
   detalhes : jsonb
   ip_origem : inet
-  * criado_em : timestamptz
+  * created_at : timestamptz
+  created_by_id : bigint <<FK>>
+  * created_by_name : varchar(255)
 }
 
 entity "historico_alteracao" as historico_alteracao {
@@ -68,11 +68,11 @@ entity "historico_alteracao" as historico_alteracao {
   * colunas_alteradas : jsonb
   dados_antes : jsonb
   dados_depois : jsonb
-  usuario_autor_id : bigint <<FK>>
   ip_origem : inet
   * origem : varchar(60)
   * transacao_ref : bigint
-  * criado_em : timestamptz
+  * created_at : timestamptz
+  created_by_id : bigint <<FK>>
 }
 
 entity "usuario" as usuario {
@@ -84,8 +84,8 @@ entity "usuario" as usuario {
   * email : varchar(100)
   * senha_hash : varchar(255)
   * eh_ativo : boolean
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "configuracao" as configuracao {
@@ -94,8 +94,8 @@ entity "configuracao" as configuracao {
   * chave : varchar(100)
   * valor : text
   * descricao : text
-  * criado_em : timestamptz
-  * atualizado_em : timestamptz
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 entity "agenda_excecao" as agenda_excecao #F2F2F2 {
@@ -129,18 +129,18 @@ entity "prontuario_versao" as prontuario_versao #F2F2F2 {
 }
 
 profissional |o--o| usuario : profissional_id
-usuario |o--o{ agenda_excecao : usuario_autor_id
+usuario |o--o{ agenda_excecao : created_by_id
 cliente ||--o{ consentimento : cliente_id
-usuario |o--o{ consentimento : usuario_autor_id
-usuario |o--o{ prontuario_versao : usuario_autor_id
-usuario |o--o{ anotacao_sessao : usuario_autor_id
+usuario |o--o{ consentimento : created_by_id
+usuario |o--o{ prontuario_versao : created_by_id
+usuario |o--o{ anotacao_sessao : created_by_id
 procedimento |o--o{ versao_termo : procedimento_id
 cliente ||--o{ aceite_termo : cliente_id
 versao_termo ||--o{ aceite_termo : versao_termo_id
 atendimento |o--o{ aceite_termo : atendimento_id
-usuario |o--o{ log_auditoria : usuario_autor_id
+usuario |o--o{ log_auditoria : created_by_id
 usuario ||--o{ assinatura_push : usuario_id
-usuario |o--o{ historico_alteracao : usuario_autor_id
-usuario |o--o{ movimento_carteira : usuario_autor_id
-usuario |o--o{ movimento_comissao : usuario_autor_id
+usuario |o--o{ historico_alteracao : created_by_id
+usuario |o--o{ movimento_carteira : created_by_id
+usuario |o--o{ movimento_comissao : created_by_id
 @enduml

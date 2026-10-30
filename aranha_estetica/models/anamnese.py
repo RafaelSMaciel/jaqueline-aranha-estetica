@@ -97,8 +97,10 @@ class FormularioAnamnese(models.Model):
     )
     ativo = models.BooleanField(default=True, db_default=True, db_column='eh_ativo')
     obrigatorio = models.BooleanField(default=False, db_default=False, db_column='eh_obrigatorio')
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
-    atualizado_em = models.DateTimeField(auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL)
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
+    atualizado_em = models.DateTimeField(
+        auto_now=True, db_default=Now(), db_comment=ATUALIZADO_EM_BACKFILL, db_column='updated_at',
+    )
 
     objects = FormularioAnamneseQuerySet.as_manager()
 
@@ -239,7 +241,7 @@ class RespostaAnamnese(models.Model):
         default=dict, db_default={}, db_column='respostas',
         db_comment='Respostas {key: valor}. Cifrado: {"_cifra": token} ({} = vazio; utils/cifragem).',
     )
-    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now())
+    criado_em = models.DateTimeField(auto_now_add=True, db_default=Now(), db_column='created_at')
     atualizado_em = atualizado_em_legado()
     respondida_em = models.DateTimeField(blank=True, null=True, db_column='respondido_em')
 
@@ -251,7 +253,7 @@ class RespostaAnamnese(models.Model):
             'NULL = convite nao respondido. O link publico vive em link_acesso (FORMULARIO).'
         )
         indexes = [
-            Indice(fields=['cliente', '-criado_em'], name='ix_resposta_formulario_cliente_criado_em'),
+            Indice(fields=['cliente', '-criado_em'], name='ix_resposta_formulario_cliente_created_at'),
             Indice(fields=['atendimento'], name='ix_resposta_formulario_atendimento'),
             Indice(fields=['formulario'], name='ix_resposta_formulario_formulario'),
         ]

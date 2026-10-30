@@ -258,9 +258,11 @@ class MovimentoComissao(models.Model):
     # autoria (quem deu baixa/estornou); sem indice: nenhuma tela filtra por autor (§2.11)
     usuario_autor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True,
-        related_name='+', db_index=False,
+        related_name='+', db_index=False, db_column='created_by_id',
     )
-    criado_em = models.DateTimeField(default=timezone.now, db_default=Now(), editable=False)
+    criado_em = models.DateTimeField(
+        default=timezone.now, db_default=Now(), editable=False, db_column='created_at',
+    )
 
     objects = MovimentoComissaoQuerySet.as_manager()
 
@@ -315,8 +317,8 @@ class MovimentoComissao(models.Model):
             ),
         ]
         indexes = [
-            Indice(fields=['-criado_em'], name='ix_movimento_comissao_criado_em'),
-            Indice(fields=['profissional', '-criado_em'], name='ix_movimento_comissao_profissional_criado_em'),
+            Indice(fields=['-criado_em'], name='ix_movimento_comissao_created_at'),
+            Indice(fields=['profissional', '-criado_em'], name='ix_movimento_comissao_profissional_created_at'),
             Indice(fields=['atendimento'], name='ix_movimento_comissao_atendimento'),
             Indice(
                 fields=['regra'], condition=Q(regra__isnull=False), name='ix_movimento_comissao_regra_comissao_parcial',
