@@ -18,6 +18,7 @@ from django import forms
 from django.contrib import messages
 
 from ..models import AgendaExcecao, Procedimento, Profissional, VersaoTermo
+from ..services.agenda import marcados_no_periodo, recusa_marcados
 from ..utils.datas import hoje
 from ..utils.parse import id_int
 
@@ -117,6 +118,11 @@ class BloqueioForm(forms.Form):
         inicio, fim = dados.get('data_hora_inicio'), dados.get('data_hora_fim')
         if inicio and fim and fim <= inicio:
             raise forms.ValidationError('Data fim deve ser posterior a data inicio.')
+        if inicio and fim and 'profissional_id' in dados:
+            # bloqueio sobre atendimento ja marcado (da profissional ou, "todos", de qualquer uma)
+            marcados = marcados_no_periodo(dados['profissional_id'], inicio, fim)
+            if marcados:
+                raise forms.ValidationError(recusa_marcados(marcados))
         return dados
 
     def criar(self, autor) -> AgendaExcecao:

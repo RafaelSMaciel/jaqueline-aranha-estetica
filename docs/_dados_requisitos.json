@@ -2799,7 +2799,7 @@
    {
     "id": "RN46",
     "titulo": "Exceções de agenda",
-    "descricao": "Folga (do profissional ou da clínica inteira: feriado nacional/local e recesso, carregados pelo job mensal de feriados), horário diferente (1 por profissional/dia) e bloqueio (pontual ou recorrente por RRULE diária/semanal/mensal). Grade sem janelas sobrepostas e folgas do mesmo profissional sem sobreposição (EXCLUDE). Exceção inativa fica registrada e é ignorada (ex.: feriado em que a clínica abre)."
+    "descricao": "Folga (do profissional ou da clínica inteira: feriado nacional/local e recesso, carregados pelo job mensal de feriados), horário diferente (1 por profissional/dia) e bloqueio (pontual ou recorrente por RRULE diária/semanal/mensal). Grade sem janelas sobrepostas e folgas do mesmo profissional sem sobreposição (EXCLUDE). Exceção inativa fica registrada e é ignorada (ex.: feriado em que a clínica abre). Folga, horário diferente e bloqueio que cobririam atendimento futuro ainda ativo são recusados listando-os (reagendar ou cancelar antes), como a edição da grade."
    },
    {
     "id": "RN47",

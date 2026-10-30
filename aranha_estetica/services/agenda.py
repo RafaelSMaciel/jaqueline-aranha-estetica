@@ -59,6 +59,30 @@ def preco_do_dia(procedimento, profissional, inicio) -> dict:
     }
 
 
+def marcados_no_periodo(profissional, inicio, fim) -> list:
+    """Atendimentos futuros ainda ativos (pendente/agendado/confirmado) que cruzam [inicio, fim):
+    da profissional, ou de todas (profissional=None: bloqueio da clinica). Folga, horario
+    diferente e bloqueio que os deixariam sem quem atenda sao recusados listando-os — como a
+    edicao da grade (antes o horario ficava na agenda e o lembrete D-1 confirmava presenca)."""
+    qs = Atendimento.objects.filter(
+        status__in=STATUS_ATIVOS, data_hora_inicio__lt=fim, data_hora_fim__gt=inicio,
+        data_hora_inicio__gte=timezone.now(),
+    )
+    if profissional is not None:
+        qs = qs.filter(profissional=profissional)
+    return list(qs.select_related('cliente', 'procedimento').order_by('data_hora_inicio'))
+
+
+def recusa_marcados(atendimentos) -> str:
+    """Texto da recusa: os 5 primeiros e o total."""
+    lista = '; '.join(
+        f'{timezone.localtime(a.data_hora_inicio):%d/%m %H:%M} {a.procedimento.nome} ({a.cliente.nome})'
+        for a in atendimentos[:5])
+    mais = f' e mais {len(atendimentos) - 5}' if len(atendimentos) > 5 else ''
+    return (f'{len(atendimentos)} atendimento(s) futuro(s) ficariam sem quem atenda: {lista}{mais}. '
+            'Reagende ou cancele antes (Painel > Agendamentos).')
+
+
 def _conflito(profissional, inicio, fim, *, ignorar_atendimento_id=None, travar=False) -> bool:
     """Outro atendimento ativo da profissional sobrepoe [inicio, fim). travar=True: linhas em
     select_for_update (a reserva serializa com quem esta reservando a mesma janela)."""

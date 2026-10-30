@@ -1,6 +1,6 @@
 """Excecoes e bloqueios de agenda (P06): ModelForm com as mensagens da tela, upsert pelo manager e
 o AgendaExcecao.clean dividido por regra."""
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
@@ -160,3 +160,51 @@ class BloqueiosTests(_Admin):
         self.assertEqual((bloqueio.profissional_id, bloqueio.motivo, bloqueio.usuario_autor_id),
                          (self.prof.pk, 'Curso', self.admin.pk))
         self.assertEqual(self.client.get(reverse('aranha:admin_criar_bloqueio')).status_code, 405)
+
+
+class SobreAtendimentoMarcadoTests(_Admin):
+    """Folga, horario diferente e bloqueio sobre atendimento ja marcado: recusados listando-os
+    (antes eram criados e o atendimento ficava na agenda de quem estava de folga)."""
+
+    def setUp(self):
+        super().setUp()
+        from ..factories import criar_atendimento, criar_cliente, criar_procedimento
+        self.proc = criar_procedimento(profissional=self.prof)   # 30 min
+        inicio = timezone.make_aware(datetime.combine(self.dia, time(10, 0)))
+        self.at = criar_atendimento(criar_cliente('Cliente Marcada'), self.prof, self.proc,
+                                    data_hora=inicio, status='AGENDADO')
+
+    def _excecao(self, **dados):
+        resp = self.client.post(reverse('aranha:admin_excecao_criar', args=[self.prof.pk]),
+                                {'data': self.dia.isoformat(), **dados})
+        self.client.get(reverse('aranha:admin_excecoes', args=[self.prof.pk]))
+        return _mensagens(resp)
+
+    def test_folga_no_dia_do_atendimento_e_recusada_listando(self):
+        avisos = self._excecao(tipo='FOLGA')
+        self.assertEqual(len(avisos), 1)
+        self.assertIn('1 atendimento(s) futuro(s) ficariam sem quem atenda', avisos[0])
+        self.assertIn('Cliente Marcada', avisos[0])
+        self.assertFalse(AgendaExcecao.objects.filter(profissional=self.prof).exists())
+
+    def test_horario_diferente_so_recusa_quem_fica_de_fora(self):
+        fora = self._excecao(tipo='HORARIO_DIFERENTE', hora_inicio='13:00', hora_fim='17:00')
+        self.assertIn('ficariam sem quem atenda', fora[0])
+        dentro = self._excecao(tipo='HORARIO_DIFERENTE', hora_inicio='09:00', hora_fim='12:00')
+        self.assertEqual(dentro, ['Exceção criada.'])
+
+    def test_cancelado_nao_impede_a_folga(self):
+        type(self.at).objects.filter(pk=self.at.pk).update(status='CANCELADO')
+        self.assertEqual(self._excecao(tipo='FOLGA'), ['Exceção criada.'])
+
+    def test_bloqueio_sobre_o_horario_e_recusado_e_ao_lado_passa(self):
+        def bloquear(de, ate, profissional):
+            self.client.get(reverse('aranha:admin_bloqueios'))
+            resp = self.client.post(reverse('aranha:admin_criar_bloqueio'), {
+                'profissional_id': profissional, 'motivo': 'Curso',
+                'data_hora_inicio': f'{self.dia.isoformat()}T{de}', 'data_hora_fim': f'{self.dia.isoformat()}T{ate}'})
+            return _mensagens(resp)
+        for profissional in (str(self.prof.pk), 'todos'):
+            with self.subTest(profissional=profissional):
+                self.assertIn('ficariam sem quem atenda', bloquear('09:45', '10:15', profissional)[0])
+        self.assertEqual(bloquear('10:30', '11:30', str(self.prof.pk)), ['Bloqueio criado com sucesso!'])
