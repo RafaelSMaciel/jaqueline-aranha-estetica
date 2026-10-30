@@ -70,8 +70,8 @@ _SENTRY_PII_KEYS = {
 # /nps/<tok>/, /termo/<tok>/, /pesquisa/<tok>/,
 # /anamnese/<tok>/, /lgpd/unsubscribe/<tok>/ e ?token=... (ICS).
 _TOKEN_PATH_RX = re.compile(
-    r'(/(?:confirmar|nps|termo|pesquisa|anamnese|lgpd/unsubscribe|admin-login/recuperar/[^/]+)/)'
-    r'(?!obrigado/)[^/?#]+'
+    r'(/(?:confirmar|nps|termo|pesquisa|anamnese|lgpd/unsubscribe|admin-login/recuperar/[^/\s]+)/)'
+    r'(?!obrigado/)[^/?#\s"]+'   # sem espaco/aspas: a linha do access log segue (" HTTP/1.1" 200)
 )
 _TOKEN_QUERY_RX = re.compile(r'((?:^|[?&])token=)[^&#]*', re.IGNORECASE)
 

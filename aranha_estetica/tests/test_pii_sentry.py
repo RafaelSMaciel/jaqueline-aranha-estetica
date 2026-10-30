@@ -140,6 +140,10 @@ class MascarasTests(SimpleTestCase):
         self.assertEqual(redigir_tokens_url(f'/nps/{TOKEN}/'), '/nps/[token]/')
         self.assertEqual(redigir_tokens_url('/nps/obrigado/'), '/nps/obrigado/')
         self.assertEqual(redigir_tokens_url(None), '')
+        # linha do access log: o token sai, o resto da linha (" HTTP/1.1" 200) fica
+        self.assertEqual(redigir_tokens_url(f'"GET /confirmar/{TOKEN} HTTP/1.1" 200'), '"GET /confirmar/[token] HTTP/1.1" 200')
+        self.assertEqual(redigir_tokens_url('"GET /admin-login/recuperar/ HTTP/1.1" 200'),
+                         '"GET /admin-login/recuperar/ HTTP/1.1" 200')
 
     def test_extra_com_chave_pessoal_sai_mascarado(self):
         evento = sentry_before_send({'extra': {
