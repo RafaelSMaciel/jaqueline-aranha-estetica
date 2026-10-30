@@ -41,8 +41,10 @@
   font-size: 1.15rem;
   font-weight: 700;
 }
-.swagger-painel .swagger-ui .markdown table {
+/* .markdown (descricao de operacao) e .renderedMarkdown (descricao geral da API, no topo) */
+.swagger-painel .swagger-ui :is(.markdown, .renderedMarkdown) table {
   display: block;
+  max-width: 100%;
   overflow-x: auto;
   margin: 0.5rem 0 1rem;
 }
