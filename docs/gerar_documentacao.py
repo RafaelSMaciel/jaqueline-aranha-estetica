@@ -37,7 +37,7 @@ LUCID = os.path.join(BASE, 'uml', 'lucid')
 DADOS = os.path.join(BASE, '_dados_requisitos.json')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 
-VERSAO = '3.3'
+VERSAO = '3.4'
 DATA = date(2026, 10, 29).strftime('%d/%m/%Y')
 # (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
 HISTORICO = [
@@ -70,6 +70,11 @@ HISTORICO = [
     ('3.3', '29/10/2026', 'Diagramas de apresentação no Lucidchart: MER conceitual (notação de Chen), DER '
                           'completo e por área, classes do domínio, casos de uso e atividades com raias; '
                           'as figuras desses cinco tipos passam a ser as do Lucid.'),
+    ('3.4', '29/10/2026', 'Metadados de linha padronizados e em inglês em todas as tabelas (migration 0079: '
+                          'created_at, updated_at, deleted_at, created_by_id, created_by_name), DERs '
+                          'refeitos com os nomes novos e os metadados por último; diagramas de sequência, '
+                          'estados, componentes e implantação também no Lucidchart — todas as figuras '
+                          'UML do documento passam a ser as do Lucid.'),
 ]
 GOLD = RGBColor(0xC4, 0xA3, 0x5A)
 DARK = RGBColor(0x4A, 0x34, 0x25)
@@ -499,8 +504,11 @@ add_table(['ID', 'Decisão', 'Motivo'], _decisoes(), widths=[0.5, 3.2, 3.0])
 h1('14. Modelo de Dados')
 par('O modelo físico é gerado dos models com os tipos reais do PostgreSQL, chaves (PK, FK, UK) e '
     'nulidade (* = obrigatório). Nomes seguem o padrão SQL do projeto (tabelas no singular, colunas '
-    'eh_*, constraints ck_/uq_/ex_/fk_ e índices ix_). A visão geral mostra todas as tabelas; as demais, '
-    'uma área do domínio cada.')
+    'eh_*, constraints ck_/uq_/ex_/fk_ e índices ix_). Os metadados de linha são iguais em todas as '
+    'tabelas e em inglês, sempre por último: created_at (todas), updated_at (toda tabela com UPDATE de '
+    'negócio, mantido por trigger), deleted_at (soft delete do cliente) e a autoria created_by_id + '
+    'created_by_name; tabela append-only não tem updated_at. A visão geral mostra todas as tabelas; as '
+    'demais, uma área do domínio cada.')
 figura('08-dados/mer-conceitual.png', 'MER conceitual — notação de Chen (entidades, relacionamentos e '
        'cardinalidades mín./máx.).',
        'Antes do modelo físico, o modelo conceitual: as 14 entidades de negócio, os relacionamentos '
