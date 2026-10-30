@@ -1053,6 +1053,7 @@ class AgendamentoInternoTests(_AdminTestCase):
         self.prof = criar_profissional('Dra. Recepção')
         self.proc = criar_procedimento(profissional=self.prof, preco=Decimal('150.00'))
         self.cli = criar_cliente('Cliente Balcão')
+        limpar_feriados()  # hoje+3 pode cair em feriado (30/10 depois da meia-noite -> 02/11, Finados)
         self.dia = _local(3).date()
         self.url = reverse('aranha:admin_agendamento_novo')
 
