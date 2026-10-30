@@ -18,7 +18,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <p class="item-lista-titulo">{{ promo.nome }}</p>
           <c-selo tom="marca">{% if promo.preco_promocional is not None %}Por {{ promo.preco_promocional|brl }}{% else %}{{ promo.desconto_percentual|floatformat:"-2" }}% de desconto{% endif %}</c-selo>
-          {% if promo.esta_vigente %}<c-selo tom="sucesso">Ativa</c-selo>{% elif not promo.ativa %}<c-selo>Inativa</c-selo>{% else %}<c-selo tom="erro">Fora do período</c-selo>{% endif %}
+          {% if promo.esta_vigente %}<c-selo tom="sucesso">Ativa</c-selo>{% elif not promo.ativa %}<c-selo>Inativa</c-selo>{% elif promo.data_inicio > hoje %}<c-selo tom="aviso">Começa em {{ promo.data_inicio|date:"d/m" }}</c-selo>{% else %}<c-selo tom="erro">Encerrada</c-selo>{% endif %}
           {% if promo.envio_em_andamento %}<c-selo tom="aviso" icone="email">Envio em andamento</c-selo>{% endif %}
         </div>
         <p class="item-lista-meta mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">

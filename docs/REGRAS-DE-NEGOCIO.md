@@ -154,6 +154,13 @@ atendimentos ativos (PENDENTE/AGENDADO/CONFIRMADO) sobrepostos na duração inte
 do procedimento (0–120 min); bloqueios pontuais e recorrentes (RRULE) do profissional **ou
 globais** ("Todos os profissionais"); `min_notice_horas`; `max_advance_dias`.
 
+- **Folga, horário diferente e bloqueio não cobrem atendimento já marcado:** criar (ou
+  reenviar) uma folga no dia, um horário diferente que deixa um atendimento fora da nova janela ou
+  um bloqueio (da profissional ou de todos) sobre o horário de um atendimento futuro ainda ativo é
+  recusado listando os 5 primeiros e o total — reagende ou cancele antes. É a mesma regra da
+  edição da grade da profissional (§1): antes o atendimento ficava na agenda de quem estava de
+  folga e o lembrete D-1 confirmava a presença (`services/agenda.marcados_no_periodo`).
+
 ---
 
 ## 6. Máquina de estados do atendimento (FSM)

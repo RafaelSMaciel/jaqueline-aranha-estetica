@@ -26,7 +26,7 @@ from ...models import (
     Profissional,
     Habilitacao,
 )
-from ...services import links
+from ...services import agenda, links
 from ...utils.auditoria import registrar_log
 from ..comum import responder_link_ics
 
@@ -198,16 +198,6 @@ def _atendimentos_que_ficariam_orfaos(profissional, ativo, janelas, procedimento
     return orfaos
 
 
-def _recusa_orfaos(orfaos):
-    """Texto da recusa (057912d): os 5 primeiros e o total."""
-    lista = '; '.join(
-        f"{timezone.localtime(a.data_hora_inicio):%d/%m %H:%M} {a.procedimento.nome} ({a.cliente.nome})"
-        for a in orfaos[:5])
-    mais = f' e mais {len(orfaos) - 5}' if len(orfaos) > 5 else ''
-    return (f'{len(orfaos)} atendimento(s) futuro(s) ficariam sem quem atenda: {lista}{mais}. '
-            'Reagende ou cancele antes (Painel > Agendamentos).')
-
-
 @staff_required
 @ratelimit(key='user', rate=LIMITE_ESCRITA_EQUIPE, method='POST', block=True)
 def profissional_editar(request, pk=None):
@@ -242,7 +232,7 @@ def profissional_editar(request, pk=None):
         orfaos = _atendimentos_que_ficariam_orfaos(
             profissional, d['ativo'], grade.janelas, d['procedimentos'], ativo_antes=ativo_antes)
         if orfaos:
-            messages.error(request, _recusa_orfaos(orfaos))
+            messages.error(request, agenda.recusa_marcados(orfaos))
         else:
             try:
                 with transaction.atomic():

@@ -15,6 +15,7 @@ from ...forms.promocoes import PromocaoForm
 from ...models import Atendimento, Procedimento, Promocao
 from ...services import marketing
 from ...utils.auditoria import registrar_log
+from ...utils.datas import hoje
 
 POR_PAGINA = 30
 
@@ -57,6 +58,7 @@ def _contexto_lista(request, editar_pk=None):
     return {
         'promocoes': promocoes_page,
         'procedimentos': Procedimento.objects.filter(ativo=True),
+        'hoje': hoje(),   # selo: "Comeca em dd/mm" (futura) x "Encerrada" (passada)
     }
 
 

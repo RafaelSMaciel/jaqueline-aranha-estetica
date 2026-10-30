@@ -4,6 +4,10 @@
 {% block titulo %}Procedimentos — {{ CLINIC_NAME }}{% endblock %}
 {% block page_title %}Procedimentos{% endblock %}
 {% block page_subtitle %}Serviços oferecidos, duração, preço e quem realiza cada um{% endblock %}
+{# atalho: abaixo de 1280px o formulario fica depois da lista inteira #}
+{% block page_actions %}
+<c-botao href="#novo-procedimento" icone="mais" class="xl:hidden">Novo procedimento</c-botao>
+{% endblock %}
 
 {% block admin_content %}
 <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
@@ -91,7 +95,7 @@
   </c-card>
 
   {# ── Novo procedimento ── #}
-  <c-card titulo="Novo procedimento" icone="mais" class="xl:order-2 xl:sticky xl:top-24">
+  <c-card titulo="Novo procedimento" icone="mais" id="novo-procedimento" class="xl:order-2 xl:sticky xl:top-24 scroll-mt-24">
     <form method="post" action="{% url 'aranha:admin_criar_procedimento' %}" class="flex flex-col gap-4">
       {% csrf_token %}
       {# Envio recusado: a view devolve a tela (sem redirect) com novo.valores (o digitado) e novo.erros #}

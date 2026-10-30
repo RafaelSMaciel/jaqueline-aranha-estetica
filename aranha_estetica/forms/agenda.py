@@ -3,7 +3,7 @@
 A tela de novo agendamento tem etapas (buscar cliente, ver horarios, agendar) num POST so; o Form
 valida tudo no "agendar" e, nas outras etapas, so le o que ja da para mostrar (``lido``).
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django import forms
 from django.utils import timezone
@@ -12,6 +12,7 @@ from ..excecoes import RegraDeNegocio
 from ..models import AgendaExcecao, Procedimento, Profissional
 from ..services import agenda
 from ..services.disponibilidade import profissionais_para
+from ..utils.datas import inicio_do_dia
 from .painel import CampoPreco, EscolhaPorId
 
 MSG_HORARIO = 'Escolha a data e um dos horários livres.'
@@ -144,8 +145,23 @@ class AgendaExcecaoForm(forms.ModelForm):
             if dados['data_fim'] < data:
                 self.add_error('data_fim', 'A data final da folga deve ser igual ou posterior à inicial.')
         if not self.errors:
+            self._recusar_marcados(tipo, data, dados)
+        if not self.errors:
             self._usar_vigente(tipo, data, dados['data_fim'])
         return dados
+
+    def _recusar_marcados(self, tipo, data, dados) -> None:
+        """Folga (o dia inteiro) ou horario diferente (fora da nova janela) sobre atendimento ja
+        marcado: recusa listando-os (services/agenda.marcados_no_periodo)."""
+        marcados = agenda.marcados_no_periodo(
+            self.profissional, inicio_do_dia(data), inicio_do_dia(dados['data_fim'] + timedelta(days=1)))
+        if tipo == AgendaExcecao.TIPO_HORARIO_DIFERENTE:
+            janela = (dados['hora_inicio'], dados['hora_fim'])
+            marcados = [a for a in marcados
+                        if not (janela[0] <= timezone.localtime(a.data_hora_inicio).time()
+                                and timezone.localtime(a.data_hora_fim).time() <= janela[1])]
+        if marcados:
+            self.add_error(None, agenda.recusa_marcados(marcados))
 
     def _limpar_horario(self, dados) -> None:
         inicio, fim = dados.get('hora_inicio'), dados.get('hora_fim')
