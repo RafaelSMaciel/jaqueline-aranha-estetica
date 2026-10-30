@@ -3518,7 +3518,7 @@
    {
     "id": "RNF06",
     "categoria": "Privacidade",
-    "descricao": "Áreas privadas sem cache no navegador (no-store), Referrer-Policy no-referrer nas rotas com token, X-Robots-Tag noindex nas privadas, Clear-Site-Data no logout; links públicos guardam só o SHA-256 do token; tokens, e-mail, CPF e telefone redigidos no access log, no log da aplicação e no Sentry.",
+    "descricao": "Áreas privadas sem cache no navegador (no-store), Referrer-Policy same-origin nas rotas com token (o token não sai para outro domínio), X-Robots-Tag noindex nas privadas, Clear-Site-Data no logout; links públicos guardam só o SHA-256 do token; tokens, e-mail, CPF e telefone redigidos no access log, no log da aplicação e no Sentry.",
     "verificacao": "test_hardening_final, test_painel_seguranca_b, test_auth_equipe, test_pii_sentry"
    },
    {

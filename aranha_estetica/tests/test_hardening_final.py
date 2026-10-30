@@ -11,7 +11,28 @@ from aranha_estetica.tests.factories import criar_link, criar_profissional
 class ReferrerPolicyTokenTests(TestCase):
     def test_rota_com_token_sai_sem_referer(self):
         resp = self.client.get('/confirmar/token-inexistente/')
-        self.assertEqual(resp['Referrer-Policy'], 'no-referrer')
+        self.assertEqual(resp['Referrer-Policy'], 'same-origin')
+
+    def test_post_da_pagina_de_token_passa_no_csrf_com_a_origem_que_o_navegador_manda(self):
+        """Com no-referrer o navegador manda `Origin: null` no POST e o CSRF recusava (403 "Sessao
+        expirada" ao confirmar presenca pelo link do lembrete). Com same-origin vai a origem real."""
+        from django.test import Client
+
+        from aranha_estetica.tests.factories import (
+            criar_atendimento, criar_cliente, criar_notificacao_com_link, criar_procedimento,
+        )
+        prof = criar_profissional()
+        atd = criar_atendimento(criar_cliente(), prof, criar_procedimento(profissional=prof), status='AGENDADO')
+        _notif, token = criar_notificacao_com_link(atd, 'LEMBRETE', 'WHATSAPP')
+        url = reverse('aranha:confirmar_presenca', args=[token])
+        navegador = Client(enforce_csrf_checks=True)
+        pagina = navegador.get(url)
+        self.assertEqual(pagina['Referrer-Policy'], 'same-origin')
+        csrf = navegador.cookies['csrftoken'].value
+        recusado = navegador.post(url, {'acao': 'confirmar', 'csrfmiddlewaretoken': csrf}, HTTP_ORIGIN='null')
+        self.assertEqual(recusado.status_code, 403)   # o que no-referrer provocava
+        aceito = navegador.post(url, {'acao': 'confirmar', 'csrfmiddlewaretoken': csrf}, HTTP_ORIGIN='http://testserver')
+        self.assertNotEqual(aceito.status_code, 403)
 
     def test_rota_publica_comum_mantem_politica_padrao(self):
         resp = self.client.get(reverse('aranha:inicio'))

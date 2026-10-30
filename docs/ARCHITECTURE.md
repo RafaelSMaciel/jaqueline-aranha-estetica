@@ -196,7 +196,7 @@ verde em SQLite e Postgres).
 - **Auth:** 2FA obrigatório do ADMIN avaliado a cada request, `/account/*` fora, QR em SVG,
   "trocar de aparelho" exige código, códigos de backup aceitos no desafio, login do PROFISSIONAL
   em `/admin-login/` → `/profissional/`, logout só via POST + `Clear-Site-Data`, `no-store` nas
-  áreas privadas, `no-referrer` nas rotas com token, rotação do link ICS.
+  áreas privadas, `same-origin` nas rotas com token (sem Referer para outro domínio), rotação do link ICS.
 - **Booking:** OTP preso ao telefone e exigido de todo agendamento (só celular), cota de SMS
   checada antes de gerar código, slots revalidados no servidor, preço com promoção da data,
   aceite LGPD + consentimento art. 11 + termos do procedimento no wizard, opt-ins nunca

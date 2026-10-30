@@ -9,8 +9,23 @@ if os.path.exists('.env'):
     load_dotenv('.env')
 # --- FIM DAS LINHAS ADICIONADAS ---
 
+
+def _saida_utf8():
+    """Windows: o console (cp1252) recusava '✓'/'—' dos templates e o backend de e-mail de console
+    do dev falhava em TODO e-mail (UnicodeEncodeError); a saida dos comandos saia com acento
+    quebrado. Linux/Docker ja sao UTF-8."""
+    if sys.platform != 'win32':
+        return
+    for fluxo in (sys.stdout, sys.stderr):
+        try:
+            fluxo.reconfigure(encoding='utf-8', errors='backslashreplace')
+        except (AttributeError, ValueError):
+            pass
+
+
 def main():
     """Run administrative tasks."""
+    _saida_utf8()
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'clinica.settings')
     try:
         from django.core.management import execute_from_command_line
