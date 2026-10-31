@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Gera a Documentação Técnica do Shiva Zen (DOCX + PDF): requisitos, regras de negócio, todos os
+Gera a Documentação Técnica do sistema Jaqueline Aranha Estética (DOCX + PDF): requisitos, regras de negócio, todos os
 diagramas UML (docs/uml/lucid, ou docs/uml/png sem a versão do Lucid), arquitetura, modelo de dados,
 segurança/LGPD, qualidade e implantação. Estilo, capa, sumário e gravação: docs/tcc/_docx_base.py.
 Regras de negócio, requisitos e documento técnico em separado: docs/tcc/gerar_especificacoes.py.
@@ -26,7 +26,7 @@ from _docx_base import BASE, RAIZ, TCC, Documento, abrir_word, corpo_md
 DADOS = os.path.join(TCC, '_dados_requisitos.json')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 
-VERSAO = '3.6'
+VERSAO = '3.7'
 DATA = date(2026, 10, 30).strftime('%d/%m/%Y')
 # (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
 HISTORICO = [
@@ -72,6 +72,9 @@ HISTORICO = [
                           'tipografia, tom de voz, acessibilidade e recursos de marketing) e de custo '
                           'operacional (preços de 2026 dos provedores, cenários por volume, travas de custo '
                           'e esforço de operação), gerados de DESIGN-E-MARKETING.md e CUSTOS-OPERACIONAIS.md.'),
+    ('3.7', '30/10/2026', 'Nome do sistema padronizado como Jaqueline Aranha Estética (documentos, '
+                          'diagramas, API e repositório); custo operacional para até 60 atendimentos '
+                          'por mês com as ferramentas recomendadas.'),
 ]
 with open(DADOS, encoding='utf-8') as f:
     D = json.load(f)
@@ -123,7 +126,7 @@ N_TESTES = _contar_testes()
 N_MIGRATIONS = _contar_migrations()
 N_TABELAS = len(D['models-core']['models']) + len(D['models-aux']['models'])
 
-d = Documento('Shiva Zen — Documentação Técnica v' + VERSAO)
+d = Documento('Jaqueline Aranha Estética — Documentação Técnica v' + VERSAO)
 h1, h2, par, itens, add_table, figura = d.h1, d.h2, d.par, d.itens, d.tabela, d.figura
 
 d.capa('Documentação Técnica do Projeto', 'Requisitos, Modelagem UML, Arquitetura e Implantação', VERSAO, DATA)
@@ -132,8 +135,8 @@ d.sumario()
 # ===================== 1. INTRODUCAO =====================
 h1('1. Introdução')
 h2('1.1 Objetivo do documento')
-par('Este documento descreve de forma completa o sistema Shiva Zen — plataforma web de gestão da clínica '
-    'de estética Jaqueline Aranha: requisitos funcionais e não funcionais, regras de negócio, a '
+par('Este documento descreve de forma completa o sistema Jaqueline Aranha Estética, plataforma web de gestão '
+    'da clínica: requisitos funcionais e não funcionais, regras de negócio, a '
     'modelagem UML (casos de uso, classes, sequência, estados, atividades, componentes e implantação), '
     'o modelo de dados, a arquitetura, a segurança e a conformidade com a LGPD, a estratégia de '
     'qualidade, o roteiro de implantação, as escolhas de identidade visual, design e marketing e o custo '
@@ -513,7 +516,7 @@ add_table(['Versão', 'Data', 'Descrição'], [list(linha) for linha in HISTORIC
 print(f'{d.figuras} figuras, {N_TESTES} testes, {N_MIGRATIONS} migrations')
 word = abrir_word()
 try:
-    d.salvar('ShivaZen-Documentacao', word)
+    d.salvar('JaquelineAranhaEstetica-Documentacao', word)
 finally:
     if word is not None:
         word.Quit()

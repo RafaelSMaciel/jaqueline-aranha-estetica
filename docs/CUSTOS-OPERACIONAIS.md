@@ -3,7 +3,7 @@
 > Quanto custa por mês manter o sistema da clínica no ar, com as ferramentas recomendadas. Arquivo
 > único (sobrescrever a cada revisão). A clínica prevê **no máximo 60 atendimentos por mês**. Preços
 > de lista consultados em **30/10/2026** (fontes no fim). A planilha
-> [`tcc/ShivaZen-Custos-Operacionais.xlsx`](tcc/ShivaZen-Custos-Operacionais.xlsx) tem as mesmas
+> [`tcc/JaquelineAranhaEstetica-Custos-Operacionais.xlsx`](tcc/JaquelineAranhaEstetica-Custos-Operacionais.xlsx) tem as mesmas
 > contas em fórmulas, com as premissas editáveis. Ela é gerada por
 > [`tcc/gerar_planilha_custos.py`](tcc/gerar_planilha_custos.py): mudou um preço aqui, mude lá.
 

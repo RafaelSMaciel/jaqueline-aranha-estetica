@@ -682,9 +682,9 @@ class OpcoesPostgresTests(SimpleTestCase):
     def test_padrao_e_por_env(self):
         pg = 'django.db.backends.postgresql'
         self.assertEqual(self._opcoes({'ENGINE': pg, 'OPTIONS': {'sslmode': 'require'}}), {
-            'sslmode': 'require', 'application_name': 'shivazen', 'options': '-c statement_timeout=30000'})
-        self.assertEqual(self._opcoes({'ENGINE': pg}, DB_APPLICATION_NAME='shivazen-cron',
-                                      DB_STATEMENT_TIMEOUT_MS='0'), {'application_name': 'shivazen-cron'})
+            'sslmode': 'require', 'application_name': 'jaqueline-aranha-estetica', 'options': '-c statement_timeout=30000'})
+        self.assertEqual(self._opcoes({'ENGINE': pg}, DB_APPLICATION_NAME='jaqueline-aranha-estetica-cron',
+                                      DB_STATEMENT_TIMEOUT_MS='0'), {'application_name': 'jaqueline-aranha-estetica-cron'})
         self.assertIsNone(self._opcoes({'ENGINE': 'django.db.backends.sqlite3'}))
 
     @skipUnless(connection.vendor == 'postgresql', 'so no Postgres')
@@ -693,7 +693,7 @@ class OpcoesPostgresTests(SimpleTestCase):
             cursor.execute('SHOW statement_timeout')
             self.assertEqual(cursor.fetchone()[0], '30s')
             cursor.execute('SHOW application_name')
-            self.assertEqual(cursor.fetchone()[0], 'shivazen')
+            self.assertEqual(cursor.fetchone()[0], 'jaqueline-aranha-estetica')
 
 
 # ─── migrate_atomico ─────────────────────────────────────────────────

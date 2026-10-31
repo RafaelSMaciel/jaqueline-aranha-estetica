@@ -1,7 +1,7 @@
 {
-  "name": "shivazen-app",
+  "name": "jaqueline-aranha-estetica",
   "version": "0.0.0",
-  "description": "Front-end build (Vite + Tailwind) do Shiva Zen — app Django de gestão para clínica de estética.",
+  "description": "Front-end build (Vite + Tailwind) da Jaqueline Aranha Estética — app Django de gestão para clínica de estética.",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",

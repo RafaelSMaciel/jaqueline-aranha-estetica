@@ -1,4 +1,4 @@
-# Padrão SQL e esquema-alvo do banco — Shiva Zen
+# Padrão SQL e esquema-alvo do banco — Jaqueline Aranha Estética
 
 > **Spec única** (sobrescrever a cada revisão — política do dono: 1 MD por assunto, sem versões
 > acumuladas). **Status: TUDO IMPLEMENTADO — fases (a)–(f), N1–N2 e L1–L3 (migrations

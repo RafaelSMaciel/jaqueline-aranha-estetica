@@ -288,7 +288,7 @@ jobs:
           context: .
           push: false
           load: true
-          tags: shivazen:ci
+          tags: jaqueline-aranha-estetica:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
       # O caminho exato do 1o deploy, com prod.py: Postgres 18 exigindo SSL (sslmode=require), o
@@ -320,12 +320,12 @@ jobs:
       - name: preDeployCommand do railway.json (migrate_atomico + bootstrap_admin)
         run: |
           pre="$(jq -r '.deploy.preDeployCommand[0]' railway.json)"
-          docker run --rm --network host --env-file "$RUNNER_TEMP/smoke.env" shivazen:ci sh -c "$pre"
+          docker run --rm --network host --env-file "$RUNNER_TEMP/smoke.env" jaqueline-aranha-estetica:ci sh -c "$pre"
       - name: startCommand do railway.json + healthchecks
         run: |
           start="$(jq -r '.deploy.startCommand' railway.json)"
           docker run -d --name web --network host --env-file "$RUNNER_TEMP/smoke.env" -e PORT=8080 \
-            shivazen:ci sh -c "$start"
+            jaqueline-aranha-estetica:ci sh -c "$start"
           for _ in $(seq 1 30); do
             curl -fsS -H 'Host: healthcheck.railway.app' http://localhost:8080/healthz/ && break
             sleep 2

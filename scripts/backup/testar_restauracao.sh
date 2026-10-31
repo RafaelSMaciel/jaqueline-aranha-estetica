@@ -4,9 +4,9 @@
 #
 # Uso:
 #   BACKUP_AGE_IDENTITY=/caminho/chave-privada.txt \
-#   RESTORE_DATABASE_URL=postgres://.../shivazen_ensaio \
-#   scripts/backup/testar_restauracao.sh shivazen_<data>.dump.age
-# O banco de destino tem de existir e estar vazio (createdb shivazen_ensaio). Nunca aponte para
+#   RESTORE_DATABASE_URL=postgres://.../aranha_estetica_ensaio \
+#   scripts/backup/testar_restauracao.sh jaqueline-aranha-estetica_<data>.dump.age
+# O banco de destino tem de existir e estar vazio (createdb aranha_estetica_ensaio). Nunca aponte para
 # producao. Imprime a ultima migration e contagens; sai != 0 se algo falhar.
 set -euo pipefail
 

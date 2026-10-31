@@ -1,4 +1,4 @@
-' Estilo comum dos diagramas do Shiva Zen: fundo branco e traco escuro (impressao e Word),
+' Estilo comum dos diagramas do sistema Jaqueline Aranha Estética: fundo branco e traco escuro (impressao e Word),
 ' acento dourado da marca. Incluido por todas as fontes (!include ../estilo.iuml).
 skinparam backgroundColor #FFFFFF
 skinparam defaultFontName "Segoe UI"

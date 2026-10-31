@@ -1,4 +1,4 @@
-# Remodelagem do Banco — Shiva Zen v2.1 (+ auditoria pré-produção)
+# Remodelagem do Banco — Jaqueline Aranha Estética v2.1 (+ auditoria pré-produção)
 
 > Spec única (sobrescrever a cada revisão). Status: **EXECUTADA** até a migration `0046`;
 > pendente só a Fase 7 (agenda 3→2). Produção ainda está na `0026` — o upgrade e o rollback
