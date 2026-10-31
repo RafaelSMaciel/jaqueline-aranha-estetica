@@ -1,0 +1,536 @@
+# -*- coding: utf-8 -*-
+"""
+Gera a Documentação Técnica do sistema Jaqueline Aranha Estética (DOCX + PDF): requisitos, regras de negócio, todos os
+diagramas UML (docs/diagramas, exportados do Lucidchart), arquitetura, modelo de dados,
+segurança/LGPD, qualidade e implantação. Estilo, capa, sumário e gravação: docs/geradores/_docx_base.py.
+Regras de negócio e documento técnico em separado: docs/geradores/gerar_especificacoes.py.
+
+Fontes: docs/geradores/_dados_requisitos.json (requisitos, regras, casos de uso, entidades, rotas —
+extraídos do código), docs/diagramas (MER, DER, classes e casos de uso gerados dos models por
+docs/geradores/diagramas_lucid.py e desenhados no Lucidchart), docs/ARCHITECTURE.md
+(decisões), aranha_estetica/api/openapi.yaml (capítulo da API) e o próprio código (contagens,
+docstrings dos serviços).
+
+Uso (Python com python-docx; no Windows o PDF sai pelo Word, com o sumário atualizado):
+    python docs/geradores/gerar_documentacao.py
+"""
+import ast
+import json
+import os
+import re
+from datetime import date
+
+import yaml
+
+from _docx_base import BASE, GERADORES, RAIZ, Documento, abrir_word, corpo_md
+
+DADOS = os.path.join(GERADORES, '_dados_requisitos.json')
+APP = os.path.join(RAIZ, 'aranha_estetica')
+
+VERSAO = '3.8'
+DATA = date(2026, 10, 31).strftime('%d/%m/%Y')
+# (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
+HISTORICO = [
+    ('2.1', '21/06/2026', 'Documento de requisitos + modelagem UML gerado a partir do código '
+                          '(pós-auditoria de backend e migração do front-end para base_v2).'),
+    ('2.2', '23/09/2026', 'Pós-auditoria pré-produção: OTP em todo agendamento, consentimentos com prova '
+                          'de aceite imutável, 2FA obrigatório, histórico do prontuário, agendamento '
+                          'interno, Docker e migração atômica (migrations 0040–0046).'),
+    ('2.3', '28/10/2026', 'Revisão de outubro/2026 (migrations 0047–0061): agenda unificada, links em hash, '
+                          'pacote congelado na venda, comissão como livro-razão, lógica no banco, '
+                          'cifragem do dado de saúde, fila de e-mail e saída do Celery.'),
+    ('3.0', '29/10/2026', 'Documentação técnica completa: UML refeita em PlantUML (casos de uso, classes '
+                          'geradas do código, sequência, estados, atividades, componentes, implantação e '
+                          'ER gerado dos models), arquitetura, segurança/LGPD, qualidade e implantação. '
+                          'Migrations até 0078: aprovação automática de cliente de confiança, matriz de '
+                          'comunicação, retorno marcado com a cliente, sessão de pacote prevista, '
+                          'financeiro por competência e repasse em lote, lembrete por e-mail e NPS a cada '
+                          '90 dias, retenção de saúde por 20 anos e área da cliente (preferências, '
+                          'revogação, pedidos LGPD), pedido online como caso de uso, remoção de legado '
+                          '(Google Agenda, link antigo, papel RECEPCAO) e endurecimento de segurança.'),
+    ('3.1', '29/10/2026', 'Interface: design system único das telas da equipe (tokens claro/escuro, '
+                          'componentes cotton, agenda em tabela, ficha da cliente em abas), FullCalendar e '
+                          'Chart.js empacotados sem CDN, site com números reais (avaliação, clientes, '
+                          'tratamentos), página de dúvidas, fotos responsivas e varredura visual com axe-core '
+                          'de todas as rotas no CI.'),
+    ('3.2', '29/10/2026', 'API documentada em OpenAPI 3.1 (rotas JSON, webhooks, cron, feed ICS e saúde, '
+                          'com parâmetros, corpos, códigos de erro, autenticação e limites), Swagger UI no '
+                          'painel e teste que reprova rota sem documentação; contrato único das respostas '
+                          'JSON em todas as rotas do app.'),
+    ('3.3', '29/10/2026', 'Diagramas de apresentação no Lucidchart: MER conceitual (notação de Chen), DER '
+                          'completo e por área, classes do domínio, casos de uso e atividades com raias; '
+                          'as figuras desses cinco tipos passam a ser as do Lucid.'),
+    ('3.4', '29/10/2026', 'Metadados de linha padronizados e em inglês em todas as tabelas (migration 0079: '
+                          'created_at, updated_at, deleted_at, created_by_id, created_by_name), DERs '
+                          'refeitos com os nomes novos e os metadados por último; diagramas de sequência, '
+                          'estados, componentes e implantação também no Lucidchart — todas as figuras '
+                          'UML do documento passam a ser as do Lucid.'),
+    ('3.5', '30/10/2026', 'Requisitos funcionais com prioridade e rastreabilidade (casos de uso e regras), '
+                          'requisitos não funcionais com a forma de verificação (RNF24: documentação e '
+                          'contrato da API); regras de negócio, requisitos e documento técnico também em '
+                          'documentos próprios.'),
+    ('3.6', '30/10/2026', 'Capítulos de identidade visual, design e marketing (psicologia das cores, '
+                          'tipografia, tom de voz, acessibilidade e recursos de marketing) e de custo '
+                          'operacional (preços de 2026 dos provedores, cenários por volume, travas de custo '
+                          'e esforço de operação), gerados de DESIGN-E-MARKETING.md e CUSTOS-OPERACIONAIS.md.'),
+    ('3.7', '30/10/2026', 'Nome do sistema padronizado como Jaqueline Aranha Estética (documentos, '
+                          'diagramas, API e repositório); custo operacional para até 60 atendimentos '
+                          'por mês com as ferramentas recomendadas.'),
+    ('3.8', '31/10/2026', 'Diagramas refeitos no Lucidchart a partir dos models, completos e por assunto: '
+                          'MER (notação de Chen, cardinalidade mín./máx., atributos com os nomes das '
+                          'colunas), DER das 37 tabelas, classes em notação UML (visibilidade, tipos, '
+                          'multiplicidade, atributos derivados, operações com assinatura, composição e '
+                          'enumerações) e casos de uso com «include», «extend» condicional e pontos de '
+                          'extensão; pasta docs/diagramas única e requisitos em linguagem simples.'),
+]
+# Assuntos dos recortes de MER, DER e classes (docs/diagramas/recortes/<tipo>/<arquivo>.png)
+TEMAS_DIAGRAMAS = [
+    ('01-atendimento-e-lista-de-espera', 'atendimento e lista de espera'),
+    ('02-profissionais-e-catalogo', 'profissionais e catálogo'),
+    ('03-expediente-e-folgas', 'expediente e folgas'),
+    ('04-clientes-e-prontuario', 'clientes e prontuário'),
+    ('05-fichas-de-anamnese', 'fichas de anamnese'),
+    ('06-pacotes', 'pacotes'),
+    ('07-comissao-e-carteira', 'comissão e carteira'),
+    ('08-comunicacao-e-links', 'comunicação e links'),
+    ('09-lgpd-e-termos', 'LGPD e termos'),
+    ('10-acesso-e-auditoria', 'acesso e auditoria'),
+]
+
+with open(DADOS, encoding='utf-8') as f:
+    D = json.load(f)
+
+
+# ─── números tirados do código (o documento nunca fica com contagem velha) ────────
+
+def _contar_testes():
+    total = 0
+    for raiz, _dirs, arquivos in os.walk(os.path.join(APP, 'tests')):
+        for nome in arquivos:
+            if nome.startswith('test') and nome.endswith('.py'):
+                arvore = ast.parse(open(os.path.join(raiz, nome), encoding='utf-8').read())
+                total += sum(1 for n in ast.walk(arvore)
+                             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name.startswith('test'))
+    return total
+
+
+def _contar_migrations():
+    return len([n for n in os.listdir(os.path.join(APP, 'migrations')) if re.match(r'\d{4}_.*\.py$', n)])
+
+
+def _servicos():
+    """[(modulo, 1a linha da docstring)] de aranha_estetica/services."""
+    pasta = os.path.join(APP, 'services')
+    linhas = []
+    for nome in sorted(os.listdir(pasta)):
+        if not nome.endswith('.py') or nome == '__init__.py':
+            continue
+        arvore = ast.parse(open(os.path.join(pasta, nome), encoding='utf-8').read())
+        doc_mod = (ast.get_docstring(arvore) or '').strip().split('\n')[0]
+        linhas.append((f'services.{nome[:-3]}', doc_mod))
+    return linhas
+
+
+def _decisoes():
+    """Linhas | Dn | decisão | motivo | do docs/ARCHITECTURE.md."""
+    texto = open(os.path.join(BASE, 'ARCHITECTURE.md'), encoding='utf-8').read()
+    saida = []
+    for linha in texto.splitlines():
+        m = re.match(r'^\| (D\d+) \| (.+?) \| (.+?) \|$', linha)
+        if m:
+            limpar = lambda s: re.sub(r'[*`]', '', s)  # noqa: E731
+            saida.append((m.group(1), limpar(m.group(2)), limpar(m.group(3))))
+    return sorted(saida, key=lambda r: int(r[0][1:]))
+
+
+N_TESTES = _contar_testes()
+N_MIGRATIONS = _contar_migrations()
+N_TABELAS = len(D['models-core']['models']) + len(D['models-aux']['models'])
+
+d = Documento('Jaqueline Aranha Estética — Documentação Técnica v' + VERSAO)
+h1, h2, par, itens, add_table, figura = d.h1, d.h2, d.par, d.itens, d.tabela, d.figura
+
+d.capa('Documentação Técnica do Projeto', 'Requisitos, Modelagem UML, Arquitetura e Implantação', VERSAO, DATA)
+d.sumario()
+
+# ===================== 1. INTRODUCAO =====================
+h1('1. Introdução')
+h2('1.1 Objetivo do documento')
+par('Este documento descreve de forma completa o sistema Jaqueline Aranha Estética, plataforma web de gestão '
+    'da clínica: requisitos funcionais e não funcionais, regras de negócio, a '
+    'modelagem UML (casos de uso, classes, sequência, estados, atividades, componentes e implantação), '
+    'o modelo de dados, a arquitetura, a segurança e a conformidade com a LGPD, a estratégia de '
+    'qualidade, o roteiro de implantação, as escolhas de identidade visual, design e marketing e o custo '
+    'operacional mensal. O conteúdo é derivado do código-fonte: os diagramas de '
+    'classes e de dados são gerados a partir dos models do Django e as contagens são lidas do '
+    'repositório na geração do documento.')
+h2('1.2 Contexto e problema')
+par('A clínica atendia por WhatsApp e agenda de papel: horários perdidos, faltas sem controle, '
+    'pacotes de sessões anotados à mão, comissões calculadas em planilha e nenhum registro formal de '
+    'consentimento para dados de saúde. O sistema substitui esse fluxo por um agendamento online '
+    'com confirmação de celular, uma agenda única para a equipe, o controle de pacotes e de comissões '
+    'em livro-razão, o prontuário com histórico e a prova de cada aceite exigido pela LGPD.')
+h2('1.3 Escopo')
+par('Site público com catálogo, promoções e agendamento online (a cliente não tem senha: prova o '
+    'celular por código SMS); área "Meus agendamentos" (acompanhar, cancelar e remarcar); links '
+    'individuais para confirmar presença, avaliar o atendimento (NPS), responder a ficha de anamnese e '
+    'aceitar termos; portal da profissional; painel administrativo (agenda, aprovação de pedidos, '
+    'agendamento pela recepção, clientes e prontuário, catálogo, pacotes, promoções, comissões, '
+    'financeiro, NPS, termos, formulários, usuários, configurações e auditoria); rotinas automáticas '
+    'disparadas por cron (fila de e-mail, lembretes, NPS, pacotes, expiração de pedidos, retenção LGPD) '
+    'e integrações (SMS, WhatsApp, e-mail, push, captcha e monitoramento de erros).')
+h2('1.4 Números do projeto')
+add_table(['Item', 'Quantidade'], [
+    ['Entidades (tabelas do domínio)', N_TABELAS],
+    ['Migrations do banco', N_MIGRATIONS],
+    ['Testes automatizados', N_TESTES],
+    ['Requisitos funcionais', len(D['regras-requisitos']['requisitos_funcionais'])],
+    ['Requisitos não funcionais', len(D['regras-requisitos']['requisitos_nao_funcionais'])],
+    ['Regras de negócio catalogadas', len(D['regras-requisitos']['regras'])],
+    ['Casos de uso especificados', len(D['casos-uso']['casos_de_uso'])],
+    ['Rotas HTTP', len(D['arquitetura']['rotas'])],
+], widths=[4.0, 1.5])
+
+# ===================== 2. VISAO GERAL =====================
+h1('2. Visão Geral da Solução')
+h2('2.1 Tecnologias')
+add_table(['Camada', 'Tecnologia', 'Uso'], [
+    ['Back-end', 'Python 3.12, Django 5.2', 'Monólito renderizado no servidor; regras nos serviços'],
+    ['Banco de dados', 'PostgreSQL 18', 'Constraints, EXCLUDE, triggers, procedures e views'],
+    ['Front-end', 'Vite, Tailwind CSS 4, Alpine.js (CSP), django-cotton, FullCalendar e Chart.js (npm)',
+     'Design system único (tokens claro/escuro, componentes), sem CDN, PWA'],
+    ['Servidor', 'gunicorn + WhiteNoise em Docker', 'Contêiner não-root, estáticos com hash'],
+    ['Hospedagem', 'Railway', 'Ambiente de produção (main) e de testes (dev)'],
+    ['Autenticação', 'Django auth + django-otp (TOTP) + django-axes', 'Equipe com 2FA obrigatório'],
+    ['Mensageria', 'Resend (anymail), Zenvia, WhatsApp Cloud API, Web Push', 'E-mail, SMS do OTP, lembretes, push'],
+    ['Qualidade', 'Django test runner, ruff, mypy, import-linter, Playwright, axe-core, pip-audit', 'CI com 9 jobs'],
+], widths=[1.3, 2.4, 3.0])
+h2('2.2 Perfis de acesso')
+par('Três perfis usam o sistema: a cliente (sem senha, identificada pelo celular verificado por SMS), '
+    'a profissional (portal próprio, com 2FA) e a administradora (dona/recepção, painel completo, com '
+    '2FA). O agendador externo (cron) é um ator de sistema autenticado por token.')
+
+# ===================== 3. ATORES =====================
+h1('3. Atores do Sistema')
+add_table(['Ator', 'Descrição'], [[a['nome'], a['descricao']] for a in D['casos-uso']['atores']], widths=[1.7, 5.0])
+
+# ===================== 4-6. REQUISITOS E REGRAS =====================
+h1('4. Requisitos Funcionais')
+add_table(['ID', 'Ator', 'Prioridade', 'Descrição'],
+          [[rf['id'], rf['ator'], rf['prioridade'], rf['descricao']]
+           for rf in D['regras-requisitos']['requisitos_funcionais']],
+          widths=[0.6, 1.3, 0.8, 4.0])
+h1('5. Requisitos Não Funcionais')
+add_table(['ID', 'Categoria', 'Descrição', 'Como é verificado'],
+          [[r['id'], r['categoria'], r['descricao'], r['verificacao']]
+           for r in D['regras-requisitos']['requisitos_nao_funcionais']],
+          widths=[0.6, 1.0, 3.3, 1.8])
+h1('6. Regras de Negócio')
+add_table(['ID', 'Título', 'Descrição'],
+          [[r['id'], r['titulo'], r['descricao']] for r in D['regras-requisitos']['regras']],
+          widths=[0.6, 1.6, 4.5])
+
+# ===================== 7. CASOS DE USO =====================
+h1('7. Casos de Uso')
+par('Os casos de uso estão divididos por subsistema: um diagrama com todos e um por área. «include» '
+    'marca o passo sempre executado pelo caso base; «extend», o comportamento opcional que entra num '
+    'ponto de extensão do caso base quando a condição entre colchetes é verdadeira.')
+CASOS = [
+    ('completos/04-casos-de-uso.png', 'Casos de uso — todos os subsistemas.'),
+    ('recortes/casos-de-uso/01-site-publico.png', 'Casos de uso — site público e agendamento online.'),
+    ('recortes/casos-de-uso/02-area-da-cliente.png', 'Casos de uso — área da cliente.'),
+    ('recortes/casos-de-uso/03-painel-agenda.png', 'Casos de uso — painel: agenda.'),
+    ('recortes/casos-de-uso/04-painel-cadastros-e-prontuario.png',
+     'Casos de uso — painel: cadastros e prontuário.'),
+    ('recortes/casos-de-uso/05-painel-financeiro-e-administracao.png',
+     'Casos de uso — painel: financeiro e administração.'),
+    ('recortes/casos-de-uso/06-portal-da-profissional.png', 'Casos de uso — portal da profissional.'),
+    ('recortes/casos-de-uso/07-rotinas-automaticas.png', 'Casos de uso — rotinas automáticas.'),
+]
+for caminho, legenda in CASOS:
+    figura(caminho, legenda)
+h2('7.1 Especificação dos casos de uso')
+add_table(['ID', 'Caso de uso', 'Atores', 'Fluxo principal'],
+          [[uc['id'], uc['nome'], ', '.join(uc['atores']), uc['fluxo']] for uc in D['casos-uso']['casos_de_uso']],
+          widths=[0.5, 1.4, 1.5, 3.3])
+
+# ===================== 8. MODELO DE DOMINIO =====================
+h1('8. Modelo de Domínio (Diagramas de Classes)')
+par('Os diagramas de classes são gerados a partir dos models (docs/geradores/diagramas_lucid.py) e '
+    'seguem a notação UML: atributos privados (-) com o nome da coluna do DER, o tipo e a multiplicidade '
+    '([0..1] quando opcional), propriedades derivadas (+ /nome {readOnly}), operações públicas com '
+    'parâmetros e retorno (as de classe sublinhadas), composição (losango cheio) quando a parte é '
+    'apagada junto com o todo, associação dirigida com o papel e as multiplicidades e dependência '
+    'tracejada para as enumerações. Cada diagrama por assunto mostra as associações que saem das suas '
+    'classes; as classes de outros assuntos aparecem em cinza tracejado, só com o nome.')
+figura('completos/03-classes.png', 'Classes — modelo de domínio completo.')
+for caminho, assunto in TEMAS_DIAGRAMAS:
+    figura(f'recortes/classes/{caminho}.png', f'Classes — {assunto}.')
+h2('8.1 Dicionário de entidades')
+linhas = [[m['nome'], m.get('tabela', ''), m['descricao']]
+          for grupo in ('models-core', 'models-aux') for m in D[grupo]['models']]
+add_table(['Entidade', 'Tabela', 'Descrição'], linhas, widths=[1.5, 1.4, 3.8])
+
+# ===================== 9. CAMADA DE SERVICOS =====================
+h1('9. Camada de Serviços (Casos de Uso da Aplicação)')
+par('As views só traduzem HTTP: validam a entrada e chamam os serviços, onde vivem as regras de '
+    'negócio e os efeitos colaterais.')
+h2('9.1 Responsabilidade de cada serviço')
+add_table(['Módulo', 'Responsabilidade (docstring do módulo)'], _servicos(), widths=[2.0, 4.7])
+
+# ===================== 10. ESTADOS =====================
+h1('10. Diagramas de Estados')
+par('O status do atendimento é governado por uma máquina de estados finitos (Atendimento.TRANSICOES): '
+    'cada transição trava a linha (SELECT FOR UPDATE), valida a origem, grava o status e a auditoria e '
+    'aplica os efeitos na mesma transação — se um efeito falha, nada é gravado. Transição inválida '
+    'levanta Atendimento.TransicaoInvalida com mensagem legível.')
+for caminho, legenda in (
+        ('outros/estados/01-atendimento.png', 'Estados — Atendimento.'),
+        ('outros/estados/02-compra-de-pacote.png', 'Estados — compra de pacote.'),
+        ('outros/estados/03-notificacao.png', 'Estados — notificação (fila de e-mail e mensagens).'),
+        ('outros/estados/04-comissao.png', 'Estados — comissão (derivado do livro-razão).')):
+    figura(caminho, legenda)
+h2('10.1 Tabela de transições do atendimento')
+add_table(['Estado origem', 'Estado destino', 'Ação / gatilho'],
+          [[t['de'], t['para'], t['acao']] for t in D['fsm']['transicoes'] if t['para'] != '(nenhum)'],
+          widths=[1.6, 1.6, 3.5])
+h2('10.2 Efeitos automáticos')
+itens(D['fsm']['efeitos'])
+
+# ===================== 11. SEQUENCIA =====================
+h1('11. Diagramas de Sequência')
+SEQ = [
+    ('01-agendamento-online', 'agendamento online (wizard + OTP).',
+     'Do catálogo ao atendimento criado: horários livres calculados pelo SlotService, verificação do '
+     'celular por SMS, trava do horário e gravação transacional com os aceites e a ficha.'),
+    ('02-aprovacao-pedido', 'aprovação de pedido pendente.',
+     'Botão, lote ou seletor de status passam pelo mesmo serviço — a cliente sempre recebe a resposta.'),
+    ('03-realizado-efeitos', 'marcar realizado e os efeitos.',
+     'Faltas, pacote, comissão e cashback na mesma transação, garantidos também por triggers.'),
+    ('04-cancelamento-pela-cliente', 'cancelamento pela cliente.',
+     'Estornos, aviso à lista de espera e push à profissional.'),
+    ('05-lembrete-e-confirmacao', 'lembrete D-1 e confirmação de presença.', None),
+    ('06-nps-e-pesquisa', 'NPS e pesquisa pós-atendimento.', None),
+    ('07-login-equipe-2fa', 'login da equipe com 2FA.', None),
+    ('08-fila-de-email', 'fila de e-mail transacional.', None),
+    ('09-lgpd-retencao', 'LGPD: pseudonimização e retenção.', None),
+]
+for nome, legenda, descricao in SEQ:
+    figura(f'outros/sequencia/{nome}.png', 'Sequência — ' + legenda, descricao)
+h2('11.1 Passo a passo do agendamento online')
+itens(D['arquitetura']['fluxo_agendamento_otp'], numerada=True)
+
+# ===================== 12. ATIVIDADES =====================
+h1('12. Diagramas de Atividades')
+for caminho, legenda in (
+        ('outros/atividades/01-validar-horario.png', 'Atividade — validação de um horário.'),
+        ('outros/atividades/02-pedido-online.png', 'Atividade — do pedido online ao atendimento realizado.'),
+        ('outros/atividades/03-calculo-de-comissao.png', 'Atividade — cálculo da comissão.')):
+    figura(caminho, legenda)
+
+# ===================== 13. ARQUITETURA =====================
+h1('13. Arquitetura')
+par('Monólito Django em camadas: borda HTTP (urls e views separadas por área: público, conta, painel, '
+    'profissional e infraestrutura), formulários, serviços (casos de uso), domínio (models, máquina de '
+    'estados e QuerySets) e banco. O PostgreSQL é a fonte única da escrita: sobreposição de horários, '
+    'imutabilidade dos livros-razão e trilha de alterações são garantidas por constraints e triggers, '
+    'valendo também para o Django admin e para SQL manual. Não há fila assíncrona (Celery): as rotinas '
+    'são funções chamadas por um cron externo via HTTP autenticado, e o e-mail é uma fila na tabela '
+    'de notificações, enviada após o commit.')
+figura('outros/componentes/01-camadas.png', 'Componentes — arquitetura em camadas.')
+figura('outros/componentes/02-integracoes.png', 'Componentes — integrações externas.')
+h2('13.1 Componentes')
+add_table(['Componente', 'Papel'], [[c['nome'], c['papel']] for c in D['arquitetura']['componentes']],
+          widths=[1.8, 4.9])
+h2('13.2 Integrações externas')
+add_table(['Serviço', 'Uso'], [[i['nome'], i['uso']] for i in D['arquitetura']['integracoes_externas']],
+          widths=[1.8, 4.9])
+h2('13.3 Decisões de arquitetura (ADR)')
+add_table(['ID', 'Decisão', 'Motivo'], _decisoes(), widths=[0.5, 3.2, 3.0])
+
+# ===================== 14. MODELO DE DADOS =====================
+h1('14. Modelo de Dados')
+par('O modelo físico é gerado dos models com os tipos reais do PostgreSQL, chaves (PK, FK, UK) e '
+    'nulidade (* = obrigatório). Nomes seguem o padrão SQL do projeto (tabelas no singular, colunas '
+    'eh_*, constraints ck_/uq_/ex_/fk_ e índices ix_). Os metadados de linha são iguais em todas as '
+    'tabelas e em inglês, sempre por último: created_at (todas), updated_at (toda tabela com UPDATE de '
+    'negócio, mantido por trigger), deleted_at (soft delete do cliente) e a autoria created_by_id + '
+    'created_by_name; tabela append-only não tem updated_at. A visão geral mostra todas as tabelas; as '
+    'demais, um assunto cada.')
+figura('completos/01-mer.png', 'MER — notação de Chen (entidades, relacionamentos e cardinalidades '
+       'mín./máx.).',
+       'Antes do modelo físico, o modelo conceitual: as entidades de negócio (retângulos), os '
+       'relacionamentos (losangos) com a cardinalidade (mínima, máxima) junto de cada entidade e os '
+       'atributos (elipses, com os mesmos nomes das colunas do DER; a chave sublinhada).')
+for caminho, assunto in TEMAS_DIAGRAMAS:
+    figura(f'recortes/mer/{caminho}.png', f'MER — {assunto}.')
+figura('completos/02-der.png', 'DER — as 37 tabelas com chaves e relacionamentos.')
+for caminho, assunto in TEMAS_DIAGRAMAS:
+    figura(f'recortes/der/{caminho}.png', f'DER — {assunto}.')
+h2('14.1 Lógica no banco')
+itens([
+    'EXCLUDE (btree_gist) impede dois atendimentos ativos sobrepostos da mesma profissional.',
+    'Livros-razão append-only (movimento_comissao, movimento_carteira): trigger recusa UPDATE/DELETE; '
+    'no máximo um crédito de comissão ativo por atendimento.',
+    'Trilha historico_alteracao preenchida por trigger em toda escrita das tabelas sensíveis, com autor, '
+    'IP e origem da requisição (variáveis de sessão definidas pelo middleware).',
+    'Procedures sp_anonimizar_cliente e sp_aplicar_retencao_lgpd: a regra de retenção e pseudonimização '
+    'vive no banco e é a mesma para o job, o admin e SQL manual.',
+    'Funções e views de leitura (saldo de pacote, horários livres, faturamento) com paridade testada '
+    'contra a implementação em Python.',
+    'Dado de saúde (prontuário, respostas de ficha) gravado cifrado (Fernet, chaves rotacionáveis).',
+])
+
+# ===================== 15. SEGURANCA E LGPD =====================
+h1('15. Segurança e Conformidade com a LGPD')
+h2('15.1 Segurança da aplicação')
+itens([
+    'Equipe: senha (PBKDF2), segundo fator TOTP obrigatório, bloqueio por tentativas (django-axes) e '
+    'ratelimit; a cliente não tem senha — prova a posse do celular por código SMS de uso único.',
+    'Links enviados à cliente (confirmação, NPS, ficha, termo, agenda ICS) guardam só o hash SHA-256 do '
+    'token, com validade e uso único quando aplicável; logs nunca registram tokens.',
+    'Cabeçalhos: HSTS, CSP com nonce (Alpine na build CSP, sem eval), X-Frame-Options, Referrer-Policy; '
+    'cookies Secure/HttpOnly/SameSite; CSRF em todo POST.',
+    'Webhooks e cron autenticados (token no cabeçalho, comparação em tempo constante, allowlist de IP).',
+    'Auditoria (LogAuditoria) de toda ação administrativa e de cada leitura ou escrita de dado de saúde.',
+    'Ambiente de testes publicado isolado: SMS só no log, e-mail e WhatsApp apenas para destinatários '
+    'autorizados, robots e cabeçalho noindex.',
+])
+h2('15.2 LGPD')
+itens([
+    'Base legal por finalidade: execução de contrato (agendamento e mensagens transacionais), '
+    'consentimento específico e destacado para dado de saúde (art. 11) e consentimento para '
+    'marketing, lembrete e pesquisa por WhatsApp — com histórico (quem, quando, texto exibido, IP).',
+    'Prova de aceite imutável: versão do termo, hash do texto, IP e user-agent.',
+    'Direitos da titular: cópia dos dados (com OTP), descadastro por link e pseudonimização a pedido.',
+    'Retenção: clientes inativas há 5 anos são pseudonimizadas; registros de saúde e contratos ficam '
+    'pelo prazo legal; fichas de pedidos não realizados são apagadas em 90 dias.',
+    'Minimização: feed de agenda da profissional sem dado de saúde; inventário de dados por coluna '
+    '(o que é apagado, pseudonimizado ou retido).',
+])
+
+# ===================== 16. QUALIDADE =====================
+h1('16. Qualidade e Testes')
+par(f'A suíte tem {N_TESTES} testes automatizados (Django test runner), executados no SQLite e no '
+    'PostgreSQL 18 — onde também são testadas as constraints, triggers, procedures e a paridade das '
+    'funções SQL com o Python. Há testes de data migrations, de rotas (toda URL mapeada é exercida com '
+    'cada perfil de acesso) e testes de navegador (Playwright): o wizard de agendamento, a agenda do '
+    'painel e uma varredura visual de todas as rotas do site, do painel e do portal (desktop no tema '
+    'claro e celular no escuro) que reprova erro de JavaScript ou de CSP, rolagem lateral no celular, '
+    'sintaxe de template vazada e violação grave de acessibilidade (axe-core).')
+figura('outros/implantacao/02-pipeline-ci.png', 'Atividade — pipeline de integração contínua.')
+add_table(['Verificação', 'Ferramenta', 'Garante'], [
+    ['Estilo e erros', 'ruff', 'código sem erro estático; datas sempre com fuso'],
+    ['Camadas', 'import-linter', 'utils, db, jobs e comandos nunca importam views'],
+    ['Tipos', 'mypy (services)', 'contratos dos casos de uso'],
+    ['Migrations', 'makemigrations --check', 'models e banco em dia'],
+    ['Cobertura', 'coverage (mínimo no CI)', 'regressão de cobertura bloqueia o merge'],
+    ['Dependências', 'pip-audit', 'nenhuma vulnerabilidade conhecida'],
+    ['Navegador', 'Playwright + axe-core', 'wizard, agenda e todas as rotas sem erro nem violação grave de acessibilidade'],
+    ['Contrato da API', 'openapi-spec-validator', 'OpenAPI 3.1 válido e toda rota JSON documentada'],
+], widths=[1.4, 1.8, 3.5])
+
+# ===================== 17. IMPLANTACAO =====================
+h1('17. Implantação e Operação')
+par('A imagem Docker é construída em três estágios (front com Node 22, dependências e runtime Python '
+    '3.12 slim, usuário não-root). No Railway, cada environment tem o serviço web e o seu PostgreSQL 18; '
+    'o pre-deploy aplica todas as migrations numa única transação (migrate_atomico) e o tráfego só '
+    'muda quando /healthz/ responde. A branch dev publica o ambiente de testes (perfil staging) e a main '
+    'publica a produção, protegida pelos jobs obrigatórios do CI.')
+figura('outros/implantacao/01-railway.png', 'Implantação — Railway.')
+add_table(['Ambiente', 'Branch / perfil', 'Características'], [
+    ['Desenvolvimento local', 'DJANGO_ENV=dev', 'DEBUG, SQLite ou Postgres local, SMS em log'],
+    ['Testes publicado', 'dev / DJANGO_ENV=staging', 'igual à produção + travas de envio, faixa e noindex, seed --demo'],
+    ['Produção', 'main / DJANGO_ENV=prod', 'HTTPS, Postgres obrigatório, cifragem, 2FA, Sentry'],
+], widths=[1.6, 1.9, 3.2])
+h2('17.1 Rotinas (cron)')
+add_table(['Job', 'Quando', 'O que faz'], [
+    ['emails', 'a cada 15 min', 'reenvia a fila de e-mail'],
+    ['lembrete_diario', '08:00', 'lembrete D-1 por WhatsApp (com consentimento)'],
+    ['nps_24h / detrator_alerta', '10:00 / 10:30', 'pesquisa NPS e alerta de nota baixa'],
+    ['limpeza_status', 'de hora em hora', 'vence pedido pendente a 1 h do início; lista atendimentos sem desfecho'],
+    ['pacote_expirando / pacote_expirar', '07:00 / 00:30', 'aviso de validade e expiração de pacotes'],
+    ['aniversario', '09:00', 'felicitação (com consentimento de marketing)'],
+    ['lgpd_purgar', 'domingo 03:00', 'retenção e pseudonimização'],
+    ['housekeeping / feriados', '04:00 / dia 1', 'limpeza técnica e carga de feriados'],
+], widths=[2.0, 1.3, 3.4])
+
+# ===================== 18. ROTAS =====================
+h1('18. Rotas')
+add_table(['Área', 'Rota', 'Função'], [[r['grupo'], r['rota'], r['funcao']] for r in D['arquitetura']['rotas']],
+          widths=[1.0, 2.9, 2.8])
+
+# ===================== 19. API =====================
+API = yaml.safe_load(open(os.path.join(APP, 'api', 'openapi.yaml'), encoding='utf-8'))
+ACESSO = {
+    'sessaoEquipe': 'Equipe (ADMIN)', 'sessaoProfissional': 'Profissional', 'sessaoCliente': 'Cliente (sessão SMS)',
+    'cronToken': 'X-Cron-Token', 'assinaturaMeta': 'Assinatura HMAC da Meta', 'segredoZenvia': 'Segredo da Zenvia',
+    'tokenFeed': 'Token do link',
+}
+
+
+def _acesso(op):
+    nomes = [ACESSO[n] for req in op.get('security', []) for n in req if n in ACESSO]
+    return ' ou '.join(dict.fromkeys(nomes)) or 'Pública'
+
+
+h1('19. API (OpenAPI 3.1)')
+par('O sistema não expõe uma API REST pública: as telas são renderizadas no servidor. As rotas de máquina '
+    '— chamadas pelo JavaScript do wizard, do portal da cliente e do painel, pelos provedores (Meta e '
+    'Zenvia), pelo agendador dos jobs e pelos calendários externos — estão descritas no contrato '
+    f'aranha_estetica/api/openapi.yaml (OpenAPI {API["openapi"]}, {len(API["paths"])} caminhos), '
+    'navegável no Swagger UI do painel (/painel/api/, só a equipe; "Try it out" apenas em GET). Um teste '
+    'automatizado reprova rota JSON nova sem documentação, caminho que não corresponde à rota do Django e '
+    'lista de jobs divergente do código.')
+h2('19.1 Contrato das respostas')
+add_table(['Caso', 'Corpo JSON', 'Uso'], [
+    ['Sucesso', '{"ok": true, ...dados}', 'o front segue com os dados'],
+    ['Erro', '{"ok": false, "codigo", "mensagem", ...extra}', 'o front decide pelo código (estável) e mostra a mensagem'],
+    ['Fora do envelope', 'formato do provedor / do FullCalendar / text/calendar', 'webhooks, saúde, eventos do calendário, feed ICS, manifests'],
+], widths=[1.3, 2.7, 2.7])
+h2('19.2 Autenticação')
+add_table(['Esquema', 'Onde', 'Descrição'], [
+    [nome, f'{e.get("in", "")}: {e.get("name", "")}', e.get('description', '').replace('`', '')]
+    for nome, e in API['components']['securitySchemes'].items()
+], widths=[1.4, 1.7, 3.6])
+h2('19.3 Operações')
+linhas = []
+for caminho, item in API['paths'].items():
+    for metodo in ('get', 'post'):
+        if metodo in item:
+            op = item[metodo]
+            linhas.append([op['tags'][0], f'{metodo.upper()} {caminho}', _acesso(op), op['summary']])
+linhas.sort(key=lambda linha: [t['name'] for t in API['tags']].index(linha[0]))
+add_table(['Grupo', 'Operação', 'Acesso', 'Descrição'], linhas, widths=[1.2, 2.3, 1.2, 2.0])
+
+# ===================== 20. DESIGN E MARKETING / 21. CUSTO =====================
+h1('20. Identidade Visual, Design e Marketing')
+d.markdown(corpo_md(os.path.join(BASE, 'DESIGN-E-MARKETING.md')), renumerar='20')
+
+h1('21. Custo Operacional')
+d.markdown(corpo_md(os.path.join(BASE, 'CUSTOS-OPERACIONAIS.md')), renumerar='21')
+
+# ===================== GLOSSARIO E HISTORICO =====================
+h1('Glossário')
+add_table(['Termo', 'Significado'], [
+    ['Atendimento', 'Uma sessão marcada (procedimento, profissional, cliente, horário).'],
+    ['Pedido pendente', 'Agendamento online aguardando a aprovação da profissional.'],
+    ['Cliente de confiança', 'Já atendida, sem falta em aberto e com menos de 2 horários futuros: o pedido já nasce aprovado.'],
+    ['Retorno', 'Sessão de acompanhamento sem custo, marcada dentro da janela do procedimento.'],
+    ['Pacote', 'Conjunto de sessões vendido com validade; os itens são congelados na venda.'],
+    ['Livro-razão', 'Tabela só de inclusão (crédito, estorno, pagamento): o saldo é a soma dos lançamentos.'],
+    ['OTP', 'Código de uso único enviado por SMS para provar a posse do celular.'],
+    ['NPS', 'Net Promoter Score: nota de 0 a 10 de recomendação.'],
+    ['FSM', 'Máquina de estados finitos que governa o status do atendimento.'],
+    ['Pseudonimização', 'Substituição dos dados pessoais por valores sem vínculo com a titular, mantendo o histórico.'],
+], widths=[1.6, 5.1])
+h1('Histórico de Versões')
+add_table(['Versão', 'Data', 'Descrição'], [list(linha) for linha in HISTORICO], widths=[0.9, 1.2, 4.6])
+
+print(f'{d.figuras} figuras, {N_TESTES} testes, {N_MIGRATIONS} migrations')
+word = abrir_word()
+try:
+    d.salvar('JaquelineAranhaEstetica-Documentacao', word)
+finally:
+    if word is not None:
+        word.Quit()

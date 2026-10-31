@@ -4025,8 +4025,8 @@ iguais, slots de uma semana iguais antes/depois, nenhum objeto fora do padrão. 
 "do zero", não o caminho 0026→final de produção.
 
 Depois de implementar: atualizar `docs/PROJECT.md` §5 (tabelas/invariantes) e §14 (runbook),
-`docs/ARCHITECTURE.md` §2, e regerar a documentação (`docs/uml/gerar_uml.py` e
-`docs/tcc/gerar_documentacao.py`).
+`docs/ARCHITECTURE.md` §2, e regerar a documentação (`docs/geradores/diagramas_lucid.py` e
+`docs/geradores/gerar_documentacao.py`).
 
 ---
 

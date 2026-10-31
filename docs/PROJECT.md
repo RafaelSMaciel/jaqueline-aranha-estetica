@@ -4,17 +4,18 @@
 > (migrations `0001`–`0079`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
-> pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documentos do TCC em [`tcc/`](tcc/): o geral
-> (requisitos, UML, arquitetura — [`gerar_documentacao.py`](tcc/gerar_documentacao.py) →
-> `JaquelineAranhaEstetica-Documentacao.docx/.pdf`) e, em separado, regras de negócio, requisitos (RF/RNF com
-> prioridade, verificação e rastreabilidade) e documento técnico
-> ([`gerar_especificacoes.py`](tcc/gerar_especificacoes.py) → `JaquelineAranhaEstetica-Regras-de-Negocio`,
-> `JaquelineAranhaEstetica-Requisitos` e `JaquelineAranhaEstetica-Documento-Tecnico`), gerados deste arquivo, do
-> `REGRAS-DE-NEGOCIO.md`, do `ARCHITECTURE.md` e do `tcc/_dados_requisitos.json`; planilha de
-> custos com fórmulas: [`gerar_planilha_custos.py`](tcc/gerar_planilha_custos.py) →
-> `tcc/JaquelineAranhaEstetica-Custos-Operacionais.xlsx`;
-> diagramas em [`uml/`](uml/README.md) (PlantUML gerado do código + versões de apresentação no
-> Lucidchart de todos os tipos, exportadas em `uml/lucid/`). Custo mensal de operação (provedores,
+> pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documentos do TCC (só os arquivos gerados) em
+> [`tcc/`](tcc/); os scripts que os geram e os dados ficam em [`geradores/`](geradores/): o geral
+> (requisitos, UML, arquitetura — [`gerar_documentacao.py`](geradores/gerar_documentacao.py) →
+> `JaquelineAranhaEstetica-Documentacao.docx/.pdf`), regras de negócio e documento técnico
+> ([`gerar_especificacoes.py`](geradores/gerar_especificacoes.py)), requisitos em linguagem simples
+> ([`gerar_requisitos.py`](geradores/gerar_requisitos.py) → `JaquelineAranhaEstetica-Requisitos.pdf`)
+> e a planilha de custos com fórmulas ([`gerar_planilha_custos.py`](geradores/gerar_planilha_custos.py)),
+> gerados deste arquivo, do `REGRAS-DE-NEGOCIO.md`, do `ARCHITECTURE.md` e do
+> `geradores/_dados_requisitos.json`. Diagramas em [`diagramas/`](diagramas/README.md): MER, DER,
+> classes e casos de uso completos e por assunto (gerados dos models por
+> [`diagramas_lucid.py`](geradores/diagramas_lucid.py) e desenhados no Lucidchart), mais sequência,
+> estados, atividades, componentes e implantação. Custo mensal de operação (provedores,
 > cenários por volume): [`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md); identidade visual, cores,
 > tipografia e recursos de marketing (o porquê de cada escolha): [`DESIGN-E-MARKETING.md`](DESIGN-E-MARKETING.md)
 > — os dois entram também nos documentos gerados (TCC caps. 20–21; documento técnico caps. 16–17).
@@ -216,7 +217,7 @@ clinica/             settings/{base,dev,prod,staging,test}.py (leem e validam a 
 scripts/             backup/ (dump cifrado e teste de restauração, §14 h) e imagens.py (variantes
                      responsivas das fotos do site; Pillow do requirements-dev) — fora da imagem Docker
 docs/                os Markdown vivos (um por assunto; índice no README), specs/ (banco, front, registry),
-                     uml/ (PlantUML gerado do código + Lucidchart) e tcc/ (geradores e os DOCX/PDF do TCC)
+                     diagramas/ (PNGs do Lucidchart), geradores/ (scripts e dados) e tcc/ (DOCX/PDF/XLSX)
 ```
 
 ### 3.2 Camadas e fluxo de uma requisição
@@ -1788,8 +1789,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 - Migrations: nunca editar migration já aplicada em produção; DDL só-Postgres via `RunPython`
   com checagem de vendor; teste no Postgres (CI) antes do merge.
 - Commits: Conventional Commits (`feat(scope)`, `fix(scope)`, `docs(scope)`...).
-- Docs: este arquivo + requisitos (`docs/tcc/_dados_requisitos.json`, lido por
-  `python docs/tcc/gerar_documentacao.py`) no mesmo PR da mudança.
+- Docs: este arquivo + requisitos (`docs/geradores/_dados_requisitos.json`, lido por
+  `python docs/geradores/gerar_documentacao.py`) no mesmo PR da mudança.
 
 ---
 
@@ -1816,6 +1817,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-29 | Metadados de linha em inglês e iguais em todas as tabelas (0079): `created_at` nas 37, `updated_at` nas 24 com UPDATE de negócio (novo em `codigo_otp`/`execucao_job`), `deleted_at`, autoria `created_by_id` + `created_by_name`; `fn_set_updated_at`/`tg_<t>_updated_at`, corpos PL/pgSQL vigentes em `sql/v0079_metadados.py`, catraca `MetadadosDeLinhaTests` ([`specs/padrao-sql.md`](specs/padrao-sql.md) §3.7) |
 | 2026-10-30 | Documentação para o TCC: regras de negócio, requisitos (RF/RNF com prioridade, verificação e rastreabilidade) e documento técnico em documentos próprios (`tcc/gerar_especificacoes.py`); custo operacional mensal com preços de 2026 e cenários por volume ([`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md)) e escolhas de design e marketing — psicologia das cores, tipografia, tom, acessibilidade, recursos de marketing ([`DESIGN-E-MARKETING.md`](DESIGN-E-MARKETING.md)) |
 | 2026-10-30 | Nome padronizado: **Jaqueline Aranha Estética** em documentos, diagramas (PlantUML e Lucid), API, `package.json`, Postgres local, `DB_APPLICATION_NAME` e backups; documentos gerados passam a `docs/tcc/JaquelineAranhaEstetica-*`. Identificadores gravados em dado ou em migration mantêm o nome antigo (§15) |
+| 2026-10-31 | Diagramas refeitos no Lucidchart a partir dos models (`docs/geradores/diagramas_lucid.py`), completos e separados em dez assuntos: MER em notação de Chen com cardinalidade (mín., máx.) e atributos com os nomes das colunas, DER das 37 tabelas, classes em UML (visibilidade, tipos, multiplicidade, derivados, operações com assinatura, composição, enumerações) e casos de uso com «include», «extend» com condição e pontos de extensão. `docs/` reorganizada: `diagramas/` (PNGs: completos, recortes, outros), `geradores/` (scripts e dados) e `tcc/` (só os arquivos gerados); PlantUML (`docs/uml/`) removido; requisitos em PDF simples e em linguagem leiga (`gerar_requisitos.py`) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-30

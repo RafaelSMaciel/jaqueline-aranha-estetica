@@ -5,7 +5,7 @@
 > de lista consultados em **30/10/2026** (fontes no fim). A planilha
 > [`tcc/JaquelineAranhaEstetica-Custos-Operacionais.xlsx`](tcc/JaquelineAranhaEstetica-Custos-Operacionais.xlsx) tem as mesmas
 > contas em fórmulas, com as premissas editáveis. Ela é gerada por
-> [`tcc/gerar_planilha_custos.py`](tcc/gerar_planilha_custos.py): mudou um preço aqui, mude lá.
+> [`geradores/gerar_planilha_custos.py`](geradores/gerar_planilha_custos.py): mudou um preço aqui, mude lá.
 
 ## 1. Resumo
 
