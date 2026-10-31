@@ -219,7 +219,8 @@ class DiasDisponiveisTests(TestCase):
 
 class _Admin(TestCase):
     def setUp(self):
-        self.admin = Usuario.objects.create_superuser(email='agenda@test.com', password='senha-forte-123',
+        limpar_feriados()   # datas relativas a hoje caem em feriado semeado (ex.: hoje+15 = 15/11)
+        self.admin =Usuario.objects.create_superuser(email='agenda@test.com', password='senha-forte-123',
                                                       nome='Admin Agenda')
         self.client.force_login(self.admin)
         self.prof = criar_profissional('Dra. Agenda')
