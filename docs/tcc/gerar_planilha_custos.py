@@ -17,6 +17,8 @@ import argparse
 import json
 import os
 import re
+import shutil
+import zipfile
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -51,7 +53,7 @@ def titulo(celula):
 # Linhas 4–16: premissas (B = valor; observação mesclada em C:F). Linhas 18–27: custo mensal.
 # Linhas 29–33: implantação. Linhas 35–37: o que ainda depende de mudar o código.
 CUSTOS = [
-    ['Custo do sistema: clínica com até 60 atendimentos por mês'],
+    ['Jaqueline Aranha Estética: custo do sistema para até 60 atendimentos por mês'],
     ['Células em azul são entradas: troque o valor e a planilha recalcula. Preços de lista consultados '
      f'em {CONSULTA}; endereços na aba Fontes.'],
     [],
@@ -209,6 +211,9 @@ def _aplicar(ws, fmt):
 def gerar_xlsx():
     wb = Workbook()
     wb.remove(wb.active)
+    wb.properties.title = 'Jaqueline Aranha Estética — Custos operacionais'
+    wb.properties.subject = 'Jaqueline Aranha Estética'
+    wb.properties.creator = wb.properties.lastModifiedBy = 'Rafael Maciel'
     for nome, linhas, fmt in ABAS:
         ws = wb.create_sheet(nome)
         for i, linha in enumerate(linhas, start=1):
@@ -240,6 +245,22 @@ def recalcular_no_excel(caminho):
         wb.Close(False)
     finally:
         excel.Quit()
+    _sem_caminho_local(caminho)
+
+
+def _sem_caminho_local(caminho):
+    """Tira do xl/workbook.xml o caminho da pasta local que o Excel grava ao salvar (x15ac:absPath)."""
+    temporario = caminho + '.tmp'
+    with zipfile.ZipFile(caminho) as origem, zipfile.ZipFile(temporario, 'w', zipfile.ZIP_DEFLATED) as destino:
+        for item in origem.infolist():
+            dados = origem.read(item.filename)
+            if item.filename == 'xl/workbook.xml':
+                texto = dados.decode('utf-8')
+                texto = re.sub(r'<mc:AlternateContent[^>]*>\s*<mc:Choice[^>]*>\s*<x15ac:absPath[^>]*/>\s*'
+                               r'</mc:Choice>\s*</mc:AlternateContent>', '', texto)
+                dados = texto.encode('utf-8')
+            destino.writestr(item, dados)
+    shutil.move(temporario, caminho)
 
 
 # ─── Google Sheets ──────────────────────────────────────────────────────────────────
