@@ -56,9 +56,13 @@ vão na pasta dela (`tests/conta/`, `infra/`, `jobs/`, `painel/`, `publico/`, `s
 
   ```bash
   docker compose up -d db
-  TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_ICU=1 \
+  TEST_DATABASE_URL=postgres://aranha_estetica:aranha_estetica@localhost:5432/aranha_estetica PG_EXIGE_ICU=1 \
     python manage.py test aranha_estetica --exclude-tag migracoes
   ```
+
+  O volume é o `pgdata_aranha_estetica` (usuário, senha e banco `aranha_estetica`). Um volume
+  `pgdata` antigo, da época do nome Shiva Zen, pode ser apagado com `docker volume ls` +
+  `docker volume rm <nome>`.
 
 - **Navegador** (Playwright + Chromium): `tests/test_wizard_browser.py` (regras que só existem no
   `wizard.js`), `tests/painel/test_status_navegador.py` (seletor de status, lote e FullCalendar do

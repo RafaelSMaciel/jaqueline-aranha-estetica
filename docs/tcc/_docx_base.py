@@ -123,9 +123,8 @@ class Documento:
         for _ in range(4):
             doc.add_paragraph()
         for texto, tamanho, cor, negrito in (
-                ('SHIVA ZEN', 34, GOLD, True),
-                ('Sistema de Gestão para Clínica de Estética', 15, DARK, False),
-                ('Jaqueline Aranha Estética', 12, CINZA, False)):
+                ('JAQUELINE ARANHA ESTÉTICA', 26, GOLD, True),
+                ('Sistema de Gestão para Clínica de Estética', 15, DARK, False)):
             p = doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             r = p.add_run(texto)

@@ -1,4 +1,4 @@
-# Jaqueline Aranha Estética (Shiva Zen) — Documentação do Projeto
+# Jaqueline Aranha Estética — Documentação do Projeto
 
 > **Fonte viva textual do projeto.** Reflete o código do branch `dev`
 > (migrations `0001`–`0079`). Mudou model, rota, env var, job ou deploy? Atualize aqui
@@ -6,13 +6,13 @@
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
 > pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documentos do TCC em [`tcc/`](tcc/): o geral
 > (requisitos, UML, arquitetura — [`gerar_documentacao.py`](tcc/gerar_documentacao.py) →
-> `ShivaZen-Documentacao.docx/.pdf`) e, em separado, regras de negócio, requisitos (RF/RNF com
+> `JaquelineAranhaEstetica-Documentacao.docx/.pdf`) e, em separado, regras de negócio, requisitos (RF/RNF com
 > prioridade, verificação e rastreabilidade) e documento técnico
-> ([`gerar_especificacoes.py`](tcc/gerar_especificacoes.py) → `ShivaZen-Regras-de-Negocio`,
-> `ShivaZen-Requisitos` e `ShivaZen-Documento-Tecnico`), gerados deste arquivo, do
+> ([`gerar_especificacoes.py`](tcc/gerar_especificacoes.py) → `JaquelineAranhaEstetica-Regras-de-Negocio`,
+> `JaquelineAranhaEstetica-Requisitos` e `JaquelineAranhaEstetica-Documento-Tecnico`), gerados deste arquivo, do
 > `REGRAS-DE-NEGOCIO.md`, do `ARCHITECTURE.md` e do `tcc/_dados_requisitos.json`; planilha de
 > custos com fórmulas: [`gerar_planilha_custos.py`](tcc/gerar_planilha_custos.py) →
-> `tcc/ShivaZen-Custos-Operacionais.xlsx`;
+> `tcc/JaquelineAranhaEstetica-Custos-Operacionais.xlsx`;
 > diagramas em [`uml/`](uml/README.md) (PlantUML gerado do código + versões de apresentação no
 > Lucidchart de todos os tipos, exportadas em `uml/lucid/`). Custo mensal de operação (provedores,
 > cenários por volume): [`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md); identidade visual, cores,
@@ -1052,8 +1052,8 @@ política — mudar sem versão nova do termo gera o W016), `RETENCAO_LINK_ACESS
 `EMAIL_TIMEOUT` (10; vale também para as chamadas HTTP do anymail) · `MAILGUN_SENDER_DOMAIN`
 (Mailgun; padrão = domínio do remetente) · `DB_STATEMENT_TIMEOUT_MS` (30000; teto por statement na
 conexão Postgres, abaixo do `WEB_TIMEOUT`; `0` desliga; o `migrate_atomico` roda sem teto),
-`DB_APPLICATION_NAME` (`shivazen`; nome da conexão no `pg_stat_activity` e no log — ex.:
-`shivazen-cron` no serviço do cron, `shivazen-staging`).
+`DB_APPLICATION_NAME` (`jaqueline-aranha-estetica`; nome da conexão no `pg_stat_activity` e no log — ex.:
+`jaqueline-aranha-estetica-cron` no serviço do cron, `jaqueline-aranha-estetica-staging`).
 
 Só dev/testes: `DEBUG`, `SMS_DEV_LOG_ONLY` (em prod gera W002), `DB_ENGINE`/`DB_*`,
 `TEST_DATABASE_URL`, `PG_EXIGE_ICU`, `TESTE_SQLITE_MEMORIA`, `TESTE_VITE_BUILD`, `EXIGE_NAVEGADOR`,
@@ -1115,7 +1115,7 @@ Fixos no settings, sem env (mudar = código + versão nova do termo, quando for 
   `pre-commit install` liga gitleaks (segredo no que está sendo commitado), ruff, `lint-imports` e
   `makemigrations --check` antes do commit.
 - **Postgres local** (`docker-compose.yml`, PG 18 com ICU): `docker compose up -d db` e
-  `TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_ICU=1 python
+  `TEST_DATABASE_URL=postgres://aranha_estetica:aranha_estetica@localhost:5432/aranha_estetica PG_EXIGE_ICU=1 python
   manage.py test aranha_estetica`. No SQLite os testes do esquecimento, da retenção, do housekeeping
   e da expiração de pacotes são **pulados** (procedures sem fallback Python — §9.4); o CI roda
   tudo no Postgres.
@@ -1218,7 +1218,7 @@ Passo a passo (projeto do Railway reativado):
      `DEFAULT_FROM_EMAIL=onboarding@resend.dev` (sem domínio verificado o Resend só entrega na
      caixa do dono da conta);
    - `SENTRY_DSN` opcional (o *environment* sai com o nome do ambiente no Railway, `dev`);
-   - `DB_APPLICATION_NAME=shivazen-dev`.
+   - `DB_APPLICATION_NAME=jaqueline-aranha-estetica-dev`.
 4. **Deploy**: push na `dev` → CI verde → o Railway constrói a imagem (o `watchPatterns` ignora
    commit só de documentação), roda o pre-deploy e troca o container quando `/healthz/` responde.
    O `seed --demo` só existe no pre-deploy do environment `dev` (`railway.json` › `environments`);
@@ -1239,7 +1239,7 @@ compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que vence
 
 - **Variáveis**: as mesmas do serviço web (o job roda o código direto, não pelo HTTP) —
   `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `DJANGO_SECRET_KEY`, `CHAVES_CIFRAGEM`, e-mail,
-  WhatsApp, `SITE_URL` (links das mensagens), `CRON_MONITOR_URL`; `DB_APPLICATION_NAME=shivazen-cron`.
+  WhatsApp, `SITE_URL` (links das mensagens), `CRON_MONITOR_URL`; `DB_APPLICATION_NAME=jaqueline-aranha-estetica-cron`.
   Não precisa de `CRON_TOKEN` nem de domínio público.
 - **Sem pre-deploy**: as migrations são só do serviço web (o `railway.cron.json` não tem
   `preDeployCommand`).
@@ -1255,10 +1255,10 @@ configuração, mas não faz deploy nem cria serviço até a conta escolher um p
 
 | Environment | Serviço | Situação |
 |---|---|---|
-| `dev` (branch `dev`) | `web` | **Aplicado**: `railway.json` como config-as-code (Dockerfile, pre-deploy com `seed --demo`, healthcheck), start do gunicorn novo (sai o `gunicorn shivazen.wsgi` antigo), **Serverless** (dorme após 10 min sem tráfego). Variáveis: `DJANGO_ENV=staging`, `DATABASE_URL=${{Postgres-Dev.DATABASE_URL}}`, `SITE_URL`/`CSRF_TRUSTED_ORIGINS`/`ALLOWED_HOSTS` a partir de `RAILWAY_PUBLIC_DOMAIN`, `DB_APPLICATION_NAME=shivazen-dev` e `DJANGO_SECRET_KEY`, `CRON_TOKEN` e `CHAVES_CIFRAGEM` **de teste**, próprios do dev. Domínio: `web-dev-1a30.up.railway.app` |
+| `dev` (branch `dev`) | `web` | **Aplicado**: `railway.json` como config-as-code (Dockerfile, pre-deploy com `seed --demo`, healthcheck), start do gunicorn novo (sai o `gunicorn shivazen.wsgi` antigo), **Serverless** (dorme após 10 min sem tráfego). Variáveis: `DJANGO_ENV=staging`, `DATABASE_URL=${{Postgres-Dev.DATABASE_URL}}`, `SITE_URL`/`CSRF_TRUSTED_ORIGINS`/`ALLOWED_HOSTS` a partir de `RAILWAY_PUBLIC_DOMAIN`, `DB_APPLICATION_NAME=jaqueline-aranha-estetica-dev` e `DJANGO_SECRET_KEY`, `CRON_TOKEN` e `CHAVES_CIFRAGEM` **de teste**, próprios do dev. Domínio: `web-dev-1a30.up.railway.app` |
 | `dev` | `Postgres-Dev` | **Aplicado**: imagem `postgres-ssl:18` (era 17) com `PGDATA=/var/lib/postgresql/data/pgdata18` — cluster novo, vazio; o cluster 17 antigo (dados de demonstração da `0026`) ficou intacto em `pgdata/` no mesmo volume e pode ser apagado. Sem TCP proxy público. Serverless |
 | `dev` | Cron | Não existe, de propósito: no `dev` os jobs rodam à mão (`manage.py rodar_job <job>`). Economia na tabela de custos |
-| `prod` (branch `main`) | `web` | **Staged** (não aplicado): `railway.json`, sem Serverless, `DJANGO_ENV=prod`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `SITE_URL`/`CSRF`/`ALLOWED_HOSTS` do domínio do Railway (`web-production-465af.up.railway.app`), `DB_APPLICATION_NAME=shivazen` |
+| `prod` (branch `main`) | `web` | **Staged** (não aplicado): `railway.json`, sem Serverless, `DJANGO_ENV=prod`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `SITE_URL`/`CSRF`/`ALLOWED_HOSTS` do domínio do Railway (`web-production-465af.up.railway.app`), `DB_APPLICATION_NAME=jaqueline-aranha-estetica` |
 | `prod` | `Postgres` | **Staged**: `PGDATA=/var/lib/postgresql/data/pgdata-golive` (o **banco novo** do go-live; o cluster antigo da `0026` fica em `pgdata/`), sem Serverless, sem TCP proxy público |
 | `prod` | `cron` | **A criar** depois do plano (o trial bloqueia criar serviço): §13.2, branch `main`, variáveis por referência ao web (`${{web.DJANGO_SECRET_KEY}}`, `${{web.CHAVES_CIFRAGEM}}`, `${{web.SITE_URL}}`, provedores) |
 
@@ -1331,10 +1331,10 @@ Falta, da dona da conta (nenhum desses passa por código):
    `git add -f` ou outra extensão passa).
 2. **Ensaio**: restaure o backup num Postgres 18 local e rode a atualização:
    ```bash
-   createdb shivazen_ensaio
+   createdb aranha_estetica_ensaio
    age -d -i chave-privada.txt -o /tmp/ensaio.dump <backup>.dump.age    # apague depois
-   pg_restore --no-owner -d shivazen_ensaio /tmp/ensaio.dump
-   DATABASE_URL=postgres://.../shivazen_ensaio DEBUG=True python manage.py migrate_atomico --noinput
+   pg_restore --no-owner -d aranha_estetica_ensaio /tmp/ensaio.dump
+   DATABASE_URL=postgres://.../aranha_estetica_ensaio DEBUG=True python manage.py migrate_atomico --noinput
    ```
    As migrations que podem **abortar** (tudo é desfeito) e o que fazer:
    - `0035` — pares de atendimentos ativos sobrepostos do mesmo profissional. Ela mesma cancela
@@ -1734,6 +1734,12 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 
 ## 15. Convenções de código
 
+- **Nome**: o sistema, o repositório, o TCC e os documentos se chamam **Jaqueline Aranha Estética**
+  (slug `jaqueline-aranha-estetica`). O nome antigo ("Shiva Zen") ficou só onde trocar mudaria dado
+  gravado ou código congelado: os rótulos de derivação de chave em `utils/cifragem` (trocar tornaria
+  ilegível o que já foi cifrado), o pseudo-e-mail `sms+<dígitos>@shivazen.local` do OTP (as
+  procedures LGPD comparam esse texto), as contas demo `@shivazen.com` que a `0042` desativa, as
+  migrations e a pasta local do clone.
 - Regra de negócio em `services/`/`utils/`, não em view; mudança de status só pela FSM.
 - Camadas `views > services > models` (para baixo pode, para cima não) e nada importa `views`
   fora dela; `utils` não importa `services`; as áreas de views (`publico`, `painel`,
@@ -1805,10 +1811,11 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-29 | Pedido online como caso de uso (`services/agendamento_online` + `forms/agendamento`, view fina; teto de 3 horários pelo site, ficha válida por 12 meses, pedido sempre da titular, vitrine em `services/precos`, "Avise-me se vagar"); equipe, catálogo e configurações com Django Forms (`forms/cadastros`), `services/catalogo`, regras operacionais em registro tipado (`models/configuracao`) e feed ICS revogado no desligamento |
 | 2026-10-29 | LGPD e área da cliente (0075–0078): Política de Privacidade como fonte única (`conteudo/lgpd.py` = termo LGPD = página = declaração do DSAR, prazos fixos e `aranha.W016`), consentimento de saúde revogável, expurgo do registro de saúde aos 20 anos do último evento e pacote retido 5 anos, pseudonimização completa, export do site sem a ficha de saúde, "Meus agendamentos" com preferências, revogação, pedidos LGPD e sessão aberta no fim do wizard, cancelamento tardio conta falta, lista de espera sem cadastro (turno, aviso que mantém na fila), contato com captcha/honeypot/teto diário e mapa sem Google, FAQ das constantes; agenda do painel por casos de uso (`agendar_pela_recepcao`, `marcar_realizado`, `registrar_valor_cobrado`, lote item a item), Forms em `forms/agenda`, seletor de status sem PENDENTE nem finais e Realizado/Faltou só após o início, JS em módulos do Vite e leitura de alerta de saúde auditada |
 | 2026-10-29 | Front: design system das telas da equipe (tokens do cromo café/ouro e do painel, `componentes.css` em `@layer components`, componentes cotton — botão, campo, cartão, selo, nota, KPI, vazio, ícone, menu "⋯", diálogo, tabela responsiva, abas — e `painel.js` vanilla), painel e portal da profissional sem estilo inline e em caixa de frase, agenda em tabela com o "⋯" e modais, ficha da cliente em abas, visão geral com Hoje/Amanhã e KPIs comparados, FullCalendar 6.1.21 e Chart.js 4.5.1 do npm (jsDelivr fora da CSP), varredura visual com axe-core no CI; site com números reais (`services/prova_social`, regra `anos_experiencia`; saíram o "5.0/5 · 32 avaliações" e os "5+ / 500+ / 20+" fixos), fotos responsivas (`scripts/imagens.py`, `{% foto %}`) e arte da marca, `/duvidas/` (SW v10), "Sobre a profissional", destaques do catálogo, CSS das páginas no `site.css` e ajustes de celular (etapas do wizard, "Continuar" fixo, "Seu celular", aviso de cookies em faixa) |
-| 2026-10-29 | Diagramas no Lucidchart (pasta "Shiva Zen — TCC"): MER conceitual em notação de Chen (14 entidades, novo), DER completo com as 37 tabelas agrupadas por área + 5 DERs por área (ERD nativo, pé-de-galinha, gerado dos models), classes do domínio (5 páginas, dos models), casos de uso (7 páginas, formas UML) e atividades (3 páginas, raias no pedido online); PNGs em `docs/uml/lucid/`, usados pelo documento do TCC no lugar da renderização PlantUML |
+| 2026-10-29 | Diagramas no Lucidchart (pasta "Jaqueline Aranha Estética — TCC"): MER conceitual em notação de Chen (14 entidades, novo), DER completo com as 37 tabelas agrupadas por área + 5 DERs por área (ERD nativo, pé-de-galinha, gerado dos models), classes do domínio (5 páginas, dos models), casos de uso (7 páginas, formas UML) e atividades (3 páginas, raias no pedido online); PNGs em `docs/uml/lucid/`, usados pelo documento do TCC no lugar da renderização PlantUML |
 | 2026-10-29 | API documentada: OpenAPI 3.1 escrito à mão (`api/openapi.yaml`: 27 caminhos — wizard, portal, LGPD, painel, Web Push, ICS, webhooks, cron, saúde, PWA — com parâmetros, corpos, códigos de erro, autenticação e limites) + Swagger UI no painel (`/painel/api/`, só ADMIN, "Try it out" só GET) e catraca `tests/test_openapi.py`; contrato `{ok, codigo, mensagem}` também no login do portal, nos horários do reagendamento, na anotação clínica e no 403 de 2FA |
 | 2026-10-29 | Metadados de linha em inglês e iguais em todas as tabelas (0079): `created_at` nas 37, `updated_at` nas 24 com UPDATE de negócio (novo em `codigo_otp`/`execucao_job`), `deleted_at`, autoria `created_by_id` + `created_by_name`; `fn_set_updated_at`/`tg_<t>_updated_at`, corpos PL/pgSQL vigentes em `sql/v0079_metadados.py`, catraca `MetadadosDeLinhaTests` ([`specs/padrao-sql.md`](specs/padrao-sql.md) §3.7) |
 | 2026-10-30 | Documentação para o TCC: regras de negócio, requisitos (RF/RNF com prioridade, verificação e rastreabilidade) e documento técnico em documentos próprios (`tcc/gerar_especificacoes.py`); custo operacional mensal com preços de 2026 e cenários por volume ([`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md)) e escolhas de design e marketing — psicologia das cores, tipografia, tom, acessibilidade, recursos de marketing ([`DESIGN-E-MARKETING.md`](DESIGN-E-MARKETING.md)) |
+| 2026-10-30 | Nome padronizado: **Jaqueline Aranha Estética** em documentos, diagramas (PlantUML e Lucid), API, `package.json`, Postgres local, `DB_APPLICATION_NAME` e backups; documentos gerados passam a `docs/tcc/JaquelineAranhaEstetica-*`. Identificadores gravados em dado ou em migration mantêm o nome antigo (§15) |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-30

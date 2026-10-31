@@ -5,28 +5,28 @@
 # rodar a suite inteira (ou usar essas rotinas no dev):
 #
 #   docker compose up -d db
-#   TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_ICU=1 \
+#   TEST_DATABASE_URL=postgres://aranha_estetica:aranha_estetica@localhost:5432/aranha_estetica PG_EXIGE_ICU=1 \
 #     python manage.py test aranha_estetica --exclude-tag migracoes
-#   # dev com Postgres: DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen
+#   # dev com Postgres: DATABASE_URL=postgres://aranha_estetica:aranha_estetica@localhost:5432/aranha_estetica
 #
-# Senha so local (porta presa ao 127.0.0.1). Dados no volume `pgdata` (docker compose down -v apaga).
+# Senha so local (porta presa ao 127.0.0.1). Dados no volume `pgdata_aranha_estetica` (docker compose down -v apaga).
 services:
   db:
     # mesmo digest do CI (.github/workflows/ci.yml); o Dependabot atualiza
     image: postgres:18@sha256:bc8d7bdd54dc38115ef954fef07f30a96bb2b5b080effa692e0093f03eabac8f
     environment:
-      POSTGRES_USER: shivazen
-      POSTGRES_PASSWORD: shivazen
-      POSTGRES_DB: shivazen
+      POSTGRES_USER: aranha_estetica
+      POSTGRES_PASSWORD: aranha_estetica
+      POSTGRES_DB: aranha_estetica
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql
+      - pgdata_aranha_estetica:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shivazen"]
+      test: ["CMD-SHELL", "pg_isready -U aranha_estetica"]
       interval: 5s
       timeout: 5s
       retries: 10
 
 volumes:
-  pgdata:
+  pgdata_aranha_estetica:

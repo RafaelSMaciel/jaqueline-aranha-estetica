@@ -2,7 +2,7 @@
 """Planilha de custos operacionais: clínica com até 60 atendimentos por mês, ferramentas recomendadas.
 
 Uma definição só (ABAS, abaixo) gera:
-  - docs/tcc/ShivaZen-Custos-Operacionais.xlsx (openpyxl; no Windows o Excel recalcula e grava
+  - docs/tcc/JaquelineAranhaEstetica-Custos-Operacionais.xlsx (openpyxl; no Windows o Excel recalcula e grava
     os valores, para quem abre a planilha sem recálculo ver os números);
   - com --json <pasta>: os valores (com fórmulas), a formatação e as mesclagens de cada aba em
     JSON, para montar a mesma planilha no Google Sheets.
@@ -23,7 +23,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 TCC = os.path.dirname(os.path.abspath(__file__))
-SAIDA = os.path.join(TCC, 'ShivaZen-Custos-Operacionais.xlsx')
+SAIDA = os.path.join(TCC, 'JaquelineAranhaEstetica-Custos-Operacionais.xlsx')
 
 FONTE = 'Arial'
 CAFE = '#1F1A14'          # cromo do painel (DESIGN-E-MARKETING.md)

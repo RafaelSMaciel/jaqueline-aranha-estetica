@@ -1,13 +1,13 @@
-# Jaqueline Aranha Estética — Shiva Zen
+# Jaqueline Aranha Estética
 
 Site e sistema de gestão da clínica de estética da biomédica Jaqueline Aranha
 (São José do Rio Preto/SP). Um único app Django serve o **site público** (vitrine,
 agendamento online, área "Meus agendamentos", LGPD) e o **painel da equipe**
 (agenda, clientes, ficha/prontuário, pacotes, promoções, comissões, NPS, termos).
 
-> Nomes técnicos: o app Django é `aranha_estetica` e o projeto é `clinica`. "Shiva Zen"
-> é o nome do repositório/TCC; a marca exibida vem da tela **Branding** do painel
-> (ou da env `CLINIC_NAME`).
+> Nome do sistema, do repositório (`jaqueline-aranha-estetica`) e do TCC: **Jaqueline Aranha Estética**. Nomes técnicos: o app
+> Django é `aranha_estetica` e o projeto é `clinica`. A marca exibida nas telas vem da tela
+> **Branding** do painel (ou da env `CLINIC_NAME`).
 
 Documentação completa: **[docs/PROJECT.md](docs/PROJECT.md)** (fonte viva: arquitetura,
 modelos, rotas, env vars, jobs, deploy e runbook de go-live).
@@ -127,7 +127,7 @@ python manage.py test aranha_estetica                 # tudo, inclusive as data 
 
 # Mesma suíte no Postgres (como a CI): EXCLUDE, CHECK, triggers e collation só existem lá
 docker compose up -d db
-TEST_DATABASE_URL=postgres://shivazen:shivazen@localhost:5432/shivazen PG_EXIGE_ICU=1 \
+TEST_DATABASE_URL=postgres://aranha_estetica:aranha_estetica@localhost:5432/aranha_estetica PG_EXIGE_ICU=1 \
   python manage.py test aranha_estetica
 ```
 
@@ -181,13 +181,13 @@ requirements.txt · requirements-dev.txt · requirements.lock · .env.example
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisões (ADR-lite) e checkpoint de progresso/pendências |
 | [docs/AUTENTICACAO-E-ACESSO.md](docs/AUTENTICACAO-E-ACESSO.md) | Login da equipe, 2FA, OTP da cliente, links por token, sessões |
 | [docs/REGRAS-DE-NEGOCIO.md](docs/REGRAS-DE-NEGOCIO.md) | Regras funcionais com os valores reais do código |
-| [docs/CUSTOS-OPERACIONAIS.md](docs/CUSTOS-OPERACIONAIS.md) | Custo mensal com as ferramentas recomendadas (até 60 atendimentos/mês ≈ R$ 50), mudança de código no radar, travas de custo (planilha com as contas: `docs/tcc/ShivaZen-Custos-Operacionais.xlsx`) |
+| [docs/CUSTOS-OPERACIONAIS.md](docs/CUSTOS-OPERACIONAIS.md) | Custo mensal com as ferramentas recomendadas (até 60 atendimentos/mês ≈ R$ 50), mudança de código no radar, travas de custo (planilha com as contas: `docs/tcc/JaquelineAranhaEstetica-Custos-Operacionais.xlsx`) |
 | [docs/DESIGN-E-MARKETING.md](docs/DESIGN-E-MARKETING.md) | Identidade visual (psicologia das cores, tipografia), tom de voz, acessibilidade e recursos de marketing |
 | [aranha_estetica/api/openapi.yaml](aranha_estetica/api/openapi.yaml) | Contrato HTTP (OpenAPI 3.1) das rotas de máquina: wizard, portal, painel, webhooks, cron, ICS, saúde. Navegável no Swagger UI em `/painel/api/` |
 | [docs/LGPD.md](docs/LGPD.md) | Registro das operações (art. 37), operadores, relatório de impacto do dado de saúde, plano de incidente |
 | [docs/specs/](docs/specs/) | Specs por assunto: banco (padrão SQL 0048+; a remodelagem 0027–0047 fica como histórico, citada pelas migrations), front (design system), registry de regras |
 | [docs/uml/](docs/uml/README.md) | UML completa: PlantUML gerado do código (casos de uso, classes, sequência, estados, atividades, componentes, implantação, ER) e as versões de apresentação do Lucidchart |
-| [docs/tcc/](docs/tcc/) | Documentos do TCC gerados dos Markdown acima (DOCX + PDF): `ShivaZen-Documentacao` (geral), `-Regras-de-Negocio`, `-Requisitos` e `-Documento-Tecnico`, com os geradores (`gerar_documentacao.py`, `gerar_especificacoes.py`) e os dados dos requisitos |
+| [docs/tcc/](docs/tcc/) | Documentos do TCC gerados dos Markdown acima (DOCX + PDF): `JaquelineAranhaEstetica-Documentacao` (geral), `-Regras-de-Negocio`, `-Requisitos` e `-Documento-Tecnico`, com os geradores (`gerar_documentacao.py`, `gerar_especificacoes.py`) e os dados dos requisitos |
 
 ---
 

@@ -1,4 +1,4 @@
-# Contrato HTTP das rotas de maquina do Shiva Zen (OpenAPI 3.1).
+# Contrato HTTP das rotas de maquina do sistema Jaqueline Aranha Estética (OpenAPI 3.1).
 #
 # Fonte unica, mantida a mao junto do codigo: tests/test_openapi.py reprova rota JSON sem entrada
 # aqui, caminho que nao resolve para o `x-url-name` declarado, `$ref` quebrado e lista de jobs do
@@ -6,11 +6,11 @@
 # /painel/api/openapi.yaml. Telas HTML e formularios do painel ficam de fora: sao paginas, nao API.
 openapi: 3.1.0
 info:
-  title: Shiva Zen — API interna
+  title: Jaqueline Aranha Estética — API interna
   version: '1.0'
   summary: Rotas JSON, webhooks, cron, feed de calendário e saúde do monólito Django.
   description: |
-    O Shiva Zen é um monólito Django com telas renderizadas no servidor. Esta API **não é pública
+    O sistema Jaqueline Aranha Estética é um monólito Django com telas renderizadas no servidor. Esta API **não é pública
     nem versionada para terceiros**: são as rotas de máquina que o próprio sistema usa —
 
     * o **wizard de agendamento** do site (calendário, horários e código por SMS);
@@ -72,7 +72,7 @@ info:
     No Swagger UI do painel, **"Try it out" só está liberado para `GET`** (leitura). As escritas
     mudam dados reais da clínica: use as telas do sistema ou os testes automatizados.
   contact:
-    name: Shiva Zen — projeto de TCC
+    name: Jaqueline Aranha Estética — projeto de TCC
   license:
     name: Uso interno (UNLICENSED)
     identifier: UNLICENSED

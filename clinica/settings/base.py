@@ -239,7 +239,7 @@ else:
 def opcoes_postgres(db: dict) -> dict:
     """Conexao Postgres com nome e teto por statement (sem efeito em outro banco).
 
-    - application_name (DB_APPLICATION_NAME, padrao 'shivazen'): quem e quem no pg_stat_activity
+    - application_name (DB_APPLICATION_NAME, padrao 'jaqueline-aranha-estetica'): quem e quem no pg_stat_activity
       e no log do Postgres (log_line_prefix com %a) — conexao presa, query lenta, web x cron.
     - statement_timeout (DB_STATEMENT_TIMEOUT_MS, padrao 30000; 0 desliga): query fora de controle
       cai sozinha em vez de segurar o worker e os locks — abaixo do --timeout do gunicorn (120 s).
@@ -248,7 +248,7 @@ def opcoes_postgres(db: dict) -> dict:
     if 'postgresql' not in db.get('ENGINE', ''):
         return db
     opcoes = db.setdefault('OPTIONS', {})
-    opcoes.setdefault('application_name', (os.environ.get('DB_APPLICATION_NAME') or 'shivazen')[:63])
+    opcoes.setdefault('application_name', (os.environ.get('DB_APPLICATION_NAME') or 'jaqueline-aranha-estetica')[:63])
     teto = int(os.environ.get('DB_STATEMENT_TIMEOUT_MS') or 30000)
     if teto > 0 and 'statement_timeout' not in opcoes.get('options', ''):
         opcoes['options'] = f"{opcoes.get('options', '')} -c statement_timeout={teto}".strip()

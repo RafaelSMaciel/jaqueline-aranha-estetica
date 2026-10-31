@@ -1,7 +1,7 @@
 # gitleaks (pre-commit e CI, job auditoria-deps): regras padrao + allowlist dos dados SINTETICOS
 # conhecidos do repositorio. Cada entrada explica por que nao e segredo. Segredo real nunca entra
 # aqui: vai para as variaveis do Railway e, se for commitado por engano, e rotacionado.
-title = "Shiva Zen"
+title = "Jaqueline Aranha Estética"
 
 [extend]
 useDefault = true

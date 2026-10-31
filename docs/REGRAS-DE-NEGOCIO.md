@@ -1,4 +1,4 @@
-# Regras de Negócio — Shiva Zen
+# Regras de Negócio — Jaqueline Aranha Estética
 
 > Referência funcional do sistema, com os valores **reais** do código (branch `dev`).
 > Fonte: `models/`, `services/`, `views/`, `constants.py`, `settings` e `Configuracao`. Mudou regra

@@ -1,8 +1,8 @@
-# Diagramas UML — Shiva Zen
+# Diagramas UML — Jaqueline Aranha Estética
 
 Uma notação (PlantUML) e uma pasta. As imagens prontas estão em `png/` (para o Word e para
 apresentação) e `svg/` (vetorial, para ampliar sem perder nitidez). Todas também entram no
-documento [`../tcc/ShivaZen-Documentacao.pdf`](../tcc/ShivaZen-Documentacao.pdf).
+documento [`../tcc/JaquelineAranhaEstetica-Documentacao.pdf`](../tcc/JaquelineAranhaEstetica-Documentacao.pdf).
 
 | Pasta | Conteúdo | Origem |
 |---|---|---|
@@ -18,12 +18,12 @@ documento [`../tcc/ShivaZen-Documentacao.pdf`](../tcc/ShivaZen-Documentacao.pdf)
 
 ## Versões no Lucidchart (apresentação)
 
-Os cinco tipos que a banca cobra (e os de sequência, estados, componentes e implantação) também estão no Lucidchart, na pasta **Shiva Zen — TCC** da conta
+Os cinco tipos que a banca cobra (e os de sequência, estados, componentes e implantação) também estão no Lucidchart, na pasta **Jaqueline Aranha Estética — TCC** da conta
 do autor (editáveis, com o mesmo conteúdo do código): MER conceitual em notação de Chen (novo, só no
 Lucid), DER completo + 5 por área, classes do domínio (5 páginas), casos de uso (7 páginas) e
 atividades (3 páginas, a do pedido online com raias), 9 diagramas de sequência (um documento cada),
 estados (4 páginas), componentes (2) e implantação + CI (2). Fora da pasta (a API perdeu a permissão de
-mover; arraste à mão no Lucid): sequências 01–06, estados, componentes e implantação. DERs com os metadados em inglês (0079), por último em
+mover; arraste à mão no Lucid): sequências 01–06, estados, componentes e implantação. Os títulos dos documentos ainda começam com "Shiva Zen —": a API do Lucid não deixa renomear documento (só a pasta), então troque à mão para "Jaqueline Aranha Estética —". DERs com os metadados em inglês (0079), por último em
 cada tabela. Os PNGs exportados ficam em `lucid/`, com os
 mesmos nomes de `png/`; o `gerar_documentacao.py` usa a versão do Lucid quando ela existe.
 

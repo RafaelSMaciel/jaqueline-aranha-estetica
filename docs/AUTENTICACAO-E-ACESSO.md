@@ -1,4 +1,4 @@
-# Autenticação & Acesso — Shiva Zen
+# Autenticação & Acesso — Jaqueline Aranha Estética
 
 > Como o login e a identificação funcionam **hoje** (código do branch `dev`),
 > o que isso protege e o que ainda falta. Cross-ref: [`PROJECT.md`](PROJECT.md) (§8 segurança,

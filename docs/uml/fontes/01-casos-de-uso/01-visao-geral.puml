@@ -11,7 +11,7 @@ actor "Agendador\n(cron externo)" as Cron <<sistema>>
 
 Visitante <|-- Cliente
 
-rectangle "Shiva Zen — Sistema de gestão da clínica" {
+rectangle "Jaqueline Aranha Estética — Sistema de gestão da clínica" {
   package "Site público" {
     usecase "Conhecer serviços,\nequipe e promoções" as UC_SITE
     usecase "Agendar online\n(wizard + OTP)" as UC_AGENDAR

@@ -1,4 +1,4 @@
-# Arquitetura & Checkpoint — Shiva Zen
+# Arquitetura & Checkpoint — Jaqueline Aranha Estética
 
 > **Documento vivo / check-point.** Decisões (ADR-lite), estado de cada frente e as
 > pendências **reais** (conferidas no código). Ao concluir algo, marque `[x]` na seção 6 com

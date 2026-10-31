@@ -2,11 +2,11 @@
 """
 Gera três documentos do TCC (DOCX + PDF em docs/tcc/), a partir das mesmas fontes do código:
 
-    ShivaZen-Regras-de-Negocio   catálogo RN01..RNnn + a especificação completa de
+    JaquelineAranhaEstetica-Regras-de-Negocio   catálogo RN01..RNnn + a especificação completa de
                                  docs/REGRAS-DE-NEGOCIO.md + diagramas de apoio
-    ShivaZen-Requisitos          requisitos funcionais e não funcionais com prioridade,
+    JaquelineAranhaEstetica-Requisitos          requisitos funcionais e não funcionais com prioridade,
                                  verificação e rastreabilidade (RF x casos de uso x regras)
-    ShivaZen-Documento-Tecnico   stack, arquitetura, decisões, banco, segurança, LGPD,
+    JaquelineAranhaEstetica-Documento-Tecnico   stack, arquitetura, decisões, banco, segurança, LGPD,
                                  integrações, rotinas, API, testes, implantação e pendências
                                  (seções de docs/PROJECT.md, docs/ARCHITECTURE.md,
                                  docs/specs/padrao-sql.md e aranha_estetica/api/openapi.yaml)
@@ -26,7 +26,7 @@ import yaml
 
 from _docx_base import BASE, RAIZ, TCC, Documento, abrir_word, corpo_md, secao_md
 
-VERSAO = '1.1'
+VERSAO = '1.2'
 DATA = date(2026, 10, 30).strftime('%d/%m/%Y')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 D = json.load(open(os.path.join(TCC, '_dados_requisitos.json'), encoding='utf-8'))
@@ -71,14 +71,14 @@ def _requisitos_por_regra():
 
 # ═══════════════════════════════ REGRAS DE NEGÓCIO ═══════════════════════════════
 def regras(word):
-    d = Documento(f'Shiva Zen — Regras de Negócio v{VERSAO}')
+    d = Documento(f'Jaqueline Aranha Estética — Regras de Negócio v{VERSAO}')
     d.capa('Especificação de Regras de Negócio', 'Políticas, limites e comportamentos do sistema', VERSAO, DATA)
     d.sumario()
 
     d.h1('1. Introdução')
     d.h2('1.1 Objetivo')
-    d.par('Este documento especifica as regras de negócio do Shiva Zen — o sistema de gestão da clínica de '
-          'estética Jaqueline Aranha: quem pode fazer o quê, como a agenda calcula horários, como um pedido '
+    d.par('Este documento especifica as regras de negócio do sistema Jaqueline Aranha Estética, que faz a gestão '
+          'da clínica: quem pode fazer o quê, como a agenda calcula horários, como um pedido '
           'online vira atendimento, o que acontece em cada mudança de status, como funcionam pacotes, '
           'preços, comissões, cashback, lista de espera, comunicação com a cliente, ficha de saúde, termos, '
           'consentimentos e retenção de dados. Os valores (prazos, limites, janelas) são os que o código '
@@ -128,7 +128,7 @@ def regras(word):
 
     d.h1('5. Glossário')
     d.markdown(secao_md(PROJECT, r'Glossário', '###'))
-    d.salvar('ShivaZen-Regras-de-Negocio', word)
+    d.salvar('JaquelineAranhaEstetica-Regras-de-Negocio', word)
 
 
 # ═══════════════════════════════ REQUISITOS ═══════════════════════════════
@@ -156,13 +156,13 @@ def _grupo(ator):
 def requisitos(word):
     rfs, rnfs = RR['requisitos_funcionais'], RR['requisitos_nao_funcionais']
     ucs = {u['id']: u for u in D['casos-uso']['casos_de_uso']}
-    d = Documento(f'Shiva Zen — Documento de Requisitos v{VERSAO}')
+    d = Documento(f'Jaqueline Aranha Estética — Documento de Requisitos v{VERSAO}')
     d.capa('Documento de Requisitos', 'Requisitos funcionais e não funcionais', VERSAO, DATA)
     d.sumario()
 
     d.h1('1. Introdução')
     d.h2('1.1 Objetivo')
-    d.par('Este documento reúne os requisitos do Shiva Zen: o que o sistema faz para cada ator (requisitos '
+    d.par('Este documento reúne os requisitos do sistema Jaqueline Aranha Estética: o que o sistema faz para cada ator (requisitos '
           'funcionais, RF) e as qualidades que ele precisa ter — segurança, privacidade, confiabilidade, '
           'desempenho, usabilidade, manutenibilidade, implantação e documentação (requisitos não '
           'funcionais, RNF). Cada RF aponta os casos de uso que o realizam e as regras de negócio que o '
@@ -243,7 +243,7 @@ def requisitos(word):
         ['Casos de uso', len(ucs)],
         ['Regras de negócio', len(RR['regras'])],
     ], widths=[4.0, 1.5])
-    d.salvar('ShivaZen-Requisitos', word)
+    d.salvar('JaquelineAranhaEstetica-Requisitos', word)
 
 
 # ═══════════════════════════════ DOCUMENTO TÉCNICO ═══════════════════════════════
@@ -262,12 +262,12 @@ def _secao(d, titulo_md, capitulo, nivel='##'):
 
 def tecnico(word):
     api = yaml.safe_load(open(os.path.join(APP, 'api', 'openapi.yaml'), encoding='utf-8'))
-    d = Documento(f'Shiva Zen — Documento Técnico v{VERSAO}')
+    d = Documento(f'Jaqueline Aranha Estética — Documento Técnico v{VERSAO}')
     d.capa('Documento Técnico', 'Arquitetura, dados, segurança, qualidade, operação e custo', VERSAO, DATA)
     d.sumario()
 
     d.h1('1. Introdução')
-    d.par('Este documento reúne as questões técnicas do Shiva Zen — como o sistema é construído, onde vive '
+    d.par('Este documento reúne as questões técnicas do sistema Jaqueline Aranha Estética: como ele é construído, onde vive '
           'cada responsabilidade, o que o banco garante, como ele é testado, publicado e operado, o que '
           'ainda está pendente, quanto custa por mês mantê-lo no ar e as escolhas de design e marketing. '
           'O conteúdo é extraído dos documentos vivos do repositório (PROJECT.md, ARCHITECTURE.md, padrão '
@@ -381,7 +381,7 @@ def tecnico(word):
 
     d.h1('17. Identidade visual, design e marketing')
     d.markdown(corpo_md(os.path.join(BASE, 'DESIGN-E-MARKETING.md')), renumerar='17')
-    d.salvar('ShivaZen-Documento-Tecnico', word)
+    d.salvar('JaquelineAranhaEstetica-Documento-Tecnico', word)
 
 
 GERADORES = {'regras': regras, 'requisitos': requisitos, 'tecnico': tecnico}

@@ -3,7 +3,7 @@
 left to right direction
 title Componentes — integrações externas
 
-component "Shiva Zen\n(Django + gunicorn)" as APP
+component "Jaqueline Aranha Estética\n(Django + gunicorn)" as APP
 
 interface "SMTP/HTTP API" as I_MAIL
 interface "REST (SMS)" as I_SMS

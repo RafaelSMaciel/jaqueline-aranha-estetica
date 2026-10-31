@@ -1,4 +1,4 @@
-"""Diagramas UML do Shiva Zen: gera ER e classes a partir do codigo e renderiza tudo (SVG + PNG).
+"""Diagramas UML do sistema Jaqueline Aranha Estética: gera ER e classes a partir do codigo e renderiza tudo (SVG + PNG).
 
     python docs/uml/gerar_uml.py er        # fontes/08-dados/*.puml (modelo fisico) a partir dos models
     python docs/uml/gerar_uml.py classes   # fontes/02-classes/*.puml (dominio + camada de servicos)
