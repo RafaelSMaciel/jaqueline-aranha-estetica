@@ -27,6 +27,9 @@ PNG = os.path.join(BASE, 'uml', 'png')
 # quando existe a do Lucid, o documento usa ela; senão, a renderização do PlantUML.
 LUCID = os.path.join(BASE, 'uml', 'lucid')
 
+NOME = 'Jaqueline Aranha Estética'
+AUTOR = 'Rafael Maciel'   # mantenedor (README)
+
 GOLD = RGBColor(0xC4, 0xA3, 0x5A)
 DARK = RGBColor(0x4A, 0x34, 0x25)
 CINZA = RGBColor(0x66, 0x66, 0x66)
@@ -107,6 +110,8 @@ class Documento:
     def __init__(self, rotulo_rodape):
         self.rotulo_rodape = rotulo_rodape
         self.doc = Document()
+        props = self.doc.core_properties   # o que o Word mostra em Arquivo > Informações
+        props.title, props.subject, props.author, props.last_modified_by = rotulo_rodape, NOME, AUTOR, AUTOR
         self.figuras = 0
         normal = self.doc.styles['Normal']
         normal.font.name = 'Calibri'
