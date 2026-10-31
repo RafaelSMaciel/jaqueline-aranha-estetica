@@ -111,7 +111,10 @@ class SelectDeStatusNavegadorTests(StaticLiveServerTestCase):
     def test_calendario_carrega_eventos_pelo_modulo(self):
         """painel-calendario.js le a rota do data-url-eventos e monta o FullCalendar (npm, no bundle
         do Vite: sem rede externa) com o CSS injetado no <style data-fullcalendar> do nonce."""
-        criar_atendimento(criar_cliente('Rita Calendário'), self.prof, self.proc)
+        # hoje no fuso da clinica (o do navegador): a semana aberta sempre o contem. "Amanha" (o padrao
+        # da factory, em UTC) cai na semana seguinte quando o teste roda de sexta 21h a sabado 21h.
+        hoje_10h = timezone.localtime().replace(hour=10, minute=0, second=0, microsecond=0)
+        criar_atendimento(criar_cliente('Rita Calendário'), self.prof, self.proc, data_hora=hoje_10h)
         erros, console = [], []
         self.page.on('pageerror', lambda exc: erros.append(str(exc)))
         self.page.on('console', lambda m: console.append(m.text) if m.type == 'error' else None)
