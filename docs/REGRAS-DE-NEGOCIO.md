@@ -727,8 +727,8 @@ Rode `python manage.py gerar_docs_regras` (o teste `test_regras_catalogo` reprov
 | SMS por hora: telefone / IP / global | 3 / 10 / 60 | env `SMS_MAX_POR_HORA`, `SMS_MAX_POR_IP_HORA`, `SMS_MAX_GLOBAL_HORA` (padrões) |
 | Sessão da cliente verificada: agendar / área da cliente / baixar os dados | 30 min / 1 h / até 10 min | `services/sessao_cliente` (`VALIDADE_AGENDAMENTO`, `DURACAO_SESSAO_SEGUNDOS`, `JANELA_DADOS`) |
 | Pedido de correção/exclusão: prazo de resposta | 15 dias | `services/portal_cliente.PRAZO_RESPOSTA` |
-| Lista de espera pelo site | 20 inscrições/dia por IP | `views/publico/lista_espera.LIMITE_DIARIO_POR_IP` |
-| Formulário de contato | 5/min e 20/dia por IP; teto de 50 mensagens/dia no site todo | `views/publico/contato` |
+| Lista de espera pelo site | 20 inscrições/dia por IP | `constants.LISTA_ESPERA_LIMITE_DIARIO_POR_IP` |
+| Formulário de contato | 5/min e 20/dia por IP; teto de 50 mensagens/dia no site todo | `constants.CONTATO_*` |
 | Duração padrão do retorno | 30 min | `Procedimento.duracao_retorno_minutos` |
 | Cashback por indicação | R$ 50,00 | `constants.VALOR_CASHBACK_INDICACAO` |
 | NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `services/nps` (`NPS_ESPERA`, `NPS_JANELA_DIAS`, `NPS_MAX_FALHAS`), `constants.VALIDADE_LINK_NPS` |

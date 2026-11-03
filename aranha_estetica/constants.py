@@ -33,6 +33,16 @@ MSG_PEDIDO_EXPIRADO = (
 )
 
 
+# ─── Formularios publicos (anti-abuso por IP, django-ratelimit) ──────────
+# Lista de espera: 20 inscricoes por IP por dia (decisao 17): uma pessoa nao precisa de mais que isso
+LISTA_ESPERA_LIMITE_DIARIO_POR_IP = '20/d'
+# Contato: o e-mail divide a cota do provedor com o reset de senha e os avisos da clinica; alem do
+# limite por IP, um teto global por dia protege essa cota (views/publico/contato)
+CONTATO_LIMITE_DIARIO_POR_IP = '20/d'
+CONTATO_LIMITE_POR_MINUTO_POR_IP = '5/m'
+CONTATO_TETO_DIARIO_GLOBAL = 50
+
+
 # ─── Links publicos (link_acesso.expira_em, gravado na emissao) ───────────
 # NPS: 7 dias do envio. Ficha/pesquisa: 60 dias do convite. Confirmacao D-1 e
 # termo expiram no proprio atendimento (inicio/fim).

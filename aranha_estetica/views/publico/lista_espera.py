@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 from django_ratelimit.decorators import ratelimit
 
+from ...constants import LISTA_ESPERA_LIMITE_DIARIO_POR_IP as LIMITE_DIARIO_POR_IP
 from ...forms.publico import ListaEsperaForm, primeiro_erro
 from ...models import ListaEspera, Procedimento, Profissional
 from ...services import lista_espera, sessao_cliente
@@ -20,8 +21,6 @@ from ...utils.parse import id_int
 logger = logging.getLogger(__name__)
 
 TEMPLATE = 'publico/lista_espera.html'
-# 20 inscricoes por IP por dia (decisao 17): uma pessoa nao precisa de mais que isso
-LIMITE_DIARIO_POR_IP = '20/d'
 
 
 def _prefill_do_wizard(params) -> dict:

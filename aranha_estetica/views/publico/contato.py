@@ -13,6 +13,11 @@ from django.core.mail import EmailMessage
 from django.shortcuts import redirect, render
 from django_ratelimit.decorators import ratelimit
 
+from ...constants import (
+    CONTATO_LIMITE_DIARIO_POR_IP as LIMITE_DIARIO_POR_IP,
+    CONTATO_LIMITE_POR_MINUTO_POR_IP as LIMITE_POR_MINUTO_POR_IP,
+    CONTATO_TETO_DIARIO_GLOBAL as TETO_DIARIO_GLOBAL,
+)
 from ...forms.publico import ContatoForm, primeiro_erro
 from ...utils import datas
 from ...utils.branding import get_branding
@@ -23,9 +28,6 @@ from ...utils.pii import mask_email
 logger = logging.getLogger(__name__)
 
 TEMPLATE = 'publico/contato.html'
-TETO_DIARIO_GLOBAL = 50
-LIMITE_DIARIO_POR_IP = '20/d'
-LIMITE_POR_MINUTO_POR_IP = '5/m'
 _CAMPOS = ('name', 'email', 'phone', 'subject', 'message')
 
 

@@ -192,14 +192,15 @@ def _prazo_pedido_lgpd():
 
 
 def _lista_espera():
-    from .views.publico.lista_espera import LIMITE_DIARIO_POR_IP
-    return f'{_quantidade(LIMITE_DIARIO_POR_IP)} inscrições/dia por IP'
+    from .constants import LISTA_ESPERA_LIMITE_DIARIO_POR_IP
+    return f'{_quantidade(LISTA_ESPERA_LIMITE_DIARIO_POR_IP)} inscrições/dia por IP'
 
 
 def _contato():
-    from .views.publico import contato
-    return (f'{_quantidade(contato.LIMITE_POR_MINUTO_POR_IP)}/min e {_quantidade(contato.LIMITE_DIARIO_POR_IP)}/dia '
-            f'por IP; teto de {contato.TETO_DIARIO_GLOBAL} mensagens/dia no site todo')
+    from . import constants as c
+    return (f'{_quantidade(c.CONTATO_LIMITE_POR_MINUTO_POR_IP)}/min e '
+            f'{_quantidade(c.CONTATO_LIMITE_DIARIO_POR_IP)}/dia por IP; teto de '
+            f'{c.CONTATO_TETO_DIARIO_GLOBAL} mensagens/dia no site todo')
 
 
 def _retorno():
@@ -301,8 +302,8 @@ CATALOGO: tuple[Regra, ...] = (
     Regra('Sessão da cliente verificada: agendar / área da cliente / baixar os dados', _sessao_cliente,
           '`services/sessao_cliente` (`VALIDADE_AGENDAMENTO`, `DURACAO_SESSAO_SEGUNDOS`, `JANELA_DADOS`)'),
     Regra('Pedido de correção/exclusão: prazo de resposta', _prazo_pedido_lgpd, '`services/portal_cliente.PRAZO_RESPOSTA`'),
-    Regra('Lista de espera pelo site', _lista_espera, '`views/publico/lista_espera.LIMITE_DIARIO_POR_IP`'),
-    Regra('Formulário de contato', _contato, '`views/publico/contato`'),
+    Regra('Lista de espera pelo site', _lista_espera, '`constants.LISTA_ESPERA_LIMITE_DIARIO_POR_IP`'),
+    Regra('Formulário de contato', _contato, '`constants.CONTATO_*`'),
     Regra('Duração padrão do retorno', _retorno, '`Procedimento.duracao_retorno_minutos`'),
     Regra('Cashback por indicação', _cashback, '`constants.VALOR_CASHBACK_INDICACAO`'),
     Regra('NPS: janela / validade do link / tentativas', _nps,
