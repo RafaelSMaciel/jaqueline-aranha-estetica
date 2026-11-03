@@ -62,7 +62,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # No Railway Hobby (sem SMTP) use o anymail: ANYMAIL e montado em base.py.
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or 'django.core.mail.backends.dummy.EmailBackend'
 
-# SMS: sem ZENVIA_API_TOKEN/ZENVIA_FROM o envio falha fechado (nunca "finge" sucesso)
+# SMS: sem a chave do provedor (SMSGO_API_KEY; ZENVIA_API_TOKEN/ZENVIA_FROM com
+# SMS_PROVEDOR=zenvia) o envio falha fechado (nunca "finge" sucesso)
 SMS_EXIGIR_PROVEDOR = True
 
 # Dado de saude nunca e gravado com chave derivada da SECRET_KEY: sem CHAVES_CIFRAGEM o check
