@@ -1186,7 +1186,8 @@ pin; `tests/test_deploy_config.CiFixadoTests` reprova pin solto:
   o `CMD` do Dockerfile (mudar os dois juntos). 1 réplica; restart ON_FAILURE (5×).
 - **Healthcheck**: `/healthz/` (timeout 120 s) — 503 se o bundle do Vite faltar.
 - **Produção**: `DEBUG` sempre falso, HTTPS + HSTS, e-mail *dummy* sem `EMAIL_BACKEND`, SMS falha
-  fechado sem provedor de SMS, logs JSON redigidos. Sem worker de fila: jobs pelo serviço Cron (§13.2).
+  fechado sem provedor de SMS, logs JSON redigidos no stdout com o campo `level` que o Railway
+  usa como severidade (`clinica/logging_json.py`). Sem worker de fila: jobs pelo serviço Cron (§13.2).
 - O deploy de produção sai do branch `main` (configuração do serviço no Railway). O trabalho
   acontece na `dev`; a `main` é protegida no GitHub (os 6 jobs bloqueantes do CI obrigatórios,
   inclusive para admin; sem force-push) e recebe a `dev` por PR ou fast-forward.
@@ -1251,41 +1252,42 @@ compara a `JOB_AGENDA` no fuso da clínica: de 15 em 15 min ele roda o que vence
 
 ### 13.3 Estado no Railway (2026-11-03)
 
-Projeto `jaqueline-aranha-estetica`, região `us-east4`. **O trial venceu**: o Railway aceita mudar
-configuração, mas não faz deploy nem cria serviço até a conta escolher um plano (Hobby, US$ 5/mês —
-[`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md)). Escolher o plano é ação da dona da conta.
-Conferido em 2026-11-03: deploy, criação de serviço e o agente do Railway recusam com "trial
-expired"; só variáveis aceitam mudança. Nenhum serviço fez deploy no `dev` ainda.
+Projeto `jaqueline-aranha-estetica`, região `us-east4`, **plano Hobby** (US$ 5/mês —
+[`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md)), assinado em 2026-11-03. O `dev` está no ar
+desde então; o `prod` segue staged até o go-live.
 
 | Environment | Serviço | Situação |
 |---|---|---|
-| `dev` (branch `dev`) | `web` | **Aplicado**: `railway.json` como config-as-code (Dockerfile, pre-deploy com `seed --demo`, healthcheck), start do gunicorn novo (sai o `gunicorn shivazen.wsgi` antigo), **Serverless** (dorme após 10 min sem tráfego). Variáveis: `DJANGO_ENV=staging`, `SMS_PROVEDOR=smsgo` (no `staging` o código só vai ao log), `DATABASE_URL=${{Postgres-Dev.DATABASE_URL}}`, `SITE_URL`/`CSRF_TRUSTED_ORIGINS`/`ALLOWED_HOSTS` a partir de `RAILWAY_PUBLIC_DOMAIN`, `DB_APPLICATION_NAME=jaqueline-aranha-estetica-dev` e `DJANGO_SECRET_KEY`, `CRON_TOKEN` e `CHAVES_CIFRAGEM` **de teste**, próprios do dev. Domínio: `web-dev-1a30.up.railway.app` |
-| `dev` | `Postgres-Dev` | **Aplicado**: imagem `postgres-ssl:18` (era 17) com `PGDATA=/var/lib/postgresql/data/pgdata18` — cluster novo, vazio; o cluster 17 antigo (dados de demonstração da `0026`) ficou intacto em `pgdata/` no mesmo volume e pode ser apagado. Sem TCP proxy público. Serverless |
+| `dev` (branch `dev`) | `web` | **No ar** (primeiro deploy em 2026-11-03: `0001`→`0079` + `seed --demo`, `/healthz/` 200): `railway.json` como config-as-code (Dockerfile, pre-deploy com `seed --demo`, healthcheck), start do gunicorn novo (sai o `gunicorn shivazen.wsgi` antigo), **Serverless** (dorme após 10 min sem tráfego). Variáveis: `DJANGO_ENV=staging`, `SMS_PROVEDOR=smsgo` (no `staging` o código só vai ao log), `DATABASE_URL=${{Postgres-Dev.DATABASE_URL}}`, `SITE_URL`/`CSRF_TRUSTED_ORIGINS`/`ALLOWED_HOSTS` a partir de `RAILWAY_PUBLIC_DOMAIN`, `DB_APPLICATION_NAME=jaqueline-aranha-estetica-dev` e `DJANGO_SECRET_KEY`, `CRON_TOKEN` e `CHAVES_CIFRAGEM` **de teste**, próprios do dev. Domínio: `web-dev-1a30.up.railway.app` |
+| `dev` | `Postgres-Dev` | **No ar**: imagem `postgres-ssl:18` (era 17) com `PGDATA=/var/lib/postgresql/data/pgdata18` — cluster novo, vazio; o cluster 17 antigo (dados de demonstração da `0026`) ficou intacto em `pgdata/` no mesmo volume e pode ser apagado. Sem TCP proxy público. Serverless |
 | `dev` | Cron | Não existe, de propósito: no `dev` os jobs rodam à mão (`manage.py rodar_job <job>`). Economia na tabela de custos |
 | `prod` (branch `main`) | `web` | **Staged** (não aplicado): `railway.json`, sem Serverless, `DJANGO_ENV=prod`, `SMS_PROVEDOR=smsgo`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `SITE_URL`/`CSRF`/`ALLOWED_HOSTS` do domínio do Railway (`web-production-465af.up.railway.app`), `DB_APPLICATION_NAME=jaqueline-aranha-estetica` |
 | `prod` | `Postgres` | **Staged**: `PGDATA=/var/lib/postgresql/data/pgdata-golive` (o **banco novo** do go-live; o cluster antigo da `0026` fica em `pgdata/`), sem Serverless, sem TCP proxy público |
-| `prod` | `cron` | **A criar** depois do plano (o trial bloqueia criar serviço): §13.2, branch `main`, variáveis por referência ao web (`${{web.DJANGO_SECRET_KEY}}`, `${{web.CHAVES_CIFRAGEM}}`, `${{web.SITE_URL}}`, provedores: `${{web.SMSGO_API_KEY}}`, e-mail, WhatsApp) |
+| `prod` | `cron` | **Staged** (criado em 2026-11-03, não aplicado): §13.2, branch `main`, *Cron Schedule* `*/15 * * * *`, start `python manage.py rodar_jobs_devidos`, restart NEVER, `DJANGO_ENV=prod`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `DB_APPLICATION_NAME=jaqueline-aranha-estetica-cron` e por referência ao web o que ele já tem (`${{web.DJANGO_SECRET_KEY}}`, `SITE_URL`, `DEFAULT_FROM_EMAIL`, `CLINIC_NAME`/`CLINIC_SUBTITLE`, `SMS_PROVEDOR`, `WEBPUSH_VAPID_*`). **Falta**: *Config File* `railway.cron.json` (Settings › Config-as-code — as ferramentas do Railway não gravam esse campo em serviço staged; sem ele o cron lê o `railway.json` do web) e, no go-live, as referências dos segredos que o web ainda não tem (`CHAVES_CIFRAGEM`, `SMSGO_API_KEY`, e-mail, WhatsApp, `SENTRY_DSN`, `CRON_MONITOR_URL`) |
 
 Falta, da dona da conta (nenhum desses passa por código):
 
-1. Escolher o plano Hobby no Railway.
-2. **dev**: `ADMIN_EMAIL`/`ADMIN_PASSWORD` e `DESTINATARIOS_TESTE` no `web`, e então *Deploy* no
-   `Postgres-Dev` e no `web` (ou um push na `dev` que mexa em código).
+1. ~~Escolher o plano Hobby no Railway~~ (2026-11-03).
+2. **dev**: `ADMIN_EMAIL`/`ADMIN_PASSWORD` e `DESTINATARIOS_TESTE` no `web` (salvar já faz o
+   redeploy, e o `bootstrap_admin` cria a conta; hoje o log do deploy avisa "painel sem
+   administrador ativo"). E-mail de contato e WhatsApp da clínica em Painel › Marca (avisos
+   W004/W007 do deploy).
 3. Nos dois `web`: ligar **Wait for CI** (Settings › Source) e apagar as variáveis legadas `DEBUG` e
    `STATIC_ROOT` (inofensivas: o `prod.py` força `DEBUG=False` e ignora o `STATIC_ROOT`; o
    `CRON_TOKEN` do prod também sobra: lá os jobs vão pelo serviço Cron).
 4. **prod, só no go-live** (§14 a): revisão jurídica da política; `CHAVES_CIFRAGEM` própria com cópia
    offline; conferir ou trocar o `DJANGO_SECRET_KEY` antigo (50+ caracteres); `ADMIN_*`; provedores
    (`SMSGO_API_KEY`, e-mail, WhatsApp);
-   merge `dev` → `main`; **aplicar as mudanças staged** do `prod` (antes do merge o `prod` publicaria
-   a `main` atual, na `0058`); criar o serviço `cron`.
+   *Config File* `railway.cron.json` no serviço `cron` (item da tabela); merge `dev` → `main`;
+   **aplicar as mudanças staged** do `prod` (antes do merge o `prod` publicaria a `main` atual, na
+   `0058`).
 
 ---
 
 ## 14. Go-live / Operação (runbook)
 
-> **Estado em 2026-11-03:** ainda não há produção. A infraestrutura dos dois environments está
-> configurada no Railway (§13.3), parada até a conta escolher um plano. O primeiro deploy de produção
+> **Estado em 2026-11-03:** ainda não há produção. O ambiente de testes (`dev`) está no ar e o
+> `prod` está configurado no Railway como mudança staged (§13.3), à espera do go-live. O primeiro deploy de produção
 > cria um **banco novo** (o `PGDATA` do `prod` já aponta para um cluster vazio): o `migrate_atomico`
 > aplica `0001`→`0079` numa transação e o `seed --force` carrega o catálogo. O roteiro de
 > atualização de um banco já existente (`0026` → `0079`) fica no §14 a.1, para o caso de o cluster

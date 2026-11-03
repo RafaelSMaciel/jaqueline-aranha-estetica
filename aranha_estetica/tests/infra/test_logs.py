@@ -63,8 +63,33 @@ class RedigirLogTests(SimpleTestCase):
         filtros = settings.LOGGING['handlers']['console']['filters']
         self.assertEqual(filtros, ['redigir'])
         self.assertEqual(settings.LOGGING['filters']['redigir']['()'], 'clinica.logging_filtros.RedigirLog')
-        # formatter JSON no modulo novo (pythonjsonlogger.jsonlogger e legado e emite DeprecationWarning)
-        self.assertEqual(settings.LOGGING['formatters']['json']['()'], 'pythonjsonlogger.json.JsonFormatter')
+        self.assertEqual(settings.LOGGING['formatters']['json']['()'], 'clinica.logging_json.JsonRailway')
+        self.assertEqual(settings.LOGGING['handlers']['console']['stream'], 'ext://sys.stdout')
+
+
+class JsonRailwayTests(SimpleTestCase):
+    """O Railway le a severidade do campo `level`; sem ele todo log do stderr aparecia como erro."""
+
+    def _linha(self, nivel):
+        from clinica.logging_json import JsonRailway
+
+        record = logging.LogRecord('aranha_estetica.services.comissao', nivel, __file__, 1,
+                                   'comissao_calculada', None, None)
+        record.movimento_id = 7
+        return json.loads(JsonRailway('%(asctime)s %(name)s %(message)s').format(record))
+
+    def test_level_no_vocabulario_do_railway(self):
+        esperado = {logging.DEBUG: 'debug', logging.INFO: 'info', logging.WARNING: 'warn',
+                    logging.ERROR: 'error', logging.CRITICAL: 'error'}
+        for nivel, level in esperado.items():
+            with self.subTest(nivel=logging.getLevelName(nivel)):
+                self.assertEqual(self._linha(nivel)['level'], level)
+
+    def test_mensagem_e_extras_continuam_no_json(self):
+        linha = self._linha(logging.INFO)
+        self.assertEqual(linha['message'], 'comissao_calculada')
+        self.assertEqual(linha['movimento_id'], 7)
+        self.assertEqual(linha['name'], 'aranha_estetica.services.comissao')
 
 
 class LogDoDjangoSemTokenTests(TestCase):

@@ -521,9 +521,10 @@ LOGGING = {
         },
         # So referenciado quando not DEBUG (_LOG_FORMATTER vira 'json'); em DEBUG
         # o handler usa 'verbose', entao este formatter nunca e instanciado.
+        # O campo `level` (debug/info/warn/error) e o que o Railway le como severidade.
         'json': {
-            '()': 'pythonjsonlogger.json.JsonFormatter',
-            'format': '%(asctime)s %(name)s %(levelname)s %(message)s',
+            '()': 'clinica.logging_json.JsonRailway',
+            'format': '%(asctime)s %(name)s %(message)s',
         },
     },
     # Token de link magico, e-mail, CPF e telefone redigidos na mensagem, no traceback e nos extras
@@ -534,6 +535,7 @@ LOGGING = {
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout',   # stderr sem `level` o Railway marca como erro
             'formatter': _LOG_FORMATTER,
             'filters': ['redigir'],
         },
