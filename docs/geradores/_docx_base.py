@@ -269,7 +269,8 @@ class Documento:
         while i < len(linhas):
             linha = linhas[i]
             tira = linha.strip()
-            if not tira:
+            if not tira or (tira.startswith('<!--') and tira.endswith('-->')):
+                # comentario HTML de uma linha (ex.: marcadores da tabela gerada do REGRAS-DE-NEGOCIO)
                 despejar()
                 i += 1
                 continue

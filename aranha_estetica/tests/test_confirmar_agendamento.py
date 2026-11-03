@@ -33,8 +33,8 @@ def slot_local(dias=3, hora=10, minuto=0):
 def verificar_sessao(client, telefone):
     """Simula o OTP por SMS ja verificado no wizard (sessao presa ao telefone)."""
     session = client.session
-    session['otp_agendamento_telefone'] = telefone
-    session['otp_agendamento_expira'] = (timezone.now() + timedelta(minutes=10)).isoformat()
+    session['cliente_telefone'] = telefone
+    session['cliente_verificado_em'] = (timezone.now() - timedelta(minutes=1)).isoformat()
     session.save()
 
 
@@ -171,23 +171,25 @@ class ConfirmarAgendamentoTests(TestCase):
 
     def test_sessao_expirada_exige_novo_otp(self):
         session = self.client.session
-        session['otp_agendamento_telefone'] = '17999991111'
-        session['otp_agendamento_expira'] = (timezone.now() - timedelta(minutes=1)).isoformat()
+        session['cliente_telefone'] = '17999991111'
+        session['cliente_verificado_em'] = (timezone.now() - timedelta(minutes=31)).isoformat()
         session.save()
         self._post(with_otp=False)
         self.assertEqual(Atendimento.objects.count(), 0)
 
-    def test_sucesso_limpa_verificacao_da_sessao(self):
+    def test_sucesso_gasta_a_verificacao_o_proximo_pedido_pede_outro_sms(self):
         self._post()
-        self.assertNotIn('otp_agendamento_telefone', self.client.session)
+        self.assertIs(self.client.session['cliente_agendou'], True)
+        self._post(with_otp=False)
+        self.assertEqual(Atendimento.objects.count(), 1)
 
     def test_sucesso_abre_a_area_da_cliente_sem_novo_sms(self):
         """Decisao 39: o celular acabou de ser verificado no wizard — 'Meus agendamentos' ja abre."""
-        from aranha_estetica.services import portal_cliente
+        from aranha_estetica.services import sessao_cliente
 
         self._post()
         atendimento = Atendimento.objects.get()
-        self.assertEqual(self.client.session[portal_cliente.SESSAO_MEUS_AGENDAMENTOS], atendimento.cliente.telefone)
+        self.assertEqual(self.client.session[sessao_cliente.SESSAO_TELEFONE], atendimento.cliente.telefone)
         resp = self.client.get(reverse('aranha:meus_agendamentos'))
         self.assertContains(resp, atendimento.procedimento.nome)
         self.assertContains(resp, 'Minhas preferências')

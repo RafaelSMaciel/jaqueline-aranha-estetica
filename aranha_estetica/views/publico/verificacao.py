@@ -17,7 +17,7 @@ from django_ratelimit.decorators import ratelimit
 from ...models import Cliente, CodigoOtp
 from ...services import agendamento_online, consentimentos
 from ...services import otp as otp_service
-from ...services import portal_cliente
+from ...services import sessao_cliente
 from ...services.agendamento_online import MSG_BLOQUEADO_ONLINE
 from ...utils.captcha import turnstile_enabled, verificar_turnstile
 from ...utils.pii import mask_telefone
@@ -26,9 +26,6 @@ from ...utils.seguranca import client_ip as _client_ip
 from ...utils.sms import sms_disponivel
 
 logger = logging.getLogger(__name__)
-
-SESSAO_MEUS_AGENDAMENTOS = portal_cliente.SESSAO_MEUS_AGENDAMENTOS
-
 
 def _captcha_invalido(request):
     token = request.POST.get('cf-turnstile-response', '')
@@ -110,7 +107,7 @@ def verificar_otp_agendamento(request):
     if not ok:
         return _falha_verificacao(motivo)
 
-    otp_service.registrar_verificacao_agendamento(request, digitos)
+    sessao_cliente.registrar_verificacao(request, digitos)
 
     cliente = Cliente.objects.filter(telefone=digitos).first()
     prefill = None
@@ -221,12 +218,12 @@ def meus_agendamentos_verificar_otp(request):
     if not ok:
         return _falha_verificacao(motivo)
 
-    portal_cliente.abrir_sessao(request, digitos)   # cycle_key, 1 h, hora da verificacao
+    sessao_cliente.registrar_verificacao(request, digitos)   # cycle_key, 1 h, hora da verificacao
     return json_ok(redirect=reverse('aranha:meus_agendamentos'))
 
 
 @require_POST
 def meus_agendamentos_logout(request):
     """Sair do portal: so POST com CSRF (um <img src> de outro site nao derruba a sessao)."""
-    portal_cliente.encerrar_sessao(request)
+    sessao_cliente.encerrar(request)
     return redirect('aranha:meus_agendamentos')

@@ -302,10 +302,12 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
             id='aranha.W002',
         ))
     elif not sms_configurado():
+        credencial = ('ZENVIA_API_TOKEN/ZENVIA_FROM' if settings.SMS_PROVEDOR == 'zenvia'
+                      else 'SMSGO_API_KEY')
         avisos.append(checks.Warning(
-            'SMS sem provedor: ZENVIA_API_TOKEN/ZENVIA_FROM ausentes — OTP por SMS '
-            'falha (agendamento de cliente recorrente, Meus Agendamentos, LGPD).',
-            hint='Defina ZENVIA_API_TOKEN e ZENVIA_FROM ou oriente o cliente pelo WhatsApp.',
+            f'SMS sem provedor: {credencial} ausente (SMS_PROVEDOR={settings.SMS_PROVEDOR}) — o '
+            'codigo por SMS falha (agendamento online, Meus agendamentos, LGPD).',
+            hint=f'Defina {credencial} ou oriente o cliente pelo WhatsApp.',
             id='aranha.W002',
         ))
     elif not (settings.TURNSTILE_SECRET_KEY and settings.TURNSTILE_SITE_KEY):

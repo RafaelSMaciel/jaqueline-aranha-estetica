@@ -21,8 +21,7 @@ from ...models import (
     Profissional,
     VersaoTermo,
 )
-from ...services import agendamento_online, consentimentos, portal_cliente, termos
-from ...services import otp as otp_service
+from ...services import agendamento_online, consentimentos, sessao_cliente, termos
 from ...services.disponibilidade import procedimentos_agendaveis
 from ...services.precos import precos_de_vitrine
 from ...utils.captcha import turnstile_enabled, turnstile_site_key
@@ -117,7 +116,7 @@ def agendamento_publico(request):
 
     # Consentimento art. 11: o texto exibido e o da versao SAUDE que o POST grava
     _termo_saude, texto_consentimento_saude = VersaoTermo.texto_saude_vigente()
-    otp_telefone = otp_service.telefone_verificado_agendamento(request)
+    otp_telefone = sessao_cliente.telefone_para_agendamento(request)
     titular = Cliente.objects.filter(telefone=otp_telefone).first() if otp_telefone else None
     context = {
         'procedimentos': cards,
@@ -184,12 +183,11 @@ def confirmar_agendamento(request):
 
 
 def _concluir(request, atendimento):
-    """Ponto unico depois de um pedido aceito: resumo p/ a pagina de sucesso e fim da verificacao
-    do celular (o proximo agendamento pede outro SMS)."""
+    """Ponto unico depois de um pedido aceito: resumo p/ a pagina de sucesso e a verificacao do
+    celular gasta (o proximo agendamento pede outro SMS). A sessao da cliente segue aberta: a area
+    "Meus agendamentos" abre sem novo SMS (decisao 39)."""
     request.session[SESSAO_SUCESSO] = agendamento_online.resumo_confirmacao(atendimento)
-    # P10 (decisao 39): a area da cliente abre aqui, sem novo SMS — o celular acabou de ser verificado
-    portal_cliente.abrir_sessao_do_wizard(request, atendimento.cliente.telefone)
-    otp_service.limpar_verificacao_agendamento(request)
+    sessao_cliente.registrar_agendamento(request)
     request.session.pop(SESSAO_REHIDRATAR, None)
     return redirect('aranha:agendamento_sucesso')
 

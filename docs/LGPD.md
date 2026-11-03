@@ -98,14 +98,13 @@ Google Maps só abre se a pessoa clicar em "Abrir no Google Maps" (a CSP não li
 | Operador | Para quê | Dados que recebe | Fora do Brasil? | Contrato / DPA |
 |---|---|---|---|---|
 | Railway | hospedagem do site e do Postgres | todos (o dado de saúde chega cifrado ao banco) | sim (EUA/Europa, conforme a região) | ☐ conferir DPA e região |
-| Zenvia | SMS com o código | celular, texto do SMS | não | ☐ contrato |
+| SMSGo (ou Zenvia, se `SMS_PROVEDOR=zenvia`) | SMS com o código | celular, texto do SMS | não | ☐ contrato |
 | Meta (WhatsApp Business) | lembrete D-1 com confirmação, NPS, aviso de vaga e as respostas da cliente (nota, "PARAR") | celular, nome, dados do horário | sim | ☐ termos de processamento da Meta |
 | Provedor de e-mail (Resend, Brevo… o que for configurado) | e-mails transacionais e de marketing | e-mail, nome, conteúdo da mensagem | depende do provedor | ☐ DPA |
 | Cloudflare (Turnstile) | verificação contra robôs nos formulários do site (pedido do código no wizard, no portal e no "Meus dados", contato e lista de espera) | IP, dados técnicos do navegador | sim | ☐ DPA |
 | Sentry (se ligado) | erros do site | eventos sem contato nem saúde (filtrados em `utils/pii.opcoes_sentry`) | sim | ☐ DPA, região de dados |
 | Apple/Microsoft/Google (feed ICS do calendário) | agenda da profissional — o único caminho da agenda para fora do sistema (sem integração por OAuth) | horário, procedimento e o nome público da cliente (primeiro nome + inicial) | sim | assinatura feita pela profissional |
 | Provedor do backup (bucket) | cópia do banco | dump **cifrado com age** (sem a chave privada não abre) | depende | ☐ escolher e registrar |
-| jsDelivr (CDN) | bibliotecas do painel interno (FullCalendar, Chart.js), com SRI | IP e dados técnicos do navegador **da equipe**; nenhum dado de cliente | sim | — |
 
 O Google não é operador do site: não há mapa embutido nem fonte do Google (o "Abrir no Google Maps"
 da página de contato é um link que a pessoa escolhe abrir). A lista acima é a mesma da seção 7 da

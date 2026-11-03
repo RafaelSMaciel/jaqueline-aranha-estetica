@@ -400,10 +400,10 @@ class RetornoTelasTests(TestCase):
     def test_portal_avisa_a_cliente(self):
         from django.urls import reverse
 
-        from aranha_estetica.services.portal_cliente import SESSAO_MEUS_AGENDAMENTOS
+        from aranha_estetica.services.sessao_cliente import SESSAO_TELEFONE
         cliente = Client()
         sessao = cliente.session
-        sessao[SESSAO_MEUS_AGENDAMENTOS] = self.cliente.telefone
+        sessao[SESSAO_TELEFONE] = self.cliente.telefone
         sessao.save()
         resp = cliente.get(reverse('aranha:meus_agendamentos'))
         self.assertContains(resp, f'Seu retorno de {self.proc.nome} é sem custo.')

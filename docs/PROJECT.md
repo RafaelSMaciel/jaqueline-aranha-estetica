@@ -106,7 +106,7 @@ atendimento é presencial.
 | Cache / sessão | LocMemCache + sessão no banco (padrão, 1 worker). `REDIS_URL` troca para django-redis + sessão em cache |
 | Auth | Usuário próprio (`AbstractBaseUser`, e-mail), django-axes 8, django-otp + django-two-factor-auth (só models/TOTP; rotas `/account/*` **não** publicadas), django-ratelimit 4 |
 | API | Sem API REST pública (a DRF saiu: não tinha consumidor). As rotas de máquina — JSON do wizard, do portal e do painel, webhooks, cron, feed ICS, saúde — são views Django no contrato `utils/respostas`, descritas em **OpenAPI 3.1** (`aranha_estetica/api/openapi.yaml`, escrito à mão e conferido por `tests/test_openapi.py`) e navegáveis no **Swagger UI** em `/painel/api/` (só ADMIN) |
-| Integrações | Zenvia SMS (OTP), WhatsApp Cloud API (Meta), e-mail (backend Django), pywebpush (VAPID), Cloudflare Turnstile, Sentry. A agenda da profissional sai só pelo feed ICS assinado (sem Google Calendar) |
+| Integrações | SMS pré-pago SMSGo (OTP; Zenvia como opção), WhatsApp Cloud API (Meta), e-mail (backend Django), pywebpush (VAPID), Cloudflare Turnstile, Sentry. A agenda da profissional sai só pelo feed ICS assinado (sem Google Calendar) |
 | Outros | bleach (HTML de promoção), openpyxl (Excel), python-dateutil (RRULE), python-json-logger (logs JSON em prod), qrcode (QR SVG do 2FA, sem Pillow) |
 | Deploy | Railway (Dockerfile multi-stage + `railway.json` do serviço web e `railway.cron.json` do serviço Cron) |
 | CI | GitHub Actions `.github/workflows/ci.yml` |
@@ -312,9 +312,9 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   Exceções de agenda pelo `forms/agenda.AgendaExcecaoForm` (reenviar o mesmo dia/período
   atualiza a vigente — `AgendaExcecao.objects.vigente_para`) e `AgendaExcecao.clean` com uma regra
   por método.
-- **Área da cliente** (`views/publico/portal` + `services/portal_cliente`): sessão do OTP (do
-  portal ou aberta no fim do wizard sem novo SMS) presa ao telefone do cadastro, 1 h, com a hora
-  da verificação; cada atendimento só pelo id dentro dela (anti-IDOR). Preferências e revogação de
+- **Área da cliente** (`views/publico/portal` + `services/portal_cliente`): a sessão única da
+  cliente verificada (`services/sessao_cliente`, aberta por qualquer código SMS — portal ou wizard)
+  presa ao telefone, 1 h, com a hora da verificação; cada atendimento só pelo id dentro dela (anti-IDOR). Preferências e revogação de
   saúde em `services/consentimentos` (origem PORTAL); pedido de correção/exclusão =
   `registrar_pedido` (trilha com o prazo de 15 dias + e-mail ao encarregado > `email_admin` >
   `ADMIN_EMAIL` > e-mail da marca); "baixar meus dados" = o export sem saúde de
@@ -721,7 +721,7 @@ Preço de cada serviço, estimativa mensal por volume e as travas de custo: [`CU
 
 | Serviço | Uso | Configuração | Sem configuração |
 |---|---|---|---|
-| **Zenvia SMS** | OTP do agendamento, do "Meus agendamentos" e do DSAR. Só para **celular**. Quotas: 3/h por telefone, 10/h por IP, 60/h global (alerta no log a 80%) | `ZENVIA_API_TOKEN`, `ZENVIA_FROM` (+ `SMS_MAX_*`, `ZENVIA_API_URL`, webhook) | Falha fechada: sem agendamento online; CTAs "Agendar" viram WhatsApp (`AGENDAR_WHATSAPP`) |
+| **SMS (SMSGo pré-pago; Zenvia opcional)** | OTP do agendamento, do "Meus agendamentos" e do DSAR. Só para **celular**. Quotas: 3/h por telefone, 10/h por IP, 60/h global (alerta no log a 80%). SMSGo: a chave da conta vira um token Bearer de 48 h guardado no cache (renovado no 401) | `SMS_PROVEDOR` (`smsgo` padrão ou `zenvia`); SMSGo: `SMSGO_API_KEY` (+ `SMSGO_REMETENTE`, `SMSGO_API_URL`); Zenvia: `ZENVIA_API_TOKEN`, `ZENVIA_FROM` (+ `ZENVIA_API_URL`, webhook) (+ `SMS_MAX_*`) | Falha fechada: sem agendamento online; CTAs "Agendar" viram WhatsApp (`AGENDAR_WHATSAPP`) |
 | **WhatsApp Cloud API (Meta)** | Templates aprovados: `confirmacao_d1` (7 parâmetros: nome, data, hora, procedimento, profissional, link confirmar, link cancelar), `nps_pos_atendimento` (nome, procedimento, link), `lista_espera_vaga` (nome, procedimento, data/hora, link). Categoria UTILITY; links no corpo. Recebe a nota do NPS e o pedido de parar (revoga lembrete e pesquisa por WhatsApp, origem WHATSAPP); a confirmação do pedido é texto livre, dentro da janela de 24 h que a resposta da cliente abriu | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_VERIFY_TOKEN` (32+ caracteres, E003), `WHATSAPP_APP_SECRET`, `WHATSAPP_TEMPLATE_*`, `WHATSAPP_API_VERSION` (padrão v23.0) | Nada é enviado nem marcado como enviado; o lembrete D-1 vai por e-mail |
 | **E-mail** (backend Django) | Transacional (aprovação/rejeição, cancelamento, lembrete D-1 de quem não autorizou o WhatsApp, termos, fila de espera, pacote expirando, aprovação ao profissional, reset/convite de senha, contato) e marketing (aniversário, promoções) com `List-Unsubscribe` (RFC 8058) e HTML de promoção sanitizado (bleach) | `EMAIL_BACKEND` + credenciais, `DEFAULT_FROM_EMAIL` | Prod usa backend *dummy*: nada sai; reset de senha/convites recusam (aviso W003) |
 | **Botão WhatsApp** (`wa.me`) | Contato, fallback do agendamento, link do termo pela recepção | `WHATSAPP_NUMERO` (tela Branding > env) | Botões escondidos (aviso W004) |
@@ -748,8 +748,9 @@ Detalhe de login, 2FA, OTP e tokens em [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO
 - **Cliente:** sem senha; OTP de 6 dígitos por SMS preso ao telefone (HMAC-SHA256, 10 min, 5
   tentativas, reenvio ≥ 60 s), propósitos isolados. Anti-enumeração: o pedido de código do portal
   e do "Meus dados" responde igual exista ou não o cadastro, em no mínimo
-  `OTP_LATENCIA_MINIMA_SEGUNDOS` (0,8 s, fixo no settings). Sessão do portal de 1 h presa ao
-  telefone; baixar os dados exige verificação de até 10 min; sair só por POST.
+  `OTP_LATENCIA_MINIMA_SEGUNDOS` (0,8 s, fixo no settings). Sessão única da cliente verificada
+  (`services/sessao_cliente`), 1 h, presa ao telefone: agendar exige código de até 30 min ainda não
+  usado num pedido; baixar os dados, de até 10 min; sair só por POST.
 - **Formulários públicos sem login** (contato, lista de espera): captcha quando configurado,
   honeypot `website` (robô descartado em silêncio) e limite por IP; o contato tem ainda o teto
   diário global (protege a cota de e-mail do reset de senha e dos avisos).
@@ -1010,7 +1011,7 @@ settings (`clinica/settings`) leem a env. Em produção:
 | `DATABASE_URL` | **Não vem sozinha**: variável de referência `DATABASE_URL=${{Postgres.DATABASE_URL}}` no serviço web e no serviço Cron. Sem ela o check `aranha.E002` barra o pre-deploy (antes caía em SQLite em silêncio) |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOME` | **Pré-requisito do 1º deploy**: a `0042` desativa as contas demo; o `bootstrap_admin` cria o ADMIN real. Apagar `ADMIN_PASSWORD` depois. `ADMIN_EMAIL` também é o destino do alerta de detrator (sem `email_admin` nas Configurações) e o contato do claim VAPID (sem `WEBPUSH_VAPID_CLAIMS_EMAIL`) |
 | `CRON_TOKEN` | Autentica o cron HTTP `/cron/run/<job>/` (W005); 32+ caracteres (E003). O serviço Cron do Railway não precisa dele (roda o comando direto) |
-| `ZENVIA_API_TOKEN`, `ZENVIA_FROM` | SMS/OTP. **Sem SMS não há agendamento online** (CTA vira WhatsApp) (W002) |
+| `SMSGO_API_KEY` (ou, com `SMS_PROVEDOR=zenvia`, `ZENVIA_API_TOKEN` + `ZENVIA_FROM`) | SMS/OTP. **Sem SMS não há agendamento online** (CTA vira WhatsApp) (W002) |
 | `EMAIL_BACKEND` + chave do provedor + `DEFAULT_FROM_EMAIL` | Sem ele nada é entregue (W003). **O Railway Hobby bloqueia SMTP**: use o `django-anymail` (já no requirements), ex.: `EMAIL_BACKEND=anymail.backends.resend.EmailBackend` + `RESEND_API_KEY` (ou Brevo/SendGrid/Mailgun/Postmark — §14 i). `DEFAULT_FROM_EMAIL` = remetente de um **domínio verificado** no provedor; sem a chave ou com o remetente de exemplo, W011 e nada sai. SMTP (`EMAIL_HOST*`) só no plano Pro |
 | `WHATSAPP_NUMERO` (ou tela Branding) | Botões de WhatsApp e fallback do agendamento (W004) |
 | `CLINIC_EMAIL` (ou tela Branding) | Canal do titular LGPD e fallback do alerta de detrator (W007) |
@@ -1038,7 +1039,7 @@ settings (`clinica/settings`) leem a env. Em produção:
 `USE_X_FORWARDED_HOST` (prod sempre liga) · `CLIENT_IP_HEADER` (prod: `HTTP_X_REAL_IP`) ·
 `WEB_CONCURRENCY` (1), `WEB_THREADS` (4), `WEB_TIMEOUT` (120) · `SESSION_COOKIE_AGE` (28800) ·
 `ADMIN_PASSWORD_RESET` · `SMS_MAX_POR_HORA` (3), `SMS_MAX_POR_IP_HORA` (10),
-`SMS_MAX_GLOBAL_HORA` (60), `ZENVIA_API_URL`, `ZENVIA_WEBHOOK_SECRET` (segredo do header
+`SMS_MAX_GLOBAL_HORA` (60), `SMS_PROVEDOR` (`smsgo`), `SMSGO_REMETENTE`, `SMSGO_API_URL`, `ZENVIA_API_URL`, `ZENVIA_WEBHOOK_SECRET` (segredo do header
 `X-Zenvia-Signature`), `ZENVIA_ALLOWED_IPS` (IP/CIDR) · `OTP_TTL_SEGUNDOS` (600),
 `OTP_MAX_TENTATIVAS` (5; fora de 1..10 é o erro E004 — o banco limita a 10),
 `OTP_REENVIO_MINIMO_SEG` (60) · `WHATSAPP_API_URL`, `WHATSAPP_API_VERSION`,
@@ -1185,7 +1186,7 @@ pin; `tests/test_deploy_config.CiFixadoTests` reprova pin solto:
   o `CMD` do Dockerfile (mudar os dois juntos). 1 réplica; restart ON_FAILURE (5×).
 - **Healthcheck**: `/healthz/` (timeout 120 s) — 503 se o bundle do Vite faltar.
 - **Produção**: `DEBUG` sempre falso, HTTPS + HSTS, e-mail *dummy* sem `EMAIL_BACKEND`, SMS falha
-  fechado sem Zenvia, logs JSON redigidos. Sem worker de fila: jobs pelo serviço Cron (§13.2).
+  fechado sem provedor de SMS, logs JSON redigidos. Sem worker de fila: jobs pelo serviço Cron (§13.2).
 - O deploy de produção sai do branch `main` (configuração do serviço no Railway). O trabalho
   acontece na `dev`; a `main` é protegida no GitHub (os 6 jobs bloqueantes do CI obrigatórios,
   inclusive para admin; sem force-push) e recebe a `dev` por PR ou fast-forward.
@@ -1291,7 +1292,7 @@ Falta, da dona da conta (nenhum desses passa por código):
 1. **Contas e acessos** — quem entra no GitHub, no Railway ou no DNS passa por cima de todo
    controle da aplicação:
    - 2FA (app autenticador ou passkey, nunca SMS) e o mínimo de membros em GitHub, Railway,
-     registrador/DNS, Meta Business, Zenvia, provedor de e-mail, Sentry, cron e monitor. Faça o
+     registrador/DNS, Meta Business, SMSGo, provedor de e-mail, Sentry, cron e monitor. Faça o
      inventário (conta, dono, quem tem acesso) e revise a cada trimestre ([`LGPD.md`](LGPD.md) §6).
    - GitHub: a `main` já está protegida (checks do CI obrigatórios, inclusive para admin; sem
      force-push nem exclusão). Ligue também *Secret scanning* + *Push protection*
@@ -1305,7 +1306,7 @@ Falta, da dona da conta (nenhum desses passa por código):
 3. **Variáveis no Railway** (§11): `DATABASE_URL=${{Postgres.DATABASE_URL}}` (referência — não
    vem sozinha; sem ela E002), `DJANGO_SECRET_KEY` (50+ caracteres, E003), `CHAVES_CIFRAGEM`
    (passo 2), `CRON_MONITOR_URL` (§14 d), `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (senha ≥ 10,
-   não comum), `SITE_URL`, `ZENVIA_*`, `EMAIL_BACKEND` + chave do provedor + `DEFAULT_FROM_EMAIL`
+   não comum), `SITE_URL`, `SMSGO_API_KEY`, `EMAIL_BACKEND` + chave do provedor + `DEFAULT_FROM_EMAIL`
    (domínio verificado — §14 i), `WHATSAPP_*` (`WHATSAPP_VERIFY_TOKEN` com 32+), `TURNSTILE_*`,
    `SENTRY_DSN`, `CLINIC_EMAIL`, `WHATSAPP_NUMERO` e, se for usar o cron HTTP, `CRON_TOKEN` (32+);
    **remova `STATIC_ROOT`** e as legadas do §11 (`GOOGLE_OAUTH_*`, `AWS_*`...). Postgres com a
@@ -1608,7 +1609,7 @@ E004 vale em qualquer perfil.
 | Check | Significa | Como resolver |
 |---|---|---|
 | `W001` | `SITE_URL` não é https público | `SITE_URL=https://<dominio>` |
-| `W002` | SMS sem provedor (ou `SMS_DEV_LOG_ONLY=true` em prod) — OTP falha | `ZENVIA_API_TOKEN` + `ZENVIA_FROM`; remover `SMS_DEV_LOG_ONLY` |
+| `W002` | SMS sem provedor (ou `SMS_DEV_LOG_ONLY=true` em prod) — OTP falha | `SMSGO_API_KEY` (ou `ZENVIA_API_TOKEN` + `ZENVIA_FROM` com `SMS_PROVEDOR=zenvia`); remover `SMS_DEV_LOG_ONLY` |
 | `W003` | Backend de e-mail que não entrega (dummy/console/arquivo/locmem, `anymail.backends.test`) | `EMAIL_BACKEND` do anymail + chave do provedor (§14 i); SMTP só no plano Pro |
 | `W004` | WhatsApp vazio/inválido — botões e fallback ocultos | Branding ou `WHATSAPP_NUMERO` |
 | `W005` | `CRON_TOKEN` ausente — o cron HTTP `/cron/run/<job>/` recusa tudo (403). O serviço Cron (§13.2) roda os jobs sem ele (o texto do aviso ainda diz que nenhum job roda) | Definir se usar o cron HTTP; com o serviço Cron, o aviso pode ficar |
@@ -1818,6 +1819,7 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-30 | Documentação para o TCC: regras de negócio, requisitos (RF/RNF com prioridade, verificação e rastreabilidade) e documento técnico em documentos próprios (`tcc/gerar_especificacoes.py`); custo operacional mensal com preços de 2026 e cenários por volume ([`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md)) e escolhas de design e marketing — psicologia das cores, tipografia, tom, acessibilidade, recursos de marketing ([`DESIGN-E-MARKETING.md`](DESIGN-E-MARKETING.md)) |
 | 2026-10-30 | Nome padronizado: **Jaqueline Aranha Estética** em documentos, diagramas (PlantUML e Lucid), API, `package.json`, Postgres local, `DB_APPLICATION_NAME` e backups; documentos gerados passam a `docs/tcc/JaquelineAranhaEstetica-*`. Identificadores gravados em dado ou em migration mantêm o nome antigo (§15) |
 | 2026-10-31 | Diagramas refeitos no Lucidchart a partir dos models (`docs/geradores/diagramas_lucid.py`), completos e separados em dez assuntos: MER em notação de Chen com cardinalidade (mín., máx.) e atributos com os nomes das colunas, DER das 37 tabelas, classes em UML (visibilidade, tipos, multiplicidade, derivados, operações com assinatura, composição, enumerações) e casos de uso com «include», «extend» com condição e pontos de extensão. `docs/` reorganizada: `diagramas/` (PNGs: completos, recortes, outros), `geradores/` (scripts e dados) e `tcc/` (só os arquivos gerados); PlantUML (`docs/uml/`) removido; requisitos em PDF simples e em linguagem leiga (`gerar_requisitos.py`) |
+| 2026-11-03 | SMS pré-pago: `utils/sms` com dois provedores, **SMSGo** por padrão (`SMS_PROVEDOR=smsgo`, `SMSGO_API_KEY`; chave trocada por token Bearer de 48 h no cache, renovado no 401) e Zenvia como opção; política e `LGPD.md` com a SMSGo como operadora e sem o jsDelivr. **Sessão única da cliente verificada** (`services/sessao_cliente`): o código do wizard abre a área da cliente e o do portal libera agendar; cada pedido online gasta a verificação. **2FA** conferido em qualquer sessão autenticada (saiu o marcador `usuario_id`; suite com a obrigatoriedade desligada). Link do termo sem `mailto:` (e-mail do cadastro não é verificado). **Catálogo de regras** (`aranha_estetica/regras.py`) gera a tabela §24 do `REGRAS-DE-NEGOCIO.md` (`manage.py gerar_docs_regras`, teste contra drift); spec do registry reescrita como implementada |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
 **Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-30

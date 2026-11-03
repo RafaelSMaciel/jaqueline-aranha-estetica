@@ -46,7 +46,7 @@ def _notif(atendimento, tipo='LEMBRETE', canal='WHATSAPP'):
 
 def _logar_portal(client, telefone):
     session = client.session
-    session['meus_agendamentos_telefone'] = telefone
+    session['cliente_telefone'] = telefone
     session.save()
 
 
@@ -368,7 +368,7 @@ class MeusAgendamentosListaTests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof, nome='<img src=x onerror=alert(1)>')
         self.cli = criar_cliente(telefone='17988880001')
         session = self.client.session
-        session['meus_agendamentos_telefone'] = '17988880001'
+        session['cliente_telefone'] = '17988880001'
         session.save()
 
     def test_pendente_tem_cancelar_e_reagendar(self):
@@ -658,7 +658,7 @@ class MeusAgendamentosMensagensTests(TestCase):
     def test_toast_de_cancelamento_traduz_codigos_internos(self):
         cli = criar_cliente(telefone='17988880002')
         session = self.client.session
-        session['meus_agendamentos_telefone'] = '17988880002'
+        session['cliente_telefone'] = '17988880002'
         session.save()
         prof = criar_profissional()
         _atendimento(cli, prof, criar_procedimento(profissional=prof), _local(5, 10))

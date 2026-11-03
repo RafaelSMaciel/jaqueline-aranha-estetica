@@ -11,8 +11,7 @@ from django_ratelimit.decorators import ratelimit
 
 from ...forms.publico import ListaEsperaForm, primeiro_erro
 from ...models import ListaEspera, Procedimento, Profissional
-from ...services import lista_espera
-from ...services import otp as otp_service
+from ...services import lista_espera, sessao_cliente
 from ...utils import datas
 from ...utils.captcha import captcha_invalido, turnstile_enabled, turnstile_site_key
 from ...utils.datas import ler_data
@@ -82,7 +81,7 @@ def lista_espera_publica(request):
         nome=dados['nome'], telefone=dados['telefone'], email=dados['email'] or None,
         procedimento=dados['procedimento'], profissional=dados['profissional'],
         data_desejada=dados['data_desejada'], turno=dados['turno'],
-        telefone_verificado=otp_service.telefone_verificado_agendamento(request) == dados['telefone'],
+        telefone_verificado=sessao_cliente.telefone_verificado(request) == dados['telefone'],
     )
     return redirect('aranha:lista_espera_sucesso')
 

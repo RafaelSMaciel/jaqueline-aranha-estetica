@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 TEMPLATE = 'publico/contato.html'
 TETO_DIARIO_GLOBAL = 50
 LIMITE_DIARIO_POR_IP = '20/d'
+LIMITE_POR_MINUTO_POR_IP = '5/m'
 _CAMPOS = ('name', 'email', 'phone', 'subject', 'message')
 
 
@@ -86,7 +87,7 @@ def _enviar(form) -> int:
 
 
 @ratelimit(key='ip', rate=LIMITE_DIARIO_POR_IP, method='POST', block=True)
-@ratelimit(key='ip', rate='5/m', method='POST', block=True)
+@ratelimit(key='ip', rate=LIMITE_POR_MINUTO_POR_IP, method='POST', block=True)
 def agenda_contato(request):
     """Pagina de contato com form POST (PRG). Se o e-mail nao puder ser entregue (ou o teto do dia
     acabou), NAO finge sucesso: re-renderiza com os dados preenchidos e oferece o WhatsApp."""

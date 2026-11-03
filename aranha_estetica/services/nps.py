@@ -43,8 +43,12 @@ UM_DECIMO = Decimal('0.1')
 # So atendimentos recentes (a 1a execucao nao dispara p/ o historico inteiro) e no maximo N
 # tentativas por atendimento.
 NPS_JANELA_DIAS = 7
+# A pesquisa sai so depois desta espera do fim do atendimento (job nps_24h)
+NPS_ESPERA = timedelta(days=1)
 NPS_MAX_FALHAS = 3
 NOTA_MAXIMA_DETRATOR = 6
+# Depoimento no site: so promotor (nota 9 ou 10), com opt-in da cliente e aprovacao da clinica
+NOTA_MINIMA_DEPOIMENTO = 9
 TAMANHO_MAXIMO_COMENTARIO = 2000
 
 
@@ -115,7 +119,7 @@ def candidatos(agora=None):
     elegiveis = Atendimento.objects.filter(
         status=StatusAtendimento.REALIZADO,
         eh_retorno=False,
-        data_hora_fim__lte=agora - timedelta(days=1),
+        data_hora_fim__lte=agora - NPS_ESPERA,
         data_hora_fim__gte=agora - timedelta(days=NPS_JANELA_DIAS),
         avaliacaonps__isnull=True,
     )

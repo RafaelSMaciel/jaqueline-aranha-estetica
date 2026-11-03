@@ -3,9 +3,10 @@
 Django TestCase (roda no `manage.py test`, antes era pytest-only e ficava fora
 da suite).
 """
+import json
 import logging
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.conf import settings
 from django.core import mail
@@ -110,7 +111,7 @@ class SmsFalhaFechadaTests(TestCase):
     def setUp(self):
         cache.clear()
 
-    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False, ZENVIA_API_TOKEN='', ZENVIA_FROM='')
+    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False, SMSGO_API_KEY='', ZENVIA_API_TOKEN='', ZENVIA_FROM='')
     def test_sem_provedor_em_prod_retorna_false(self):
         self.assertFalse(sms.sms_disponivel())
         self.assertFalse(sms.enviar_sms('17999990000', 'teste'))
@@ -128,8 +129,9 @@ class SmsFalhaFechadaTests(TestCase):
             self.assertNotIn('483920', str(getattr(rec, 'preview', '')))
             self.assertFalse(hasattr(rec, 'preview'))
 
-    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False, ZENVIA_API_TOKEN='tok', ZENVIA_FROM='clinica')
-    @patch('aranha_estetica.utils.sms.requests.post')
+    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False, SMS_PROVEDOR='zenvia',
+                       ZENVIA_API_TOKEN='tok', ZENVIA_FROM='clinica')
+    @patch('aranha_estetica.utils.sms.requests.request')
     def test_erro_5xx_nao_faz_retry_nem_sleep(self, post):
         post.return_value.status_code = 503
         post.return_value.text = 'indisponivel'
@@ -138,6 +140,17 @@ class SmsFalhaFechadaTests(TestCase):
         self.assertEqual(post.call_count, 1)
         dormir.assert_not_called()
         self.assertEqual(post.call_args.kwargs['timeout'], sms.TIMEOUT)
+
+    @override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False, SMS_PROVEDOR='zenvia',
+                       ZENVIA_API_TOKEN='tok', ZENVIA_FROM='clinica')
+    @patch('aranha_estetica.utils.sms.requests.request')
+    def test_zenvia_envia_com_token_e_remetente(self, req):
+        req.return_value.status_code = 200
+        self.assertTrue(sms.enviar_sms('17999990000', 'oi'))
+        metodo, url = req.call_args.args
+        self.assertEqual((metodo, url), ('POST', 'https://api.zenvia.com/v2/channels/sms/messages'))
+        self.assertEqual(req.call_args.kwargs['headers']['X-API-TOKEN'], 'tok')
+        self.assertEqual(req.call_args.kwargs['json']['to'], '5517999990000')
 
     def test_formatar_telefone_so_brasil(self):
         self.assertEqual(sms.formatar_telefone('17999990000'), '5517999990000')
@@ -180,7 +193,7 @@ class OtpAgendamentoEndpointTests(TestCase):
         })
         self.assertEqual(resp.status_code, 200)
         self.assertIsNone(resp.json()['prefill'])
-        self.assertEqual(self.client.session['otp_agendamento_telefone'], '17900000001')
+        self.assertEqual(self.client.session['cliente_telefone'], '17900000001')
 
     def test_cliente_recorrente_com_email_verifica_pelo_telefone(self):
         Cliente.objects.create(
@@ -229,7 +242,7 @@ class OtpAgendamentoEndpointTests(TestCase):
         codigo = self.codigos['17900000001']
         resp = self.client.post(self.url_ver, {'telefone': '17912345678', 'codigo': codigo})
         self.assertEqual(resp.status_code, 400)
-        self.assertNotIn('otp_agendamento_telefone', self.client.session)
+        self.assertNotIn('cliente_telefone', self.client.session)
 
     def test_codigo_errado_responde_incorreto_com_tentativas_restantes(self):
         self.client.post(self.url_sol, {'telefone': '17900000001'})
@@ -247,11 +260,78 @@ class OtpAgendamentoEndpointTests(TestCase):
                 self.assertEqual(resp.json()['codigo'], 'telefone_invalido')
         self.assertEqual(self.codigos, {})
 
-    @override_settings(SMS_DEV_LOG_ONLY=False, DEBUG=False, ZENVIA_API_TOKEN='', ZENVIA_FROM='')
+    @override_settings(SMS_DEV_LOG_ONLY=False, DEBUG=False, SMSGO_API_KEY='', ZENVIA_API_TOKEN='', ZENVIA_FROM='')
     def test_sms_indisponivel_responde_sms_falha(self):
         resp = self.client.post(self.url_sol, {'telefone': '17900000001'})
         self.assertEqual(resp.status_code, 503)
         self.assertEqual(resp.json()['codigo'], 'sms_falha')
+
+
+def _resposta(status, corpo=None):
+    r = MagicMock(status_code=status, text=json.dumps(corpo or {}))
+    r.json.return_value = corpo or {}
+    return r
+
+
+@override_settings(DEBUG=False, SMS_DEV_LOG_ONLY=False, SMS_PROVEDOR='smsgo', SMSGO_API_KEY='chave-da-conta',
+                   SMSGO_REMETENTE='', SMSGO_API_URL='https://api.smsgo.com.br')
+class SmsgoTests(TestCase):
+    """SMS pre-pago (CUSTOS-OPERACIONAIS §5): a chave vira token Bearer de 48 h, guardado no cache."""
+
+    def setUp(self):
+        cache.clear()
+
+    @patch('aranha_estetica.utils.sms.requests.request')
+    def test_troca_a_chave_por_token_e_envia(self, req):
+        req.side_effect = [_resposta(200, {'token': 'oat_1', 'mode': 'live'}),
+                           _resposta(201, {'id': 'x', 'quantity': 1, 'status': 'queued'})]
+        self.assertTrue(sms.enviar_sms('(17) 99999-0000', 'Clinica: codigo 123456'))
+        (m1, u1), k1 = req.call_args_list[0].args, req.call_args_list[0].kwargs
+        self.assertEqual((m1, u1), ('GET', 'https://api.smsgo.com.br/v1/auth/token'))
+        self.assertEqual(k1['headers']['SMSGo-key'], 'chave-da-conta')
+        (m2, u2), k2 = req.call_args_list[1].args, req.call_args_list[1].kwargs
+        self.assertEqual((m2, u2), ('POST', 'https://api.smsgo.com.br/v1/sms/send/single'))
+        self.assertEqual(k2['headers']['Authorization'], 'Bearer oat_1')
+        self.assertEqual(k2['json'], {'phone': '+5517999990000', 'message': 'Clinica: codigo 123456'})
+        self.assertEqual(k2['timeout'], sms.TIMEOUT)
+
+    @override_settings(SMSGO_REMETENTE='Clinica')
+    @patch('aranha_estetica.utils.sms.requests.request')
+    def test_token_fica_no_cache_e_remetente_vai_em_from(self, req):
+        req.side_effect = [_resposta(200, {'token': 'oat_1'}), _resposta(201), _resposta(201)]
+        self.assertTrue(sms.enviar_sms('17999990000', 'a'))
+        self.assertTrue(sms.enviar_sms('17999990001', 'b'))
+        self.assertEqual(req.call_count, 3)   # 1 troca de chave + 2 envios
+        self.assertEqual(req.call_args.kwargs['json']['from'], 'Clinica')
+
+    @patch('aranha_estetica.utils.sms.requests.request')
+    def test_token_vencido_renova_uma_vez(self, req):
+        cache.set(sms.SMSGO_TOKEN_CACHE, 'oat_velho', 60)
+        req.side_effect = [_resposta(401), _resposta(200, {'token': 'oat_novo'}), _resposta(201)]
+        self.assertTrue(sms.enviar_sms('17999990000', 'oi'))
+        self.assertEqual(req.call_args.kwargs['headers']['Authorization'], 'Bearer oat_novo')
+        self.assertEqual(cache.get(sms.SMSGO_TOKEN_CACHE), 'oat_novo')
+
+    @patch('aranha_estetica.utils.sms.requests.request')
+    def test_chave_recusada_nao_envia(self, req):
+        req.return_value = _resposta(401, {'error': True, 'code': 'unauthorized'})
+        self.assertFalse(sms.enviar_sms('17999990000', 'oi'))
+        self.assertEqual(req.call_count, 1)   # so a troca de chave; nenhum envio
+        self.assertIsNone(cache.get(sms.SMSGO_TOKEN_CACHE))
+
+    @patch('aranha_estetica.utils.sms.requests.request')
+    def test_saldo_insuficiente_falha_sem_retry(self, req):
+        req.side_effect = [_resposta(200, {'token': 'oat_1'}),
+                           _resposta(402, {'error': True, 'code': 'insufficient_balance'})]
+        self.assertFalse(sms.enviar_sms('17999990000', 'oi'))
+        self.assertEqual(req.call_count, 2)
+
+    @override_settings(SMSGO_API_KEY='')
+    @patch('aranha_estetica.utils.sms.requests.request')
+    def test_sem_chave_falha_fechado(self, req):
+        self.assertFalse(sms.sms_configurado())
+        self.assertFalse(sms.enviar_sms('17999990000', 'oi'))
+        req.assert_not_called()
 
 
 @override_settings(RATELIMIT_ENABLE=False, SMS_DEV_LOG_ONLY=True)
@@ -289,7 +369,7 @@ class MeusAgendamentosOtpTests(TestCase):
         codigo = self.codigos['17988880000']
         resp = self.client.post(self.url_ver, {'identificador': '17988880000', 'codigo': codigo})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(self.client.session['meus_agendamentos_telefone'], '17988880000')
+        self.assertEqual(self.client.session['cliente_telefone'], '17988880000')
         pagina = self.client.get(reverse('aranha:meus_agendamentos'))
         self.assertEqual(pagina.context['step'], '3')
 
@@ -298,12 +378,12 @@ class MeusAgendamentosOtpTests(TestCase):
         codigo = self.codigos['17988880000']
         resp = self.client.post(self.url_ver, {'identificador': 'portal@example.com', 'codigo': codigo})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(self.client.session['meus_agendamentos_telefone'], '17988880000')
+        self.assertEqual(self.client.session['cliente_telefone'], '17988880000')
 
     def test_identificador_desconhecido_nao_loga(self):
         resp = self.client.post(self.url_ver, {'identificador': 'x@example.com', 'codigo': '123456'})
         self.assertEqual(resp.status_code, 400)
-        self.assertNotIn('meus_agendamentos_telefone', self.client.session)
+        self.assertNotIn('cliente_telefone', self.client.session)
 
 
 @override_settings(RATELIMIT_ENABLE=False, SMS_DEV_LOG_ONLY=True)

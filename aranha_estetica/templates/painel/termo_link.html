@@ -39,10 +39,8 @@
       <c-botao icone="whatsapp" target="_blank" rel="noopener"
                href="https://wa.me/55{{ telefone_wa }}?text={{ 'Olá '|urlencode }}{{ cliente.nome|urlencode }}{{ ', antes do seu atendimento de '|urlencode }}{{ atendimento.procedimento.nome|urlencode }}{{ ', leia e aceite o termo neste link: '|urlencode }}{{ link|urlencode }}">Enviar pelo WhatsApp</c-botao>
       {% endif %}
-      {% if cliente.email %}
-      <c-botao variante="secundario" icone="email"
-               href="mailto:{{ cliente.email }}?subject={{ 'Termo de consentimento'|urlencode }}&body={{ 'Olá, leia e aceite o termo do seu atendimento neste link: '|urlencode }}{{ link|urlencode }}">Enviar por e-mail</c-botao>
-      {% endif %}
+      {% comment %}Sem "Enviar por e-mail": o e-mail do cadastro nunca foi verificado (a identidade da cliente é
+      o celular) e quem abre o link aceita o termo em nome dela. Vai pelo WhatsApp do celular ou no balcão.{% endcomment %}
       <c-botao variante="secundario" icone="externo" href="{{ link }}" target="_blank" rel="noopener">Abrir aqui (aceite no balcão)</c-botao>
     </div>
   </div>

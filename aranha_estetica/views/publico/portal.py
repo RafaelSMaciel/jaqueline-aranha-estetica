@@ -1,8 +1,8 @@
 """Area da cliente "Meus agendamentos" (decisao 39): agendamentos, reagendar e cancelar, preferencias
 de comunicacao, revogacao do consentimento de saude, pedido de correcao/exclusao e "baixar meus dados".
 
-Acesso unico: sessao do OTP (do portal ou do fim do wizard) presa ao telefone do cadastro
-(services/portal_cliente), e cada atendimento so pelo id dentro dessa sessao (anti-IDOR). Nenhum
+Acesso unico: a sessao da cliente verificada (codigo SMS do portal ou do wizard), presa ao telefone
+(services/sessao_cliente), e cada atendimento so pelo id dentro dessa sessao (anti-IDOR). Nenhum
 token e emitido (o link /reagendar/<token>/ antigo saiu com a 0072).
 """
 import json
@@ -22,7 +22,7 @@ from ...constants import JANELA_MINIMA_ALTERACAO
 from ...models import Atendimento, Consentimento, Notificacao, Profissional
 from ...models.agendamentos import STATUS_FINALIZADOS
 from ...excecoes import RegraDeNegocio, TransicaoInvalida
-from ...services import agenda, agendamento_online, comunicacao, consentimentos, portal_cliente
+from ...services import agenda, agendamento_online, comunicacao, consentimentos, portal_cliente, sessao_cliente
 from ...services.agendamento_online import MSG_BLOQUEADO_ONLINE
 from ...utils.datas import ler_data
 from ...services.disponibilidade import horarios_agrupados, profissionais_para
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 def meus_agendamentos(request):
     """Area da cliente autenticada via OTP (sessao presa ao telefone do cadastro)."""
-    telefone = portal_cliente.telefone_da_sessao(request)
+    telefone = sessao_cliente.telefone(request)
     if not telefone:
         return render(request, 'agendamento/meus_agendamentos.html', {
             'step': '1',
@@ -157,7 +157,7 @@ def reagendar_horarios_portal(request, pk):
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def reagendar_agendamento_portal(request, pk):
     """Reagendamento pelo portal "Meus agendamentos" (id + sessao do OTP, anti-IDOR)."""
-    if not portal_cliente.telefone_da_sessao(request):
+    if not sessao_cliente.telefone(request):
         return redirect('aranha:meus_agendamentos')
     atendimento = atendimento_da_sessao(request, pk, 'cliente', 'profissional', 'procedimento')
     if atendimento is None:
@@ -285,7 +285,7 @@ def _titular_ou_login(request):
     """(cliente, None) ou (None, redirect p/ o login do portal)."""
     cliente = portal_cliente.cliente_da_sessao(request)
     if cliente is None:
-        portal_cliente.encerrar_sessao(request)
+        sessao_cliente.encerrar(request)
         return None, redirect('aranha:meus_agendamentos')
     return cliente, None
 
@@ -348,8 +348,8 @@ def portal_meus_dados(request):
     cliente, fora = _titular_ou_login(request)
     if fora:
         return fora
-    if not portal_cliente.sessao_recente(request):
-        portal_cliente.encerrar_sessao(request)
+    if not sessao_cliente.verificado_ha_no_maximo(request, sessao_cliente.JANELA_DADOS):
+        sessao_cliente.encerrar(request)
         messages.info(
             request, 'Por segurança, confirme o código por SMS de novo para baixar os seus dados '
                      '(vale por 10 minutos).',

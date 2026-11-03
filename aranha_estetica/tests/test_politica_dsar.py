@@ -42,10 +42,11 @@ class PoliticaFonteUnicaTests(TestCase):
         for trecho in ('18 anos ou mais', 'CPF, CEP e endereço', 'Não coletamos RG nem profissão',
                        'art. 11, I', 'revogar esse consentimento', 'PARAR ou SAIR', 'art. 20',
                        'Registros de auditoria, com endereço IP: 5 anos', 'servidas pelo próprio site',
-                       'Zenvia', 'Railway', 'Meta', 'Sentry', 'jsDelivr', 'art. 33', 'ANPD'):
+                       'SMSGo', 'Railway', 'Meta', 'Sentry', 'art. 33', 'ANPD'):
             with self.subTest(trecho=trecho):
                 self.assertIn(trecho, texto)
         self.assertNotIn('fontes do Google', texto)
+        self.assertNotIn('jsDelivr', texto)   # bibliotecas do painel vem do bundle do Vite (D50)
         self.assertNotIn('II, "f"', texto)   # a base dupla da saude saiu (decisao 32)
         self.assertNotIn('6 meses', texto)  # IP fica 5 anos (decisao 37)
 
@@ -154,8 +155,8 @@ class LatenciaAntiEnumeracaoTests(TestCase):
     def test_cadastrado_e_desconhecido_demoram_o_mesmo_minimo(self):
         criar_cliente(nome='Cadastrada', telefone='17933338888')
         url = reverse('aranha:lgpd_meus_dados')
-        with patch('aranha_estetica.utils.sms.requests.post') as zenvia:
-            zenvia.return_value.status_code = 200
+        with patch('aranha_estetica.utils.sms.requests.request') as provedor:
+            provedor.return_value.status_code = 200
             for tel in ('17933338888', '17911110000'):
                 inicio = time.perf_counter()
                 self.client.post(url, {'telefone': tel})
@@ -164,8 +165,8 @@ class LatenciaAntiEnumeracaoTests(TestCase):
     def test_portal_cadastrado_e_desconhecido_demoram_o_mesmo_minimo(self):
         criar_cliente(nome='Portal Cadastrada', telefone='17933339999')
         url = reverse('aranha:meus_agendamentos_enviar_otp')
-        with patch('aranha_estetica.utils.sms.requests.post') as zenvia:
-            zenvia.return_value.status_code = 200
+        with patch('aranha_estetica.utils.sms.requests.request') as provedor:
+            provedor.return_value.status_code = 200
             for tel in ('17933339999', '17911112222'):
                 inicio = time.perf_counter()
                 resp = self.client.post(url, {'identificador': tel})

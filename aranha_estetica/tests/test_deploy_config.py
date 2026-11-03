@@ -134,7 +134,7 @@ class HealthcheckTests(TestCase):
 
 # ─── System checks de producao ───────────────────────────────────────
 _ENV_PROD_OK = {
-    'ZENVIA_API_TOKEN': 'tok', 'ZENVIA_FROM': 'clinica',
+    'SMSGO_API_KEY': 'chave',
     'WHATSAPP_NUMERO': '5517991234567', 'CRON_TOKEN': 'c',
     'CLINIC_EMAIL': 'contato@clinica.com.br',
     'TURNSTILE_SECRET_KEY': 'ts-secret', 'TURNSTILE_SITE_KEY': 'ts-site',
@@ -149,12 +149,13 @@ def _config(**env):
     return override_settings(MARCA_ENV={**settings.MARCA_ENV, **marca}, **outros)
 _PROD_OK = dict(
     DEBUG=False, SITE_URL='https://jaquelinearanha.com.br', SMS_DEV_LOG_ONLY=False,
-    EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend', PROFISSIONAL_2FA_OBRIGATORIO=True,
+    EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend', ADMIN_2FA_OBRIGATORIO=True,
+    PROFISSIONAL_2FA_OBRIGATORIO=True,
 )
 
 
-# Prod liga o 2FA do PROFISSIONAL por padrao; os testes de settings de dev o tem desligado (W012)
-@override_settings(PROFISSIONAL_2FA_OBRIGATORIO=True)
+# Prod liga o 2FA por padrao; os settings da suite o tem desligado (W008/W012)
+@override_settings(ADMIN_2FA_OBRIGATORIO=True, PROFISSIONAL_2FA_OBRIGATORIO=True)
 class ChecksProducaoTests(SimpleTestCase):
     def _ids(self, **env):
         with _config(**env):
@@ -162,14 +163,14 @@ class ChecksProducaoTests(SimpleTestCase):
 
     @override_settings(DEBUG=True)
     def test_mudo_em_debug(self):
-        self.assertEqual(self._ids(ZENVIA_API_TOKEN=''), [])
+        self.assertEqual(self._ids(SMSGO_API_KEY=''), [])
 
     @override_settings(
         DEBUG=False, SITE_URL='http://127.0.0.1:8000', SMS_DEV_LOG_ONLY=False,
         EMAIL_BACKEND='django.core.mail.backends.dummy.EmailBackend', PROFISSIONAL_2FA_OBRIGATORIO=True,
     )
     def test_config_ausente_gera_warnings(self):
-        ids = self._ids(ZENVIA_API_TOKEN='', ZENVIA_FROM='', WHATSAPP_NUMERO='',
+        ids = self._ids(SMSGO_API_KEY='', WHATSAPP_NUMERO='',
                         CRON_TOKEN='', CLINIC_EMAIL='')
         self.assertEqual(ids, ['aranha.W001', 'aranha.W002', 'aranha.W003', 'aranha.W004',
                                'aranha.W005', 'aranha.W007'])
@@ -187,11 +188,11 @@ class ChecksProducaoTests(SimpleTestCase):
         with override_settings(EMAIL_BACKEND='django.core.mail.backends.filebased.EmailBackend'):
             self.assertFalse(email_utils.email_configurado())
 
-    @override_settings(**_PROD_OK, ADMIN_2FA_OBRIGATORIO=False)
+    @override_settings(**{**_PROD_OK, 'ADMIN_2FA_OBRIGATORIO': False})
     def test_2fa_de_admin_desligado_em_prod_avisa(self):
         self.assertEqual(self._ids(**_ENV_PROD_OK), ['aranha.W008'])
 
-    @override_settings(**_PROD_OK, ADMIN_2FA_OBRIGATORIO=True)
+    @override_settings(**_PROD_OK)
     def test_2fa_de_admin_ligado_nao_avisa(self):
         self.assertEqual(self._ids(**_ENV_PROD_OK), [])
 
@@ -255,7 +256,7 @@ class ChecksProducaoTests(SimpleTestCase):
         self.assertEqual(self._ids(**{**sem, 'TURNSTILE_SECRET_KEY': 'ts'}), ['aranha.W009'])
         self.assertEqual(self._ids(**_ENV_PROD_OK), [])
         # sem provedor de SMS o aviso e o W002 (nao duplica)
-        self.assertEqual(self._ids(**{**sem, 'ZENVIA_API_TOKEN': ''}), ['aranha.W002'])
+        self.assertEqual(self._ids(**{**sem, 'SMSGO_API_KEY': ''}), ['aranha.W002'])
 
     def test_w009_silenciado_no_runner(self):
         for check_id in ('aranha.W009', 'aranha.W010', 'aranha.W011'):

@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from aranha_estetica.excecoes import RegraDeNegocio
 from aranha_estetica.models import AceiteTermo, Atendimento, Cliente, Consentimento, LogAuditoria, Prontuario, VersaoTermo
-from aranha_estetica.services import agenda, otp, portal_cliente
+from aranha_estetica.services import agenda, sessao_cliente
 
 from .factories import criar_cliente, criar_notificacao_com_link, criar_procedimento, criar_profissional
 
@@ -37,31 +37,56 @@ def _atendimento(cliente, prof, proc, inicio, status='AGENDADO'):
 
 def _logar(client, telefone=TEL, verificado_ha=timedelta(minutes=1)):
     session = client.session
-    session[portal_cliente.SESSAO_MEUS_AGENDAMENTOS] = telefone
-    session[portal_cliente.SESSAO_VERIFICADA_EM] = (timezone.now() - verificado_ha).isoformat()
+    session[sessao_cliente.SESSAO_TELEFONE] = telefone
+    session[sessao_cliente.SESSAO_VERIFICADO_EM] = (timezone.now() - verificado_ha).isoformat()
     session.save()
 
 
-class SessaoDoWizardTests(TestCase):
-    def _request(self, expira_em):
+class SessaoUnicaDaClienteTests(TestCase):
+    """Uma sessao so: o codigo do wizard abre a area da cliente e o do portal libera agendar."""
+
+    def _request(self, verificado_ha=None):
         req = RequestFactory().get('/')
         req.session = SessionStore()
-        req.session[otp.SESSAO_AGENDAMENTO] = TEL
-        req.session[otp.SESSAO_AGENDAMENTO_EXPIRA] = expira_em.isoformat()
+        sessao_cliente.registrar_verificacao(req, TEL)
+        if verificado_ha is not None:
+            req.session[sessao_cliente.SESSAO_VERIFICADO_EM] = (timezone.now() - verificado_ha).isoformat()
         return req
 
-    def test_abre_sem_novo_sms_com_a_hora_do_otp_do_wizard(self):
-        req = self._request(timezone.now() + otp.VALIDADE_VERIFICACAO - timedelta(minutes=2))
-        portal_cliente.abrir_sessao_do_wizard(req, TEL)
-        self.assertEqual(portal_cliente.telefone_da_sessao(req), TEL)
-        self.assertTrue(portal_cliente.sessao_recente(req))
-        self.assertEqual(req.session.get_expiry_age(), portal_cliente.DURACAO_SESSAO_SEGUNDOS)
+    def test_um_codigo_abre_a_area_e_libera_agendar(self):
+        req = self._request()
+        self.assertEqual(sessao_cliente.telefone(req), TEL)
+        self.assertEqual(sessao_cliente.telefone_para_agendamento(req), TEL)
+        self.assertTrue(sessao_cliente.verificado_ha_no_maximo(req, sessao_cliente.JANELA_DADOS))
+        self.assertEqual(req.session.get_expiry_age(), sessao_cliente.DURACAO_SESSAO_SEGUNDOS)
 
-    def test_otp_do_wizard_antigo_nao_libera_o_download(self):
-        req = self._request(timezone.now() + timedelta(minutes=5))   # verificado ha 25 min
-        portal_cliente.abrir_sessao_do_wizard(req, TEL)
-        self.assertEqual(portal_cliente.telefone_da_sessao(req), TEL)
-        self.assertFalse(portal_cliente.sessao_recente(req))
+    def test_pedido_gasta_a_verificacao_mas_a_area_segue_aberta(self):
+        req = self._request()
+        sessao_cliente.registrar_agendamento(req)
+        self.assertEqual(sessao_cliente.telefone_para_agendamento(req), '')
+        self.assertEqual(sessao_cliente.telefone(req), TEL)
+        sessao_cliente.registrar_verificacao(req, TEL)   # outro SMS libera o proximo pedido
+        self.assertEqual(sessao_cliente.telefone_para_agendamento(req), TEL)
+
+    def test_verificacao_antiga_nao_libera_download_nem_agendamento(self):
+        req = self._request(verificado_ha=timedelta(minutes=25))
+        self.assertEqual(sessao_cliente.telefone(req), TEL)
+        self.assertFalse(sessao_cliente.verificado_ha_no_maximo(req, sessao_cliente.JANELA_DADOS))
+        self.assertEqual(sessao_cliente.telefone_para_agendamento(req), TEL)   # 25 min < 30
+        req = self._request(verificado_ha=timedelta(minutes=31))
+        self.assertEqual(sessao_cliente.telefone_para_agendamento(req), '')
+        self.assertEqual(sessao_cliente.telefone(req), TEL)
+
+    def test_sessoes_antigas_do_wizard_e_do_portal_saem_ao_abrir_e_ao_sair(self):
+        req = RequestFactory().get('/')
+        req.session = SessionStore()
+        req.session['otp_agendamento_telefone'] = TEL
+        req.session['meus_agendamentos_telefone'] = TEL
+        sessao_cliente.registrar_verificacao(req, TEL)
+        self.assertNotIn('otp_agendamento_telefone', req.session)
+        self.assertNotIn('meus_agendamentos_telefone', req.session)
+        sessao_cliente.encerrar(req)
+        self.assertEqual(sessao_cliente.telefone(req), '')
 
 
 @override_settings(RATELIMIT_ENABLE=False)
@@ -84,7 +109,7 @@ class AreaDaClienteTests(TestCase):
         _logar(self.client)
         self.assertEqual(self.client.get(reverse('aranha:meus_agendamentos_logout')).status_code, 405)
         self.client.post(reverse('aranha:meus_agendamentos_logout'))
-        self.assertNotIn(portal_cliente.SESSAO_MEUS_AGENDAMENTOS, self.client.session)
+        self.assertNotIn(sessao_cliente.SESSAO_TELEFONE, self.client.session)
 
     def test_preferencias_gravam_com_origem_portal(self):
         _logar(self.client)
@@ -133,7 +158,7 @@ class AreaDaClienteTests(TestCase):
         _logar(self.client, verificado_ha=timedelta(minutes=25))
         resp = self.client.post(reverse('aranha:portal_meus_dados'))
         self.assertRedirects(resp, reverse('aranha:meus_agendamentos'), fetch_redirect_response=False)
-        self.assertNotIn(portal_cliente.SESSAO_MEUS_AGENDAMENTOS, self.client.session)   # pede codigo novo
+        self.assertNotIn(sessao_cliente.SESSAO_TELEFONE, self.client.session)   # pede codigo novo
 
         _logar(self.client, verificado_ha=timedelta(minutes=3))
         resp = self.client.post(reverse('aranha:portal_meus_dados'))

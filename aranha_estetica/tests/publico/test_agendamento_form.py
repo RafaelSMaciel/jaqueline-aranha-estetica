@@ -18,8 +18,8 @@ class AgendamentoPublicoFormTests(TestCase):
         self.proc = criar_procedimento(profissional=self.prof)
         self.request = RequestFactory().post('/agendamento/confirmar/')
         self.request.session = SessionStore()
-        self.request.session['otp_agendamento_telefone'] = '17988887777'
-        self.request.session['otp_agendamento_expira'] = (timezone.now() + timedelta(minutes=10)).isoformat()
+        self.request.session['cliente_telefone'] = '17988887777'
+        self.request.session['cliente_verificado_em'] = (timezone.now() - timedelta(minutes=1)).isoformat()
 
     def _form(self, **campos):
         dados = {

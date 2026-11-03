@@ -1,13 +1,14 @@
 """
-SMS Notification Service — Plataforma de Clinicas (Provider: Zenvia REST API v2)
+SMS do codigo OTP (agendamento online, "Meus agendamentos" e "Meus dados") — unico uso do SMS;
+as demais mensagens seguem por e-mail ou WhatsApp.
 
-Uso atual: apenas OTP de autenticacao/agendamento (canal primario).
-Todas as demais mensagens transacionais seguem por email.
+Provedores (settings.SMS_PROVEDOR; o resto do sistema so chama enviar_sms/enviar_otp_sms):
+  smsgo   (padrao) pre-pago sem mensalidade. SMSGO_API_KEY (a SMSGo-key da conta) vira um token
+          Bearer de 48 h (GET /v1/auth/token, guardado no cache); o envio e POST /v1/sms/send/single
+          com {phone (+55...), message, from?}. SMSGO_REMETENTE opcional, SMSGO_API_URL.
+  zenvia  pacote mensal. ZENVIA_API_TOKEN (header X-API-TOKEN), ZENVIA_FROM, ZENVIA_API_URL.
 
-Configuracao (settings, lidos em tempo de chamada; env de mesmo nome em settings/base.py):
-  ZENVIA_API_TOKEN     Token X-API-TOKEN da Zenvia
-  ZENVIA_FROM          Identificador do remetente (integracao SMS Zenvia)
-  ZENVIA_API_URL       URL da API de envio
+Comum (settings, lidos em tempo de chamada; env de mesmo nome em settings/base.py):
   SMS_DEV_LOG_ONLY     True = apenas loga sem chamar API (dev/testes/staging)
   SMS_MAX_POR_HORA, SMS_MAX_POR_IP_HORA, SMS_MAX_GLOBAL_HORA   quotas anti-abuso por hora
 
@@ -34,10 +35,16 @@ TIMEOUT = (3, 5)
 # TTL (segundos) da janela de rate limit dos contadores de quota = 1 hora
 RATE_LIMIT_TTL = 3600
 
+# Token Bearer da SMSGo: vale 48 h; guardado um pouco menos para nunca usar um vencido.
+SMSGO_TOKEN_CACHE = 'sms:smsgo:token'
+SMSGO_TOKEN_TTL = 47 * 3600
+
 
 def sms_configurado() -> bool:
-    """True se as credenciais da Zenvia existem (token + remetente)."""
-    return bool(settings.ZENVIA_API_TOKEN and settings.ZENVIA_FROM)
+    """True se a credencial do provedor escolhido (settings.SMS_PROVEDOR) existe."""
+    if settings.SMS_PROVEDOR == 'zenvia':
+        return bool(settings.ZENVIA_API_TOKEN and settings.ZENVIA_FROM)
+    return bool(settings.SMSGO_API_KEY)
 
 
 def sms_modo_dev() -> bool:
@@ -124,7 +131,7 @@ def registrar_envio(telefone: str, ip: Optional[str] = None) -> None:
 
 
 def enviar_sms(telefone: str, mensagem: str) -> bool:
-    """Envia SMS via Zenvia (1 tentativa, timeout curto). True = aceito pelo provedor.
+    """Envia SMS pelo provedor escolhido (1 tentativa, timeout curto). True = aceito pelo provedor.
 
     Modo dev (DEBUG/SMS_DEV_LOG_ONLY): apenas loga e retorna True.
     Sem provedor configurado fora do modo dev: retorna False (falha fechada).
@@ -148,42 +155,89 @@ def enviar_sms(telefone: str, mensagem: str) -> bool:
             logger.info('sms_dev_log', extra=extra)
         return True
 
-    token = settings.ZENVIA_API_TOKEN
-    remetente = settings.ZENVIA_FROM
-    if not token or not remetente:
-        logger.error('sms_zenvia_nao_configurado')
+    if not sms_configurado():
+        logger.error('sms_nao_configurado', extra={'provedor': settings.SMS_PROVEDOR})
         return False
+    if settings.SMS_PROVEDOR == 'zenvia':
+        return _enviar_zenvia(telefone_fmt, mensagem)
+    return _enviar_smsgo(telefone_fmt, mensagem)
 
-    payload = {
-        'from': remetente,
-        'to': telefone_fmt,
-        'contents': [{'type': 'text', 'text': mensagem}],
-    }
-    headers = {
-        'X-API-TOKEN': token,
-        'Content-Type': 'application/json',
-    }
 
+def _requisicao(metodo: str, url: str, telefone_fmt: str, **kwargs):
+    """Uma chamada HTTP ao provedor com o TIMEOUT curto; None se nao houve resposta (ja logado)."""
     try:
-        response = requests.post(
-            settings.ZENVIA_API_URL,
-            json=payload, headers=headers, timeout=TIMEOUT,
-        )
+        return requests.request(metodo, url, timeout=TIMEOUT, **kwargs)
     except requests.exceptions.Timeout:
         logger.error('sms_timeout', extra={'telefone_mask': _mask(telefone_fmt)})
-        return False
     except requests.exceptions.RequestException as e:
         logger.error('sms_request_exception', extra={'error': str(e)})
-        return False
+    return None
 
-    if response.status_code in (200, 201, 202):
-        logger.info('sms_enviado', extra={'telefone_mask': _mask(telefone_fmt)})
+
+def _resultado(response, telefone_fmt: str) -> bool:
+    if response is None:
+        return False
+    provedor = settings.SMS_PROVEDOR
+    if 200 <= response.status_code < 300:
+        logger.info('sms_enviado', extra={'telefone_mask': _mask(telefone_fmt), 'provedor': provedor})
         return True
     logger.error(
         'sms_erro_http',
-        extra={'status': response.status_code, 'body': response.text[:200]},
+        extra={'status': response.status_code, 'body': response.text[:200], 'provedor': provedor},
     )
     return False
+
+
+def _enviar_zenvia(telefone_fmt: str, mensagem: str) -> bool:
+    payload = {
+        'from': settings.ZENVIA_FROM,
+        'to': telefone_fmt,
+        'contents': [{'type': 'text', 'text': mensagem}],
+    }
+    headers = {'X-API-TOKEN': settings.ZENVIA_API_TOKEN, 'Content-Type': 'application/json'}
+    resposta = _requisicao('POST', settings.ZENVIA_API_URL, telefone_fmt, json=payload, headers=headers)
+    return _resultado(resposta, telefone_fmt)
+
+
+def _token_smsgo(telefone_fmt: str, *, renovar: bool = False) -> str:
+    """Token Bearer da SMSGo (do cache; troca a chave da conta por um novo se faltar ou se `renovar`)."""
+    if not renovar:
+        token = cache.get(SMSGO_TOKEN_CACHE)
+        if token:
+            return token
+    resposta = _requisicao('GET', f'{settings.SMSGO_API_URL}/v1/auth/token', telefone_fmt,
+                           headers={'SMSGo-key': settings.SMSGO_API_KEY, 'Accept': 'application/json'})
+    if resposta is None:
+        return ''
+    try:
+        token = str(resposta.json().get('token') or '') if resposta.status_code == 200 else ''
+    except (ValueError, AttributeError):
+        token = ''
+    if not token:
+        logger.error('sms_smsgo_autenticacao_falhou', extra={'status': resposta.status_code})
+        return ''
+    cache.set(SMSGO_TOKEN_CACHE, token, SMSGO_TOKEN_TTL)
+    return token
+
+
+def _enviar_smsgo(telefone_fmt: str, mensagem: str) -> bool:
+    payload = {'phone': f'+{telefone_fmt}', 'message': mensagem}
+    if settings.SMSGO_REMETENTE:
+        payload['from'] = settings.SMSGO_REMETENTE
+    url = f'{settings.SMSGO_API_URL}/v1/sms/send/single'
+    resposta = None
+    # Token vencido ou revogado (401): troca a chave por um novo uma vez. Nao e retry do envio:
+    # com 401 a SMSGo nao aceitou a mensagem.
+    for renovar in (False, True):
+        token = _token_smsgo(telefone_fmt, renovar=renovar)
+        if not token:
+            return False
+        resposta = _requisicao('POST', url, telefone_fmt, json=payload,
+                               headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'})
+        if resposta is None or resposta.status_code != 401:
+            break
+        cache.delete(SMSGO_TOKEN_CACHE)
+    return _resultado(resposta, telefone_fmt)
 
 
 def enviar_otp_sms(telefone: str, codigo: str, ip: Optional[str] = None) -> bool:

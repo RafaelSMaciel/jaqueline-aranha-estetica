@@ -235,7 +235,7 @@ verde em SQLite e Postgres).
       1º aceite, mudar exige versão nova (runbook §14 a; [`LGPD.md`](LGPD.md))
 - [ ] Backup configurado antes do 1º cliente real (o go-live cria o banco novo; ensaio
       0026→0079 só se o banco antigo for reaproveitado — runbook §14 a.1)
-- [ ] Env no Railway (`DATABASE_URL` por referência, ADMIN_*, SITE_URL, ZENVIA_*, EMAIL_BACKEND +
+- [ ] Env no Railway (`DATABASE_URL` por referência, ADMIN_*, SITE_URL, SMSGO_API_KEY, EMAIL_BACKEND +
       provedor, WHATSAPP_*, TURNSTILE_*, SENTRY_DSN, CLINIC_EMAIL; CRON_TOKEN só com o cron HTTP)
       e remover `STATIC_ROOT` e as legadas (`GOOGLE_OAUTH_*`, `AWS_*`)
 - [ ] Provedor de e-mail: `django-anymail` já instalado — escolher o provedor (ex.: Resend) e
@@ -270,14 +270,16 @@ verde em SQLite e Postgres).
 - [x] ~~`tests/test_pg_ddl.py` sem os triggers da 0046~~ resolvido.
 - [x] ~~Django admin: `ProntuarioVersao` somente leitura~~ resolvido (com trilha de leitura).
 - [x] ~~Consentimento de saúde só em log~~ resolvido (termo SAUDE v1.0 + `AceiteTermo` com prova).
-- [ ] Hardening opcional do 2FA: settings de teste com `ADMIN_2FA_OBRIGATORIO=False` e tirar a
-      dependência do marcador `usuario_id` no `Enforce2FAMiddleware`
+- [x] ~~Hardening do 2FA~~ feito (2026-11-03): settings da suite com `ADMIN_2FA_OBRIGATORIO` e
+      `PROFISSIONAL_2FA_OBRIGATORIO` desligados; o `Enforce2FAMiddleware` confere a obrigatoriedade
+      em qualquer sessão autenticada (o marcador `usuario_id` do login saiu).
 - [x] ~~Baixa: `isdigit()` aceita "²"~~ resolvido (`utils/parse.id_int` e nota NPS por regex).
 - [x] ~~Baixa: `ListaEspera.token_reserva`/`expira_em` e o fallback `LEMBRETE/EMAIL` de
       `services/termos.Q_NOTIF_TERMO`~~ saíram (o lembrete D-1 por e-mail é LEMBRETE/EMAIL de verdade).
 - [x] ~~Baixa: docstring de `utils/dois_fatores.verificar_token` descrevia o `--force` antigo~~
       corrigida (2026-10-29: o `--force` apaga todos os devices)
-- [ ] Baixa: `painel/termo_link.html` oferece `mailto:` para o e-mail do cadastro (não verificado)
+- [x] ~~Baixa: `painel/termo_link.html` oferecia `mailto:` para o e-mail do cadastro (não verificado)~~
+      resolvido (2026-11-03): o link do termo vai pelo WhatsApp do celular, copiado ou aberto no balcão.
 - [x] ~~Revogar o consentimento de saúde não invalidava a ficha em dia~~ resolvido: `valida_desde`
       considera `saude_revogada_em` (wizard e marcador do painel) — o próximo atendimento pede ficha
       e aceite SAÚDE novos.
@@ -294,16 +296,18 @@ verde em SQLite e Postgres).
       FullCalendar reprovada no axe~~ resolvido (2026-10-29, D50): FullCalendar 6.1.21 e Chart.js 4.5.1
       do npm no bundle do Vite, jsDelivr fora da CSP; ARIA de grade achatado no `painel-calendario.js`;
       varredura visual com axe-core no CI (`tests/test_crawl_visual.py`).
-- [ ] Tirar o jsDelivr da lista de operadores da política (`conteudo/lgpd.OPERADORES`, cobrado em
-      `tests/test_politica_dsar.py`) e da tabela de [`LGPD.md`](LGPD.md) §3: desde a D50 nenhuma
-      página carrega nada dele. Junto com a revisão jurídica da política (item da operação, acima)
-- [ ] Registry de regras (spec 5.1) e sessão única de cliente verificado (5.3) — ver
+- [x] ~~Tirar o jsDelivr da lista de operadores da política~~ resolvido (2026-11-03): saiu de
+      `conteudo/lgpd.OPERADORES` e de [`LGPD.md`](LGPD.md) §3; `test_politica_dsar` cobra a ausência.
+- [x] ~~Registry de regras (spec 5.1) e sessão única de cliente verificada (5.3)~~ feitos
+      (2026-11-03): catálogo `aranha_estetica/regras.py` gera a tabela de valores do
+      `REGRAS-DE-NEGOCIO.md` (§24, `manage.py gerar_docs_regras`, teste contra drift) e
+      `services/sessao_cliente` é a sessão única — ver
       [`specs/regras-negocio-registry.md`](specs/regras-negocio-registry.md)
-- [ ] **No radar (custo)** — a clínica prevê até 60 atendimentos/mês
-      ([`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md) §5): trocar a Zenvia (pacote mínimo de
-      R$ 100/mês) por SMS pré-pago sem mensalidade, com um adaptador em `utils/sms` (≈ R$ 92,80/mês a
-      menos; o sistema passa de ≈ R$ 143 para ≈ R$ 50/mês). Na implantação, e-mail pelo Brevo Free (só
-      configuração). Opcional, depois: código de acesso pelo WhatsApp (template de autenticação).
+- [x] ~~**Custo:** trocar a Zenvia por SMS pré-pago~~ feito (2026-11-03): `utils/sms` com dois
+      provedores, SMSGo pré-pago por padrão (`SMS_PROVEDOR=smsgo`, `SMSGO_API_KEY`; ≈ R$ 92,80/mês a
+      menos) e Zenvia como opção ([`CUSTOS-OPERACIONAIS.md`](CUSTOS-OPERACIONAIS.md) §5). Fica para a
+      implantação: e-mail pelo Brevo Free (só configuração). Opcional, depois: código de acesso pelo
+      WhatsApp (template de autenticação).
 - [ ] Decidido não fazer (por ora): UNIQUE de regra de comissão ativa (quebraria o desempate por
       "mais recente"); consentimento de WhatsApp para marketing. (O trigger de `updated_at`
       entrou na 0056; nomes em inglês na 0079.)

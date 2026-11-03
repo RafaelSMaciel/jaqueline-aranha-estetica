@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from aranha_estetica.models import Cliente, ListaEspera
 from aranha_estetica.services import lista_espera
-from aranha_estetica.services import otp as otp_service
+from aranha_estetica.services import sessao_cliente
 from aranha_estetica.utils import datas
 
 from .factories import criar_atendimento, criar_cliente, criar_procedimento, criar_profissional
@@ -44,10 +44,10 @@ class _Base(TestCase):
         return self.client.post(self.url, data)
 
     def _verificar_telefone_na_sessao(self, digitos='17988880000'):
-        """Simula o celular confirmado por SMS no wizard (otp.registrar_verificacao_agendamento)."""
+        """Simula o celular confirmado por SMS (sessao_cliente.registrar_verificacao)."""
         session = self.client.session
-        session[otp_service.SESSAO_AGENDAMENTO] = digitos
-        session[otp_service.SESSAO_AGENDAMENTO_EXPIRA] = (timezone.now() + timedelta(minutes=30)).isoformat()
+        session[sessao_cliente.SESSAO_TELEFONE] = digitos
+        session[sessao_cliente.SESSAO_VERIFICADO_EM] = (timezone.now() - timedelta(minutes=1)).isoformat()
         session.save()
 
 

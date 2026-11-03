@@ -3655,7 +3655,7 @@
    },
    {
     "nome": "Serviços externos",
-    "descricao": "Zenvia (SMS/OTP e status de entrega), WhatsApp Cloud API (lembrete, NPS, aviso de vaga e respostas — nota e \"PARAR\" — via webhook assinado), provedor de e-mail, Cloudflare Turnstile e Sentry."
+    "descricao": "SMS pré-pago SMSGo (OTP; Zenvia como opção, com status de entrega), WhatsApp Cloud API (lembrete, NPS, aviso de vaga e respostas — nota e \"PARAR\" — via webhook assinado), provedor de e-mail, Cloudflare Turnstile e Sentry."
    }
   ],
   "casos_de_uso": [
@@ -3681,7 +3681,7 @@
      "Cliente cadastrada",
      "Serviços externos"
     ],
-    "fluxo": "Cliente informa o celular; o sistema valida o captcha (se configurado), recusa telefone fixo, checa intervalo e cotas de SMS, gera o código (HMAC) e envia pela Zenvia. A cliente digita o código; o sistema confere (5 tentativas) e marca o telefone como verificado na sessão por 30 min, devolvendo o pré-preenchimento do cadastro daquele telefone.",
+    "fluxo": "Cliente informa o celular; o sistema valida o captcha (se configurado), recusa telefone fixo, checa intervalo e cotas de SMS, gera o código (HMAC) e envia pelo provedor de SMS (SMSGo pré-pago; Zenvia como opção). A cliente digita o código; o sistema confere (5 tentativas) e marca o telefone como verificado na sessão por 30 min, devolvendo o pré-preenchimento do cadastro daquele telefone.",
     "inclui": []
    },
    {
@@ -4044,8 +4044,8 @@
   ],
   "integracoes_externas": [
    {
-    "nome": "Zenvia SMS",
-    "uso": "OTP do agendamento, do \"Meus agendamentos\" e do DSAR (só celular), com cotas; webhook de status autenticado (segredo no header e/ou IP). Sem configuração o agendamento online fecha e o botão Agendar leva ao WhatsApp."
+    "nome": "SMS (SMSGo pré-pago; Zenvia opcional)",
+    "uso": "OTP do agendamento, do \"Meus agendamentos\" e do DSAR (só celular), com cotas. SMSGo por padrão (sem mensalidade; chave da conta trocada por token de 48 h); com a Zenvia, webhook de status autenticado (segredo no header e/ou IP). Sem configuração o agendamento online fecha e o botão Agendar leva ao WhatsApp."
    },
    {
     "nome": "WhatsApp Cloud API (Meta)",
@@ -4077,7 +4077,7 @@
    "Escolhe procedimento e data; o wizard consulta /ajax/dias-disponiveis/ e /ajax/horarios-disponiveis/ (SlotService sobre agenda_horario, agenda_excecao e atendimentos ativos).",
    "Escolhe o horário e o profissional e avança com o botão Continuar.",
    "Informa nome, celular, nascimento e e-mail opcional; marca (nunca pré-marcadas) as autorizações de comunicação; aceita a Política de Privacidade e os termos; responde a ficha e o consentimento de saúde.",
-   "Pede o código: o servidor valida o Turnstile, recusa fixo, confere intervalo de 60 s e cotas de SMS e grava o CodigoOtp (HMAC-SHA256); a Zenvia entrega o SMS.",
+   "Pede o código: o servidor valida o Turnstile, recusa fixo, confere intervalo de 60 s e cotas de SMS e grava o CodigoOtp (HMAC-SHA256); o provedor de SMS (SMSGo, ou Zenvia se escolhida) entrega o SMS.",
    "Digita o código: até 5 tentativas; o telefone fica verificado na sessão por 30 min e o cadastro daquele telefone pré-preenche o formulário.",
    "Confirma: o servidor exige o telefone do formulário = o verificado, o aceite da política e idade ≥ 18.",
    "services/agendamento_online.solicitar: termo LGPD vigente, services/agenda.validar_horario (habilitação, horário futuro, feriado/recesso e o slot), fichas obrigatórias pendentes ou vencidas (a respondida há menos de 12 meses não é exigida), termos do procedimento e e-mail de outro cadastro.",

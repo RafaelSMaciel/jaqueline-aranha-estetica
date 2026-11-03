@@ -18,12 +18,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 
+# Padrao de cada env lida por _env_texto/_env_int: o catalogo de regras (aranha_estetica/regras.py)
+# documenta o padrao, nao o valor do ambiente de quem gera o documento.
+PADROES_ENV: dict[str, str | int] = {}
+
+
 def _env_texto(nome: str, padrao: str = '') -> str:
+    PADROES_ENV.setdefault(nome, padrao)
     return (os.environ.get(nome) or padrao).strip()
 
 
 def _env_int(nome: str, padrao: int) -> int:
     valor = _env_texto(nome)
+    PADROES_ENV[nome] = padrao
     if not valor:
         return padrao
     try:
@@ -349,7 +356,7 @@ CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 # 8h jornada (configuravel) — antes era 1h, ruim p/ profissionais que ficam logados o dia
-SESSION_COOKIE_AGE = int(os.environ.get('SESSION_COOKIE_AGE', 8 * 3600))
+SESSION_COOKIE_AGE = _env_int('SESSION_COOKIE_AGE', 8 * 3600)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # False evita gravar sessao em DB/Redis a cada request (overhead em alta carga)
 SESSION_SAVE_EVERY_REQUEST = False
@@ -429,7 +436,18 @@ OTP_TTL_SEGUNDOS = _env_int('OTP_TTL_SEGUNDOS', 600)
 OTP_MAX_TENTATIVAS = _env_int('OTP_MAX_TENTATIVAS', 5)
 OTP_REENVIO_MINIMO_SEG = _env_int('OTP_REENVIO_MINIMO_SEG', 60)
 
-# SMS pela Zenvia (utils/sms): sem token + remetente o envio falha fechado. Quotas por hora.
+# SMS do codigo OTP (utils/sms). SMS_PROVEDOR escolhe o provedor: smsgo (padrao, pre-pago sem
+# mensalidade e com creditos que nao expiram — docs/CUSTOS-OPERACIONAIS.md §5) ou zenvia (pacote
+# mensal). Sem a credencial do provedor escolhido o envio falha fechado. Quotas por hora p/ os dois.
+SMS_PROVEDOR = _env_texto('SMS_PROVEDOR', 'smsgo').lower()
+if SMS_PROVEDOR not in ('smsgo', 'zenvia'):
+    raise ImproperlyConfigured(f'SMS_PROVEDOR={SMS_PROVEDOR!r}: use smsgo ou zenvia.')
+# SMSGo: a chave da conta (SMSGo-key) vira um token Bearer de 48 h; o remetente e opcional.
+# Chave com prefixo test_ = modo de teste da SMSGo (responde como producao, nao envia nem cobra).
+SMSGO_API_KEY = _env_texto('SMSGO_API_KEY')
+SMSGO_REMETENTE = _env_texto('SMSGO_REMETENTE')
+SMSGO_API_URL = _env_texto('SMSGO_API_URL', 'https://api.smsgo.com.br').rstrip('/')
+# Zenvia: token + remetente.
 ZENVIA_API_TOKEN = _env_texto('ZENVIA_API_TOKEN')
 ZENVIA_FROM = _env_texto('ZENVIA_FROM')
 ZENVIA_API_URL = _env_texto('ZENVIA_API_URL', 'https://api.zenvia.com/v2/channels/sms/messages')
@@ -597,13 +615,13 @@ CRON_MONITOR_URL = os.environ.get('CRON_MONITOR_URL', '').strip()
 
 # ─── RETENCAO (job_housekeeping) ─────────────────────────────────────
 # docs/specs/regras-negocio-registry.md: otp 24h · notif 12m · auditoria 5a
-RETENCAO_OTP_HORAS = int(os.environ.get('RETENCAO_OTP_HORAS', '24'))
-RETENCAO_NOTIFICACAO_DIAS = int(os.environ.get('RETENCAO_NOTIFICACAO_DIAS', '365'))
-RETENCAO_LOG_AUDITORIA_DIAS = int(os.environ.get('RETENCAO_LOG_AUDITORIA_DIAS', str(365 * 5)))
-RETENCAO_AXES_LOG_DIAS = int(os.environ.get('RETENCAO_AXES_LOG_DIAS', '90'))
+RETENCAO_OTP_HORAS = _env_int('RETENCAO_OTP_HORAS', 24)
+RETENCAO_NOTIFICACAO_DIAS = _env_int('RETENCAO_NOTIFICACAO_DIAS', 365)
+RETENCAO_LOG_AUDITORIA_DIAS = _env_int('RETENCAO_LOG_AUDITORIA_DIAS', 365 * 5)
+RETENCAO_AXES_LOG_DIAS = _env_int('RETENCAO_AXES_LOG_DIAS', 90)
 # link_acesso vencido/revogado ha mais de N dias e apagado (sp_purgar_dados_expirados);
 # historico_alteracao segue RETENCAO_LOG_AUDITORIA_DIAS (prontuario: 20 anos, com o expurgo de saude)
-RETENCAO_LINK_ACESSO_DIAS = int(os.environ.get('RETENCAO_LINK_ACESSO_DIAS', '90'))
+RETENCAO_LINK_ACESSO_DIAS = _env_int('RETENCAO_LINK_ACESSO_DIAS', 90)
 
 # ─── RETENCAO LGPD (prazos publicados na Politica de Privacidade) ──────
 # Fonte unica dos prazos que services/lgpd passa as procedures (fn_clientes_para_anonimizar,

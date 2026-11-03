@@ -10,7 +10,7 @@ from django.utils import timezone
 from aranha_estetica.models import Usuario
 from aranha_estetica.services.agendamento import formatar_valor_atendimento
 from aranha_estetica.services.pacotes import sessoes_previstas
-from aranha_estetica.views.publico.verificacao import SESSAO_MEUS_AGENDAMENTOS
+from aranha_estetica.services.sessao_cliente import SESSAO_TELEFONE
 
 from .factories import (
     criar_atendimento, criar_cliente, criar_compra_pacote, criar_pacote, criar_procedimento, criar_profissional,
@@ -53,6 +53,6 @@ class SessaoPrevistaTests(TestCase):
         self.assertContains(self.client.get(reverse('aranha:painel_agendamentos'), {'data': dia}), 'Pacote · restam 1')
         cliente = Client()
         sessao = cliente.session
-        sessao[SESSAO_MEUS_AGENDAMENTOS] = self.cli.telefone
+        sessao[SESSAO_TELEFONE] = self.cli.telefone
         sessao.save()
         self.assertContains(cliente.get(reverse('aranha:meus_agendamentos')), 'Sessão do pacote Glow (restam 1)')

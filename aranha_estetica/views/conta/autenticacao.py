@@ -94,9 +94,6 @@ def usuario_login(request):
             auth_login(request, usuario)
             # SEGURANÇA: Regenerar sessão para prevenir Session Fixation
             request.session.cycle_key()
-            # Marca da sessao da equipe: o Enforce2FAMiddleware confere o 2FA
-            # obrigatorio a cada request (promocao a ADMIN, valvula religada)
-            request.session[dois_fatores.SESSION_LOGIN_EQUIPE] = usuario.pk
             request.session['usuario_nome'] = usuario.nome
 
             messages.success(request, f'Bem-vindo(a), {usuario.nome}!')

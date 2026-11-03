@@ -69,7 +69,7 @@ TRATAMENTOS = (
 # (operador, para que, observacao) — art. 9 V e art. 33
 OPERADORES = (
     ('Railway', 'hospedagem do site e do banco de dados', 'pode tratar dados fora do Brasil'),
-    ('Zenvia', 'envio do código de confirmação por SMS', ''),
+    ('SMSGo', 'envio do código de confirmação por SMS', ''),
     ('Meta (WhatsApp Business)', 'mensagens de WhatsApp de lembrete, pesquisa e aviso de vaga, só com o '
      'seu consentimento', 'trata dados fora do Brasil'),
     ('Provedor de envio de e-mail contratado pela clínica', 'e-mails de confirmação, lembrete e, com o seu '
@@ -83,7 +83,6 @@ OPERADORES = (
     ('Aplicativo de calendário escolhido pela profissional (Google, Apple ou Microsoft)', 'agenda da '
      'profissional: data, horário, procedimento, primeiro nome e inicial do sobrenome', 'pode tratar dados '
      'fora do Brasil'),
-    ('jsDelivr', 'bibliotecas usadas só no painel interno da equipe', 'não recebe dados de clientes'),
 )
 
 # (o que, chave em settings, valor padrao, unidade, complemento) — o padrao TEM que ser o do settings

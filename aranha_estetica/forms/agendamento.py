@@ -20,8 +20,7 @@ from django.core.validators import validate_email
 from django.utils import timezone
 
 from ..models import Procedimento, Profissional
-from ..services import consentimentos
-from ..services import otp as otp_service
+from ..services import consentimentos, sessao_cliente
 from ..services.agendamento_online import PedidoAgendamento
 from ..utils import telefone as telefone_br
 from ..utils.datas import hoje as hoje_local, ler_data
@@ -102,7 +101,7 @@ class AgendamentoPublicoForm(forms.Form):
             raise ValidationError(MSG_CELULAR, code='celular')
         # Gate unico: o telefone do agendamento precisa ser o verificado por SMS nesta sessao
         # (vale p/ cliente novo e recorrente; e-mail nunca e identidade).
-        if otp_service.telefone_verificado_agendamento(self.request) != telefone:
+        if sessao_cliente.telefone_para_agendamento(self.request) != telefone:
             raise ValidationError(MSG_SEM_OTP, code='sem_otp')
         return telefone
 

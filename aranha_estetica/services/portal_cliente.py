@@ -1,7 +1,7 @@
 """Area da cliente ("Meus agendamentos") — sessao, titular e pedidos LGPD (decisao 39).
 
-- Sessao: aberta pelo OTP do proprio portal ou no fim do wizard (sem novo SMS), presa ao TELEFONE do
-  cadastro, dura 1 h. ``sessao_recente`` (verificacao de ate 10 min) protege o download dos dados.
+- Sessao: a da cliente verificada (services/sessao_cliente), aberta por qualquer codigo SMS confirmado
+  (portal ou wizard), presa ao TELEFONE, dura 1 h; baixar os dados exige verificacao de ate 10 min.
 - Pedido de correcao ou exclusao: fica na trilha ('LGPD: pedido de <tipo>', prazo de 15 dias,
   art. 19) e vai por e-mail a clinica (encarregado > e-mail do administrador > e-mail da marca).
 As preferencias de comunicacao e a revogacao do consentimento de saude ficam em
@@ -10,79 +10,24 @@ services/consentimentos (origem PORTAL).
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
-
-from django.utils import timezone
+from datetime import date, timedelta
 
 from ..models import Atendimento, Cliente
 from ..utils.auditoria import registrar_log
 from ..utils.branding import get_branding
 from ..utils.datas import hoje
 from ..utils.telefone import mascarar
+from . import sessao_cliente
 
 logger = logging.getLogger(__name__)
 
-SESSAO_MEUS_AGENDAMENTOS = 'meus_agendamentos_telefone'
-SESSAO_VERIFICADA_EM = 'meus_agendamentos_verificado_em'
-DURACAO_SESSAO_SEGUNDOS = 3600
-JANELA_DADOS = timedelta(minutes=10)
 PRAZO_RESPOSTA = timedelta(days=15)
 TIPOS_PEDIDO = {'correcao': 'correção de dados', 'exclusao': 'exclusão de dados'}
 MAX_DESCRICAO = 1000
 
 
-def abrir_sessao(request, telefone: str, *, verificado_em: datetime | None = None) -> None:
-    """Sessao do portal presa ao telefone verificado. Anti session-fixation (cycle_key)."""
-    request.session.cycle_key()
-    request.session.pop('meus_agendamentos_email', None)  # chave legada
-    request.session[SESSAO_MEUS_AGENDAMENTOS] = telefone
-    request.session[SESSAO_VERIFICADA_EM] = (verificado_em or timezone.now()).isoformat()
-    request.session.set_expiry(DURACAO_SESSAO_SEGUNDOS)
-
-
-def abrir_sessao_do_wizard(request, telefone: str) -> None:
-    """Fim do agendamento online: a cliente acabou de provar o celular no wizard — a area dela abre
-    sem novo SMS. A hora da verificacao e a do OTP do wizard (nao agora), para o download dos dados
-    continuar exigindo verificacao recente."""
-    from . import otp
-
-    verificado_em = None
-    expira = request.session.get(otp.SESSAO_AGENDAMENTO_EXPIRA)
-    if expira:
-        try:
-            verificado_em = datetime.fromisoformat(expira) - otp.VALIDADE_VERIFICACAO
-        except (TypeError, ValueError):
-            verificado_em = None
-    if verificado_em is not None and timezone.is_naive(verificado_em):
-        verificado_em = timezone.make_aware(verificado_em)
-    abrir_sessao(request, telefone, verificado_em=verificado_em)   # cycle_key preserva o resto
-
-
-def telefone_da_sessao(request) -> str:
-    return request.session.get(SESSAO_MEUS_AGENDAMENTOS) or ''
-
-
-def encerrar_sessao(request) -> None:
-    for chave in (SESSAO_MEUS_AGENDAMENTOS, SESSAO_VERIFICADA_EM, 'meus_agendamentos_email'):
-        request.session.pop(chave, None)
-
-
-def sessao_recente(request, janela: timedelta = JANELA_DADOS) -> bool:
-    """A cliente confirmou o codigo ha no maximo `janela` (o download dos dados exige)."""
-    valor = request.session.get(SESSAO_VERIFICADA_EM)
-    if not telefone_da_sessao(request) or not valor:
-        return False
-    try:
-        verificado = datetime.fromisoformat(valor)
-    except (TypeError, ValueError):
-        return False
-    if timezone.is_naive(verificado):
-        verificado = timezone.make_aware(verificado)
-    return timezone.now() - verificado <= janela
-
-
 def clientes_da_sessao(request):
-    telefone = telefone_da_sessao(request)
+    telefone = sessao_cliente.telefone(request)
     if not telefone:
         return Cliente.objects.none()
     return Cliente.objects.filter(telefone=telefone, ativo=True)
@@ -95,7 +40,7 @@ def cliente_da_sessao(request) -> Cliente | None:
 
 def atendimento_da_sessao(request, pk, *select_related) -> Atendimento | None:
     """Atendimento `pk` de cliente ativa com o telefone da sessao (None = nao e dela, anti-IDOR)."""
-    if pk is None or not telefone_da_sessao(request):
+    if pk is None or not sessao_cliente.telefone(request):
         return None
     return (
         Atendimento.objects.select_related(*select_related)

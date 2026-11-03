@@ -29,9 +29,10 @@ class Enforce2FAMiddleware:
       1. Usuario loga (sessao criada);
       2. Com TOTPDevice confirmado e sessao nao verificada -> challenge;
       3. Sem TOTP com 2FA obrigatorio (ADMIN; PROFISSIONAL se ligado) -> cadastro.
-         Conferido a cada request, nao so pela flag do login: sessao promovida
-         a ADMIN depois do login, anterior ao deploy ou aberta com a valvula
-         ADMIN_2FA_OBRIGATORIO desligada tambem cai no cadastro;
+         Conferido a cada request e em qualquer sessao autenticada (nao so pela
+         flag do login): sessao promovida a ADMIN depois do login, anterior ao
+         deploy, aberta com a valvula ADMIN_2FA_OBRIGATORIO desligada ou por
+         outro caminho de login tambem cai no cadastro;
       4. Token correto -> sessao verificada (flag + django_otp.login) libera tudo,
          inclusive o /django-admin-sv/ (AdminSiteOTPRequired exige is_verified()).
 
@@ -86,11 +87,11 @@ class Enforce2FAMiddleware:
         try:
             if dois_fatores.tem_2fa(request.user):
                 return self._barrar(request, 'aranha:admin_2fa_challenge')
-            # 2FA obrigatorio conferido a CADA request (nao so pela flag do
-            # login): sessao promovida a ADMIN depois do login, anterior ao
-            # deploy ou aberta com a valvula desligada tambem cai no cadastro.
-            if (dois_fatores.obrigatorio_para(request.user)
-                    and dois_fatores.sessao_do_login_equipe(request)):
+            # 2FA obrigatorio conferido a CADA request e em QUALQUER sessao autenticada (nao so
+            # pela flag do login nem so na aberta pelo formulario da equipe): sessao promovida a
+            # ADMIN depois do login, anterior ao deploy, aberta com a valvula desligada ou por
+            # outro caminho de login tambem cai no cadastro.
+            if dois_fatores.obrigatorio_para(request.user):
                 return self._barrar(request, 'aranha:admin_2fa_setup')
             # Django admin exige OTP verificado: staff sem TOTP cadastra antes
             # (senao o AdminSiteOTPRequired devolve p/ o login em loop).

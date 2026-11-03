@@ -274,8 +274,8 @@ class BookingConsentimentoTests(TestCase):
         data.update(overrides)
         data = {k: v for k, v in data.items() if v is not None}
         session = self.client.session  # OTP por SMS ja validado no wizard
-        session['otp_agendamento_telefone'] = self.TELEFONE
-        session['otp_agendamento_expira'] = (timezone.now() + timedelta(minutes=10)).isoformat()
+        session['cliente_telefone'] = self.TELEFONE
+        session['cliente_verificado_em'] = (timezone.now() - timedelta(minutes=1)).isoformat()
         session.save()
         return self.client.post(reverse('aranha:confirmar_agendamento'), data)
 

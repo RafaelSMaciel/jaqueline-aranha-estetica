@@ -14,6 +14,7 @@ from ...utils.branding import get_branding
 from ...utils.email import email_configurado
 from ...utils.pii import nome_publico
 from ...services.precos import candidatas_de, precos_de_vitrine, promocoes_vigentes
+from ...services.nps import NOTA_MINIMA_DEPOIMENTO
 from ...services.prova_social import numeros_do_site
 from ...utils.precos import melhor_promocao
 from ...conteudo.faq import em_destaque, montar_faq
@@ -174,7 +175,7 @@ def depoimentos(request):
     """Depoimentos NPS publicados: so com opt-in do cliente E aprovacao da clinica (LGPD)."""
     avaliacoes = list(
         AvaliacaoNPS.objects
-        .filter(nota__gte=9, autoriza_publicacao=True, aprovado_publicacao=True)
+        .filter(nota__gte=NOTA_MINIMA_DEPOIMENTO, autoriza_publicacao=True, aprovado_publicacao=True)
         .filter(~Q(comentario__isnull=True))
         .exclude(comentario__exact='')
         # Titular excluido/pseudonimizado (LGPD art. 18): depoimento sai do ar

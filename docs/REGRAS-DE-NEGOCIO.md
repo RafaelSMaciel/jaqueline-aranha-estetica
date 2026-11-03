@@ -64,7 +64,9 @@ Caso de uso único: `services/agendamento_online.solicitar` (o form do wizard s�
 confere o OTP; a regra inteira mora no service, e cada recusa tem um `codigo`).
 
 - **Código OTP obrigatório em todo agendamento** (cliente nova ou recorrente), preso ao celular
-  informado; o telefone do formulário tem de ser o verificado na sessão (30 min).
+  informado; o telefone do formulário tem de ser o verificado na sessão da cliente (código de até
+  30 min, ainda não usado num pedido — cada pedido online pede um SMS novo). Quem já entrou no
+  "Meus agendamentos" agenda sem outro SMS: a sessão da cliente verificada é uma só.
 - **O pedido é da titular do celular:** com cadastro existente, o nome do cadastro fica — nome
   diferente digitado no wizard é ignorado (vai só para o log; renomear é pelo painel, auditado).
   Assim quem agenda para outra pessoa não mistura a ficha de saúde dela no cadastro da titular.
@@ -239,8 +241,8 @@ na auditoria. A regra é a mesma no painel e no portal da profissional
   espera). Pedido ainda PENDENTE não conta (a clínica não tinha confirmado). O modal do portal e a
   página do link avisam antes; a resposta diz quando contou como falta, e a trilha registra
   "Cancelado pela cliente (portal|link) — cancelamento tardio, conta como falta".
-- **Área da cliente** ("Meus agendamentos", sessão do OTP de 1 h, aberta também no fim do wizard
-  sem novo SMS): agendamentos futuros e passados, reagendar e cancelar, retornos sem custo a
+- **Área da cliente** ("Meus agendamentos", sessão da cliente verificada de 1 h, aberta por qualquer
+  código SMS — inclusive o do wizard, sem novo SMS): agendamentos futuros e passados, reagendar e cancelar, retornos sem custo a
   combinar, código e saldo de indicação, **Minhas preferências** (as 3 autorizações de
   comunicação, §21), **revogar o consentimento de saúde** (§21), **pedir correção ou exclusão** e
   **baixar meus dados** (§22).
@@ -590,7 +592,8 @@ Regra em `services/lista_espera` (form público em `forms/publico.ListaEsperaFor
 - Termos que valem para um atendimento: LGPD vigente + PROCEDIMENTO geral + PROCEDIMENTO do
   procedimento. Faltou algum → marcador **"Termo pendente"** no painel/portal e **link do termo**
   por atendimento (Painel > Agendamentos > termo-link): válido **até o fim do atendimento**, para
-  aceitar no balcão ou enviar por WhatsApp/e-mail.
+  aceitar no balcão ou enviar pelo WhatsApp do celular (não por e-mail: o e-mail do cadastro não é
+  verificado e quem abre o link aceita em nome da cliente).
 - **Política de Privacidade = termo LGPD.** O texto completo da v1.0 (dados, finalidades e bases
   legais, saúde, mensagens, decisões automatizadas, operadores, cookies, segurança, direitos e a
   tabela de prazos) mora em `conteudo/lgpd.py` — fonte única do termo, da página
@@ -700,47 +703,53 @@ enviado. A agenda da profissional vai para o calendário dela só pelo feed ICS 
 
 ## 24. Valores-chave
 
+Gerada do catálogo de regras (`aranha_estetica/regras.py`), que lê cada valor de onde o código o
+aplica; *(painel)* = regra operacional que a dona ajusta em Configurações. Mudou um valor no código?
+Rode `python manage.py gerar_docs_regras` (o teste `test_regras_catalogo` reprova a tabela atrasada).
+
+<!-- regras:inicio — gerado por `manage.py gerar_docs_regras` (aranha_estetica/regras.py); não edite à mão -->
 | Regra | Valor | Onde |
 |---|---|---|
-| Antecedência mínima | 2 h (0–720) | `Profissional.min_notice_horas` |
-| Antecedência máxima | 60 dias (1–365) | `Profissional.max_advance_dias` |
+| Antecedência mínima | 2 h (0–720, por profissional) | `Profissional.min_notice_horas` |
+| Antecedência máxima | 60 dias (1–365, por profissional) | `Profissional.max_advance_dias` |
 | Intervalo dos slots | 30 min | `SlotService.INTERVALO` |
-| Buffer do procedimento | 0–120 min | `Procedimento.buffer_minutos` |
+| Buffer do procedimento | 0–120 min (por procedimento) | `Procedimento.buffer_minutos` |
 | Idade mínima (online) | 18 anos | `forms/agendamento.IDADE_MINIMA` |
 | Horários futuros ativos para pedir pelo site | até 3 (o 4º é recusado) | `constants.MAX_ATIVOS_ONLINE` |
+| Pedido pelo site aprovado sozinho | cliente já atendida, sem falta em aberto e com menos de 2 horários futuros: nasce AGENDADO; senão PENDENTE | `constants.LIMITE_AUTOAPROVACAO`, `services/agenda.status_inicial_publico` |
+| Pedido pendente sem decisão | cancelado 1 h antes do início, se ninguém decidir | `constants.PRAZO_DECISAO_PENDENTE` (job `limpeza_status`) |
 | Validade da ficha de anamnese respondida | 12 meses | `services/anamnese.VALIDADE_FICHA_MESES` |
 | Reagendar pela cliente | ≥ 24 h antes | `constants.JANELA_MINIMA_ALTERACAO` |
 | Cancelamento tardio (conta falta) | < 24 h de horário AGENDADO/CONFIRMADO (PENDENTE não) | `constants.JANELA_MINIMA_ALTERACAO`, `services/agenda.cancelamento_tardio` |
 | Realizado/Faltou a partir de | início − 30 min | `constants.TOLERANCIA_DESFECHO` |
-| Faltas até bloquear online | 3 (ajustável de 1 a 10) | regra operacional `MAX_FALTAS_BLOQUEIO` (`models/configuracao.CHAVES`) > `constants.MAX_FALTAS_ANTES_BLOQUEIO` |
-| OTP: validade / tentativas / reenvio | 10 min / 5 / 60 s | env `OTP_TTL_SEGUNDOS`, `OTP_MAX_TENTATIVAS`, `OTP_REENVIO_MINIMO_SEG` |
-| SMS por hora: telefone / IP / global | 3 / 10 / 60 | env `SMS_MAX_POR_HORA`, `SMS_MAX_POR_IP_HORA`, `SMS_MAX_GLOBAL_HORA` |
-| Verificação OTP no wizard / sessão do portal / código para baixar os dados | 30 min / 1 h / até 10 min | `services/otp`, `services/portal_cliente` (`DURACAO_SESSAO_SEGUNDOS`, `JANELA_DADOS`) |
+| Faltas seguidas até pausar o agendamento online *(painel)* | 3 (a dona ajusta de 1 a 10) | regra operacional `MAX_FALTAS_BLOQUEIO` (`models/configuracao.CHAVES`) |
+| OTP: validade / tentativas / reenvio | 10 min / 5 / 60 s | env `OTP_TTL_SEGUNDOS`, `OTP_MAX_TENTATIVAS`, `OTP_REENVIO_MINIMO_SEG` (padrões) |
+| SMS por hora: telefone / IP / global | 3 / 10 / 60 | env `SMS_MAX_POR_HORA`, `SMS_MAX_POR_IP_HORA`, `SMS_MAX_GLOBAL_HORA` (padrões) |
+| Sessão da cliente verificada: agendar / área da cliente / baixar os dados | 30 min / 1 h / até 10 min | `services/sessao_cliente` (`VALIDADE_AGENDAMENTO`, `DURACAO_SESSAO_SEGUNDOS`, `JANELA_DADOS`) |
 | Pedido de correção/exclusão: prazo de resposta | 15 dias | `services/portal_cliente.PRAZO_RESPOSTA` |
 | Lista de espera pelo site | 20 inscrições/dia por IP | `views/publico/lista_espera.LIMITE_DIARIO_POR_IP` |
-| Formulário de contato | 5/min e 20/dia por IP; teto de 50 mensagens/dia no site todo | `views/publico/contato` (`TETO_DIARIO_GLOBAL`) |
+| Formulário de contato | 5/min e 20/dia por IP; teto de 50 mensagens/dia no site todo | `views/publico/contato` |
 | Duração padrão do retorno | 30 min | `Procedimento.duracao_retorno_minutos` |
 | Cashback por indicação | R$ 50,00 | `constants.VALOR_CASHBACK_INDICACAO` |
-| NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `services/nps` (`NPS_JANELA_DIAS`, `NPS_MAX_FALHAS`), `views/publico/nps.py` |
+| NPS: janela / validade do link / tentativas | 24 h–7 dias / 7 dias / 3 | `services/nps` (`NPS_ESPERA`, `NPS_JANELA_DIAS`, `NPS_MAX_FALHAS`), `constants.VALIDADE_LINK_NPS` |
 | NPS: intervalo mínimo por cliente | 90 dias (nunca em retorno) | `constants.NPS_INTERVALO_DIAS` |
 | Detrator | nota ≤ 6 | `services/nps.NOTA_MAXIMA_DETRATOR` (job `detrator_alerta`) |
+| E-mail do alerta de detrator *(painel)* | em branco = e-mail de contato da clínica | regra operacional `email_admin` (`models/configuracao.CHAVES`) |
 | Lembrete D-1 | 08:00 e 18:00 (WhatsApp ou e-mail) | `jobs.JOB_AGENDA`, `services/lembretes` |
-| Depoimento | nota ≥ 9 + opt-in + aprovação | `views/publico/site.depoimentos` |
+| Depoimento | nota ≥ 9 + opt-in + aprovação | `services/nps.NOTA_MINIMA_DEPOIMENTO`, `views/publico/site.depoimentos` |
 | Números do site: nota média / clientes atendidas | 10+ respostas do NPS / a partir de 50, arredondado para baixo | `services/prova_social` (`MIN_AVALIACOES`, `MIN_CLIENTES`) |
-| Números do site: anos de experiência | 1 a 60, opcional (em branco = não aparece) | regra operacional `anos_experiencia` (`models/configuracao.CHAVES`) |
+| Números do site: anos de experiência *(painel)* | 1 a 60, opcional (em branco = não aparece) | regra operacional `anos_experiencia` (`models/configuracao.CHAVES`) |
 | Números do site: atualização | a cada 10 min (cache zerado quando `Configuracao` muda) | `services/prova_social.CACHE_TTL`, `signals.py` |
-| Link de ficha/pesquisa | 60 dias | `views/publico/formularios` |
+| Link de ficha/pesquisa | 60 dias | `constants.VALIDADE_LINK_FORMULARIO` |
 | Link do termo | até o fim do atendimento | `services/termos.aceita_assinatura` |
-| Retenção: OTP / notificação / auditoria / axes | 24 h / 12 meses / 5 anos / 90 dias | env `RETENCAO_*` |
+| Retenção: OTP / notificação / auditoria / axes / link vencido | 24 h / 1 ano / 5 anos / 90 dias / 90 dias | env `RETENCAO_*` (padrões) |
 | Retenção LGPD: cliente inativa / soft delete / ficha sem atendimento / saúde / pacote | 5 anos / 30 dias / 90 dias / 20 anos do último evento / 5 anos do fim | `settings.RETENCAO_*` fixos (sem env; publicados na política — `aranha.W016`) |
 | Lote de e-mail de promoção | 25 por clique | `services/marketing.LOTE_PROMOCAO` |
-| Sessão da equipe (prod) | 8 h deslizantes | env `SESSION_COOKIE_AGE` |
+| Sessão da equipe (prod) | 8 h deslizantes | env `SESSION_COOKIE_AGE` (padrão) |
+<!-- regras:fim -->
 
 ---
 
-_Última atualização: 2026-10-29 — conferido no código até a migration 0078: pedido online e
-cadastros (papéis, lembrete por e-mail, sem desfecho, NPS, promoção, "PARAR", ficha em 3 escopos,
-acesso da cliente só pelo portal), LGPD e área da cliente (política como fonte única,
-pseudonimização, saúde revogável e expurgo aos 20 anos, cancelamento tardio, lista de espera sem
-cadastro), a agenda do painel (agendamento pela recepção, seletor de status, lote item a item) e
-os números do site com dado real (§18, regra `anos_experiencia`)._
+_Última atualização: 2026-11-03 — sessão única da cliente verificada (§3, §8), link do termo só pelo
+WhatsApp ou balcão (§21) e a tabela de valores (§24) gerada do catálogo `aranha_estetica/regras.py`.
+Antes, 2026-10-29: conferido no código até a migration 0078._

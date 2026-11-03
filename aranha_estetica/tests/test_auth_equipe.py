@@ -874,13 +874,16 @@ class Obrigatoriedade2FAPorRequestTests(TestCase):
         pendente = TOTPDevice.objects.get(user__email=email, confirmed=False)
         c.post(setup, {'acao': 'confirmar', 'token': _token(pendente), 'next': next_url})
 
-    def test_login_grava_a_marca_da_sessao_da_equipe(self):
-        from aranha_estetica.utils import dois_fatores
-        with override_settings(ADMIN_2FA_OBRIGATORIO=False):
-            admin_user = _admin()
-            c = Client()
-            self._login(c, 'adm@test.com')
-        self.assertEqual(c.session[dois_fatores.SESSION_LOGIN_EQUIPE], admin_user.pk)
+    def test_sessao_aberta_fora_do_formulario_de_login_tambem_cai_no_cadastro(self):
+        # antes so a sessao com o marcador do usuario_login era conferida: outro caminho de
+        # login (force_login, uma rota nova) entrava no painel so com a senha
+        admin_user = _admin()
+        c = Client()
+        c.force_login(admin_user)
+        resp = c.get(reverse('aranha:painel_overview'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse('aranha:admin_2fa_setup'), resp['Location'])
+        self.assertEqual(c.get('/webpush/subscribe/').status_code, 403)
 
     def test_profissional_promovido_a_admin_cai_no_cadastro(self):
         user, _ = _profissional_user()
@@ -916,13 +919,10 @@ class Obrigatoriedade2FAPorRequestTests(TestCase):
         self.assertIn(reverse('aranha:admin_2fa_setup'), resp['Location'])
 
     def test_sessao_anterior_ao_deploy_cai_no_cadastro_e_libera_apos_cadastrar(self):
-        # login antigo: gravava usuario_id, mas nao a flag de cadastro pendente
+        # sessao aberta antes do 2FA obrigatorio: sem a flag de cadastro pendente
         admin_user = _admin()
         c = Client()
         c.force_login(admin_user)
-        sessao = c.session
-        sessao['usuario_id'] = admin_user.pk
-        sessao.save()
         resp = c.get(reverse('aranha:painel_overview'))
         self.assertEqual(resp.status_code, 302)
         self.assertIn(reverse('aranha:admin_2fa_setup'), resp['Location'])

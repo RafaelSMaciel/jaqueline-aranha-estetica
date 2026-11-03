@@ -200,8 +200,8 @@ original, sem `srcset`.
   e variantes em dia).
 - **Pendente:** remover `style-src-attr 'unsafe-inline'` exigiria tirar o `style=""` das páginas de
   erro autossuficientes (o 500 renderiza sem contexto e sem nonce) e do widget `embed.html`.
-- **Pendente:** o jsDelivr ainda consta como operador na política (`conteudo/lgpd.OPERADORES`) e no
-  [`../LGPD.md`](../LGPD.md) §3, embora nenhuma página carregue nada dele (ARCHITECTURE §6.2).
+- O jsDelivr saiu da lista de operadores da política (`conteudo/lgpd.OPERADORES`) e do
+  [`../LGPD.md`](../LGPD.md) §3 em 2026-11-03: nenhuma página carrega nada dele desde a D50.
 - `agendamento/embed.html` segue mínimo (sem chrome, CSS próprio), por design.
 
 ---

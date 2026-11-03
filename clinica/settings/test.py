@@ -42,6 +42,12 @@ else:
 # o bundle do `npm run build` (testes de navegador no CI: tests/test_wizard_browser.py).
 DJANGO_VITE['default']['dev_mode'] = os.environ.get('TESTE_VITE_BUILD', '').strip() != '1'
 
+# 2FA obrigatorio desligado na suite: force_login/client.login abrem sessao sem segundo fator e o
+# Enforce2FAMiddleware barra qualquer sessao autenticada quando ele e obrigatorio. Quem testa a
+# obrigatoriedade liga com override_settings(ADMIN_2FA_OBRIGATORIO=True / PROFISSIONAL_...=True).
+ADMIN_2FA_OBRIGATORIO = False
+PROFISSIONAL_2FA_OBRIGATORIO = False
+
 # SMS so logado (o runner roda sem ZENVIA_*; fora disso utils/sms falha fechado).
 SMS_DEV_LOG_ONLY = True
 # A latencia minima anti-enumeracao do OTP custaria 0,8 s por teste; o teste dela liga com override_settings.

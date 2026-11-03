@@ -60,8 +60,10 @@ de `/profissional/`. PROFISSIONAL que abre `/painel/` volta para o próprio port
   aviso `aranha.W012`) — ele lê prontuário e alertas de saúde.
 - **Cadastro forçado:** ADMIN sem TOTP que faz login fica preso em `/painel/seguranca/2fa/` até
   escanear o QR (SVG, sem Pillow) e confirmar o primeiro código. O middleware confere a
-  obrigatoriedade **a cada request** (sessão promovida a ADMIN depois do login, sessão antiga ou
-  aberta com a válvula desligada também cai no cadastro).
+  obrigatoriedade **a cada request e em qualquer sessão autenticada**, não só na aberta pelo
+  formulário de login (sessão promovida a ADMIN depois do login, sessão antiga, aberta com a válvula
+  desligada ou por outro caminho de login também cai no cadastro). Os testes rodam com a
+  obrigatoriedade desligada nos settings da suite e a ligam com `override_settings` onde a testam.
 - **Falha fechada:** se a consulta do TOTP der erro de banco (`statement_timeout`, conexão caída),
   a sessão ainda não verificada vai para o desafio (403 JSON em `/api/` e `/webpush/`; log
   `2fa_indisponivel`) — nunca segue só com a senha até o painel, o portal ou o prontuário.
@@ -145,20 +147,25 @@ texto). ADMIN lê todas e não passa pela regra. O link "Ficha" no portal só ap
   portal e "Meus dados") quando configurado.
 - **Anti-enumeração:** o pedido de código do portal e do "Meus dados" responde o mesmo texto
   exista ou não o cadastro e leva **no mínimo** `OTP_LATENCIA_MINIMA_SEGUNDOS` (0,8 s, fixo no
-  settings; 0 nos testes) — sem isso o ramo que gera o código e chama a Zenvia seria
+  settings; 0 nos testes) — sem isso o ramo que gera o código e chama o provedor de SMS seria
   mensuravelmente mais lento e revelaria quem é cliente.
 - Propósitos isolados: `AGENDAMENTO`, `LOGIN_CLIENTE` (portal), `DSAR` — um código não vale em
   outro fluxo.
-- Sem provedor de SMS (produção sem `ZENVIA_*`): falha fechada; o site avisa e os botões
+- Sem provedor de SMS (produção sem `SMSGO_API_KEY`, ou sem `ZENVIA_*` com `SMS_PROVEDOR=zenvia`): falha fechada; o site avisa e os botões
   "Agendar" levam ao WhatsApp da clínica.
 
 ### 2.2 Sessões da cliente
 
-| Fluxo | Chave de sessão | Duração | Observação |
-|---|---|---|---|
-| Wizard de agendamento | `otp_agendamento_telefone` | 30 min após o código | `confirmar_agendamento` exige que o telefone do formulário seja **o** verificado; troca o id da sessão; ao concluir limpa a verificação e **abre a sessão do portal** (linha abaixo) |
-| "Meus agendamentos" (`services/portal_cliente`) | `meus_agendamentos_telefone` + `meus_agendamentos_verificado_em` | 1 h | Aberta pelo OTP do próprio portal (login por **celular ou e-mail cadastrado** — com e-mail o código vai sempre ao celular do cadastro; resposta idêntica exista ou não o cadastro) **ou no fim do wizard, sem novo SMS** — com a hora da verificação do wizard, não a do fim. `cycle_key()` na abertura (anti session-fixation); presa ao **telefone** do cadastro: cada atendimento só pelo id dentro dessa sessão (anti-IDOR). **"Baixar meus dados" exige verificação de até 10 min** (`JANELA_DADOS`): sessão mais antiga é encerrada e pede código novo. Sair (`sair/`) **só por POST com CSRF** (um `<img src>` de outro site não derruba a sessão). Ações com limite por IP: preferências 20/h, revogar saúde 10/h, pedido LGPD 5/h, baixar dados 10/h |
-| DSAR (`/lgpd/meus-dados/`) | — (código consumido na hora) | 10 min (validade do código) | Telefone → código (captcha; cota e intervalo do OTP do portal; 10/h por IP e **5/h por telefone**, com máscara ou sem contando no mesmo balde) → download do JSON **sem a ficha de saúde**; auditado |
+Uma sessão só de **cliente verificada** (`services/sessao_cliente`): qualquer código SMS confirmado
+— no wizard ou no "Meus agendamentos" — abre a mesma sessão, presa ao **telefone** que recebeu o
+código (chaves `cliente_telefone` + `cliente_verificado_em`; `cycle_key()` na abertura, anti
+session-fixation; expira em 1 h). Cada parte confere o que precisa dela:
+
+| Fluxo | Exige da sessão | Observação |
+|---|---|---|
+| Agendar pelo site (wizard) | código confirmado há até **30 min** e ainda não usado num pedido | `confirmar_agendamento` exige que o telefone do formulário seja **o** verificado. O pedido aceito **gasta a verificação** (`cliente_agendou`): o próximo agendamento pede outro SMS, mas a área da cliente segue aberta. Quem acabou de entrar no "Meus agendamentos" agenda sem novo SMS |
+| "Meus agendamentos" (`services/portal_cliente`) | a sessão aberta (1 h) | Login por **celular ou e-mail cadastrado** — com e-mail o código vai sempre ao celular do cadastro; resposta idêntica exista ou não o cadastro. Também abre direto no fim do wizard, sem novo SMS. Presa ao **telefone** do cadastro: cada atendimento só pelo id dentro dessa sessão (anti-IDOR). **"Baixar meus dados" exige verificação de até 10 min** (`JANELA_DADOS`): sessão mais antiga é encerrada e pede código novo. Sair (`sair/`) **só por POST com CSRF** (um `<img src>` de outro site não derruba a sessão). Ações com limite por IP: preferências 20/h, revogar saúde 10/h, pedido LGPD 5/h, baixar dados 10/h |
+| DSAR (`/lgpd/meus-dados/`) | nada: o código é consumido na hora (vale 10 min) | Telefone → código (captcha; cota e intervalo do OTP do portal; 10/h por IP e **5/h por telefone**, com máscara ou sem contando no mesmo balde) → download do JSON **sem a ficha de saúde**; auditado |
 
 Telefone provado no wizard **substitui o e-mail do cadastro** pelo digitado (um e-mail plantado
 por terceiro sai); e-mail de outro cadastro é recusado. A lista de espera nunca cria nem altera
@@ -226,13 +233,14 @@ header (cron, webhooks) comparados em tempo constante; trilha de auditoria com I
 | média | DSAR e portal liberados com 1 fator (SMS) — SIM-swap expõe o cadastro | Mitigado: o export do site **não leva a ficha de saúde** (sai só pela equipe, a pedido) e, no portal, exige código de até 10 min. Aceito por ora no resto do cadastro (público de estética, sem senha); evolução: 2º canal |
 | baixa | Link de descadastro não expira | Escopo limitado (opt-out); revogado na pseudonimização. Reagendar/cancelar não têm token: só o portal por sessão do OTP |
 | baixa | `Enforce2FAMiddleware` depende do marcador de sessão do login da equipe | Em produção a única porta é `/admin-login/` (equivalente); hardening listado no ARCHITECTURE |
-| baixa | Link do termo pode ser enviado por `mailto:` ao e-mail do cadastro | Pendência listada no ARCHITECTURE |
+| ~~baixa~~ | ~~Link do termo podia ser enviado por `mailto:` ao e-mail do cadastro~~ | Resolvido (2026-11-03): só WhatsApp do celular, cópia ou balcão |
 
 **Decisão sobre o login da cliente (fechada):** *passwordless* por celular + OTP (opção A da
-versão anterior deste documento), com regra única de OTP para todo agendamento. O fim do wizard
-já abre a área da cliente sem novo SMS, e o download dos dados pede verificação recente (≤ 10
-min). Evoluções possíveis (não implementadas): sessão única de "cliente verificada" também do
-portal para o wizard e "lembrar este aparelho".
+versão anterior deste documento), com regra única de OTP para todo agendamento e uma sessão só de
+"cliente verificada" para o site inteiro (2026-11-03): o código do wizard abre a área da cliente e
+o do portal libera agendar, sem novo SMS; cada pedido online gasta a verificação; o download dos
+dados pede verificação recente (≤ 10 min). Evolução possível (não implementada): "lembrar este
+aparelho".
 
 ---
 

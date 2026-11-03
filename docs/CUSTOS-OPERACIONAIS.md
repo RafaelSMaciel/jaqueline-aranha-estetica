@@ -16,8 +16,8 @@
 | Por ano | ≈ R$ 601 |
 | Implantação (uma vez) | ≈ R$ 76 |
 
-Com as ferramentas que o código usa hoje, o mesmo mês custaria ≈ R$ 142,91. A diferença vem quase
-toda do pacote mínimo de SMS da Zenvia (R$ 100/mês). A troca está em "No radar: mudança de código".
+Com a Zenvia no lugar do SMS pré-pago, o mesmo mês custaria ≈ R$ 142,91 (pacote mínimo de R$ 100/mês).
+O código já usa o pré-pago por padrão desde 03/11/2026 (`SMS_PROVEDOR=smsgo`); a Zenvia segue como opção.
 
 ## 2. Premissas
 
@@ -84,16 +84,16 @@ O consumo fica baixo por decisões do próprio sistema:
 Depois do go-live, o painel **Usage** do Railway mostra o consumo real: refaça a tabela no primeiro
 mês.
 
-## 5. No radar: mudança de código
+## 5. Mudanças de código para o custo
 
 | Mudança | Hoje | Recomendado | Economia/mês | O que exige |
 |---|---|---|---|---|
-| Código de acesso por SMS | Zenvia, pacote mínimo de R$ 100/mês (até 1.000 SMS, quase todos sem uso) | SMS pré-pago (R$ 7,20/mês) | **≈ R$ 92,80** | Adaptador para o provedor pré-pago no módulo `utils/sms` (o envio da Zenvia está isolado ali) |
+| Código de acesso por SMS | **Feito (03/11/2026):** SMSGo pré-pago é o padrão (`SMS_PROVEDOR=smsgo`, chave `SMSGO_API_KEY`); a Zenvia (pacote mínimo de R$ 100/mês) fica como opção (`SMS_PROVEDOR=zenvia`) | SMS pré-pago (R$ 7,20/mês) | **≈ R$ 92,80** | Na implantação: criar a conta na SMSGo, comprar o primeiro crédito e definir `SMSGO_API_KEY` |
 | E-mail | Nenhum provedor configurado | Brevo Free | — | Só configuração, na implantação: `EMAIL_BACKEND` do Brevo e a chave `BREVO_API_KEY` |
 | Código de acesso pelo WhatsApp (opcional, depois) | SMS | Template de autenticação (R$ 0,035) com SMS só de reserva | ≈ R$ 4,60 | Canal novo no OTP e template aprovado na Meta. Com 60 atendimentos a economia é pequena |
 
-A pendência está registrada em [`ARCHITECTURE.md`](ARCHITECTURE.md) (§6.2). O custo da seção 3 já
-considera a troca do SMS.
+As pendências estão em [`ARCHITECTURE.md`](ARCHITECTURE.md) (§6.2). O custo da seção 3 já considera
+o SMS pré-pago.
 
 ## 6. Alternativas avaliadas e descartadas
 

@@ -66,7 +66,7 @@ modelos, rotas, env vars, jobs, deploy e runbook de go-live).
 | Jobs / fila | Sem Celery: jobs com horário em `jobs.JOB_AGENDA`, rodados pelo serviço Cron do Railway (`manage.py rodar_jobs_devidos`), pelo cron HTTP `/cron/run/<job>/` ou por `manage.py rodar_job`; fila de e-mail no banco |
 | Cache/sessão | LocMem + sessão no banco (1 worker gunicorn); Redis opcional via `REDIS_URL` |
 | Segurança | CSP com nonce, django-axes, django-ratelimit, django-otp (TOTP), Cloudflare Turnstile |
-| Integrações | Zenvia (SMS/OTP), WhatsApp Business (Meta), e-mail (backend Django), Web Push (VAPID), Sentry; a agenda da profissional sai pelo feed ICS (sem Google Calendar) |
+| Integrações | SMS pré-pago SMSGo (OTP; Zenvia como opção), WhatsApp Business (Meta), e-mail (backend Django), Web Push (VAPID), Sentry; a agenda da profissional sai pelo feed ICS (sem Google Calendar) |
 | API | Rotas JSON, webhooks, cron e feed ICS descritos em OpenAPI 3.1 (`aranha_estetica/api/openapi.yaml`) com Swagger UI em `/painel/api/` (só a equipe) |
 | Deploy | Railway: Dockerfile multi-stage (Node 22 → Python 3.12), gunicorn 1 worker × 4 threads, WhiteNoise |
 | CI | GitHub Actions (`.github/workflows/ci.yml`): SQLite, Postgres 18, cobertura combinada, build do front, build e smoke da imagem, pip-audit, npm audit e gitleaks |
@@ -111,7 +111,8 @@ python manage.py runserver           # http://127.0.0.1:8000
 - Em dev (`DEBUG=True`) o 2FA só é obrigatório se `ADMIN_2FA_OBRIGATORIO=true`, e o SMS
   entra sozinho em modo log (`utils/sms.sms_modo_dev`): nada é enviado, o envio vira o
   evento `sms_dev_log` no logger (a prévia da mensagem vai nos campos *extra*). Fora de
-  DEBUG, SMS só com `ZENVIA_API_TOKEN` + `ZENVIA_FROM`.
+  DEBUG, SMS só com a credencial do provedor (`SMSGO_API_KEY`; com `SMS_PROVEDOR=zenvia`,
+  `ZENVIA_API_TOKEN` + `ZENVIA_FROM`).
 - Postgres local: defina `DATABASE_URL=postgres://...` (ou `DB_ENGINE`/`DB_NAME`/...).
 - `python manage.py seed` sem `--demo` cria só os dados reais; em produção o comando exige
   `--force` e recusa `--demo`.

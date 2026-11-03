@@ -25,8 +25,8 @@ import yaml
 
 from _docx_base import BASE, GERADORES, RAIZ, Documento, abrir_word, corpo_md, secao_md
 
-VERSAO = '1.2'
-DATA = date(2026, 10, 30).strftime('%d/%m/%Y')
+VERSAO = '1.3'
+DATA = date(2026, 11, 3).strftime('%d/%m/%Y')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 D = json.load(open(os.path.join(GERADORES, '_dados_requisitos.json'), encoding='utf-8'))
 RR = D['regras-requisitos']

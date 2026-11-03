@@ -27,8 +27,8 @@ from _docx_base import BASE, GERADORES, RAIZ, Documento, abrir_word, corpo_md
 DADOS = os.path.join(GERADORES, '_dados_requisitos.json')
 APP = os.path.join(RAIZ, 'aranha_estetica')
 
-VERSAO = '3.8'
-DATA = date(2026, 10, 31).strftime('%d/%m/%Y')
+VERSAO = '3.9'
+DATA = date(2026, 11, 3).strftime('%d/%m/%Y')
 # (versao, data, descricao) — acrescente uma linha a cada regeneracao relevante
 HISTORICO = [
     ('2.1', '21/06/2026', 'Documento de requisitos + modelagem UML gerado a partir do código '
@@ -82,6 +82,9 @@ HISTORICO = [
                           'multiplicidade, atributos derivados, operações com assinatura, composição e '
                           'enumerações) e casos de uso com «include», «extend» condicional e pontos de '
                           'extensão; pasta docs/diagramas única e requisitos em linguagem simples.'),
+    ('3.9', '03/11/2026', 'SMS pré-pago (SMSGo) como provedor padrão do código por SMS, sessão única da '
+                          'cliente verificada, 2FA conferido em qualquer sessão da equipe e tabela de '
+                          'valores das regras de negócio gerada do catálogo do código.'),
 ]
 # Assuntos dos recortes de MER, DER e classes (docs/diagramas/recortes/<tipo>/<arquivo>.png)
 TEMAS_DIAGRAMAS = [

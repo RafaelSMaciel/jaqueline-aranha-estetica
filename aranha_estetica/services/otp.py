@@ -11,11 +11,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
-from datetime import datetime, timedelta
 from typing import Optional, Tuple, TYPE_CHECKING
 
 from django.conf import settings
-from django.utils import timezone
 
 from ..models import CodigoOtp
 from ..utils import telefone
@@ -27,12 +25,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 OtpResult = Tuple[bool, str, Optional[str]]
-
-# Sessao: telefone (digitos) verificado por OTP no wizard de agendamento.
-SESSAO_AGENDAMENTO = 'otp_agendamento_telefone'
-SESSAO_AGENDAMENTO_EXPIRA = 'otp_agendamento_expira'
-VALIDADE_VERIFICACAO = timedelta(minutes=30)
-
 
 def _email_hash(email: str) -> str:
     """Hash estavel p/ correlacao em logs (nao e seguranca, so anonimizacao).
@@ -181,35 +173,6 @@ def verificar_otp_telefone(
     if not digitos:
         return False, 'dados_ausentes'
     return verificar_otp(CodigoOtp.email_para_telefone(digitos), codigo, proposito=proposito)
-
-
-# ─── Sessao do wizard de agendamento ────────────────────────────────────
-
-def registrar_verificacao_agendamento(request, digitos: str) -> None:
-    """Marca o telefone como verificado na sessao (30 min). Anti session-fixation."""
-    request.session.cycle_key()
-    request.session[SESSAO_AGENDAMENTO] = digitos
-    request.session[SESSAO_AGENDAMENTO_EXPIRA] = (timezone.now() + VALIDADE_VERIFICACAO).isoformat()
-
-
-def telefone_verificado_agendamento(request) -> str:
-    """Telefone (digitos) verificado e ainda valido na sessao, ou ''."""
-    digitos = request.session.get(SESSAO_AGENDAMENTO) or ''
-    expira = request.session.get(SESSAO_AGENDAMENTO_EXPIRA)
-    if not digitos or not expira:
-        return ''
-    try:
-        exp = datetime.fromisoformat(expira)
-    except (TypeError, ValueError):
-        return ''
-    if timezone.is_naive(exp):
-        exp = timezone.make_aware(exp)
-    return digitos if exp > timezone.now() else ''
-
-
-def limpar_verificacao_agendamento(request) -> None:
-    request.session.pop(SESSAO_AGENDAMENTO, None)
-    request.session.pop(SESSAO_AGENDAMENTO_EXPIRA, None)
 
 
 # ─── Anti-enumeracao ────────────────────────────────────────────────────
