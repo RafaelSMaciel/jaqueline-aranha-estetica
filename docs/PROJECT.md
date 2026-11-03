@@ -1259,7 +1259,7 @@ desde então; o `prod` segue staged até o go-live.
 | Environment | Serviço | Situação |
 |---|---|---|
 | `dev` (branch `dev`) | `web` | **No ar** (primeiro deploy em 2026-11-03: `0001`→`0079` + `seed --demo`, `/healthz/` 200): `railway.json` como config-as-code (Dockerfile, pre-deploy com `seed --demo`, healthcheck), start do gunicorn novo (sai o `gunicorn shivazen.wsgi` antigo), **Serverless** (dorme após 10 min sem tráfego). Variáveis: `DJANGO_ENV=staging`, `SMS_PROVEDOR=smsgo` (no `staging` o código só vai ao log), `DATABASE_URL=${{Postgres-Dev.DATABASE_URL}}`, `SITE_URL`/`CSRF_TRUSTED_ORIGINS`/`ALLOWED_HOSTS` a partir de `RAILWAY_PUBLIC_DOMAIN`, `DB_APPLICATION_NAME=jaqueline-aranha-estetica-dev` e `DJANGO_SECRET_KEY`, `CRON_TOKEN` e `CHAVES_CIFRAGEM` **de teste**, próprios do dev. Domínio: `web-dev-1a30.up.railway.app` |
-| `dev` | `Postgres-Dev` | **No ar**: imagem `postgres-ssl:18` (era 17) com `PGDATA=/var/lib/postgresql/data/pgdata18` — cluster novo, vazio; o cluster 17 antigo (dados de demonstração da `0026`) ficou intacto em `pgdata/` no mesmo volume e pode ser apagado. Sem TCP proxy público. Serverless |
+| `dev` | `Postgres-Dev` | **No ar**, **sem Serverless desde 2026-11-03** (dormindo, o pre-deploy do web levava "Connection refused" — o banco não acorda a tempo da 1ª conexão — e o site daria erro na 1ª visita; religar só com retry de conexão no pre-deploy e no web): imagem `postgres-ssl:18` (era 17) com `PGDATA=/var/lib/postgresql/data/pgdata18` — cluster novo, vazio; o cluster 17 antigo (dados de demonstração da `0026`) ficou intacto em `pgdata/` no mesmo volume e pode ser apagado. Sem TCP proxy público |
 | `dev` | Cron | Não existe, de propósito: no `dev` os jobs rodam à mão (`manage.py rodar_job <job>`). Economia na tabela de custos |
 | `prod` (branch `main`) | `web` | **Staged** (não aplicado): `railway.json`, sem Serverless, `DJANGO_ENV=prod`, `SMS_PROVEDOR=smsgo`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `SITE_URL`/`CSRF`/`ALLOWED_HOSTS` do domínio do Railway (`web-production-465af.up.railway.app`), `DB_APPLICATION_NAME=jaqueline-aranha-estetica` |
 | `prod` | `Postgres` | **Staged**: `PGDATA=/var/lib/postgresql/data/pgdata-golive` (o **banco novo** do go-live; o cluster antigo da `0026` fica em `pgdata/`), sem Serverless, sem TCP proxy público |
@@ -1268,10 +1268,12 @@ desde então; o `prod` segue staged até o go-live.
 Falta, da dona da conta (nenhum desses passa por código):
 
 1. ~~Escolher o plano Hobby no Railway~~ (2026-11-03).
-2. **dev**: `ADMIN_EMAIL`/`ADMIN_PASSWORD` e `DESTINATARIOS_TESTE` no `web` (salvar já faz o
-   redeploy, e o `bootstrap_admin` cria a conta; hoje o log do deploy avisa "painel sem
-   administrador ativo"). E-mail de contato e WhatsApp da clínica em Painel › Marca (avisos
-   W004/W007 do deploy).
+2. **dev**: `DESTINATARIOS_TESTE` no `web` (só se quiser receber e-mail/WhatsApp de teste). A conta
+   de **demonstração** já existe (2026-11-03): `ADMIN_EMAIL`/`ADMIN_PASSWORD` no `web` do `dev`
+   (cópia no `.env` local, `DEV_RAILWAY_ADMIN_*`) e `ADMIN_2FA_OBRIGATORIO=false` +
+   `PROFISSIONAL_2FA_OBRIGATORIO=false` **só no `dev`**, para a apresentação (aviso W008 no deploy;
+   dados fictícios do `seed --demo`). Depois da apresentação: apagar as duas variáveis de 2FA.
+   E-mail de contato e WhatsApp da clínica em Painel › Marca (avisos W004/W007 do deploy).
 3. Nos dois `web`: ligar **Wait for CI** (Settings › Source) e apagar as variáveis legadas `DEBUG` e
    `STATIC_ROOT` (inofensivas: o `prod.py` força `DEBUG=False` e ignora o `STATIC_ROOT`; o
    `CRON_TOKEN` do prod também sobra: lá os jobs vão pelo serviço Cron).
