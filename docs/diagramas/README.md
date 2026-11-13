@@ -18,7 +18,20 @@ diagramas principais (MER, DER, classes e casos de uso) existem em duas formas:
 | Classes | [Jaqueline Aranha Estética — Diagrama de classes](https://lucid.app/lucidchart/c7d76c51-99e3-47e3-87d7-04b2e9c96f3c/edit) |
 | Casos de uso | [Jaqueline Aranha Estética — Casos de uso](https://lucid.app/lucidchart/65a20df7-d308-4e63-82c6-0804f0e56104/edit) |
 
-Em cada documento a página 1 é o diagrama completo e as seguintes são os recortes, na mesma ordem
+**Diagramas completos (layout revisado em 13/11/2026).** As quatro imagens de `completos/` saem de
+um documento só, com uma página por diagrama (classes, DER, casos de uso e MER):
+[TCC Jaqueline Aranha — Diagramas completos (layout revisado)](https://lucid.app/lucidchart/58665c42-2b2e-4a43-a21e-0f6b051e06ce/edit).
+O conteúdo é o mesmo da página 1 dos documentos acima (46 classes e 64 relacionamentos, 37 tabelas e
+63 chaves estrangeiras, 90 casos de uso e 8 atores, 25 entidades e 35 relacionamentos); mudou a
+disposição: blocos organizados em camadas, linhas em traçado ortogonal, cores por assunto e legenda.
+No diagrama de classes, as oito ligações `created_by` com `Usuario` aparecem como atributo
+(`- created_by: Usuario [0..1]`), notação equivalente à da associação dirigida, e as duas
+autoassociações de `Atendimento` ganharam o nome do papel (`atendimento_reagendado` e
+`atendimento_origem`). No de casos de uso, as três fronteiras do painel trazem o nome da parte
+(agenda, cadastros e prontuário, financeiro e administração).
+`completos/TCC_CONTEEX_2026_Diagramas_Completos.pdf` junta os quatro num arquivo só.
+
+Em cada documento da tabela a página 1 é o diagrama completo no layout antigo e as seguintes são os recortes, na mesma ordem
 dos arquivos daqui. O conteúdo vem do código: [`../geradores/diagramas_lucid.py`](../geradores/diagramas_lucid.py)
 lê os models e escreve os scripts que montam cada página no Lucid; depois as páginas são exportadas
 em PNG para estas pastas. Mudou um model? Rode o gerador, refaça as páginas afetadas e exporte de novo.
