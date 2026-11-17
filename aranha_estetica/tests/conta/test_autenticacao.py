@@ -38,6 +38,14 @@ class BloqueioDoAxesTests(TestCase):
         self.assertRedirects(self._login(SENHA, '198.51.100.7'), reverse('aranha:painel_overview'),
                              fetch_redirect_response=False)
 
+    def test_tentativa_falha_registra_a_conta_no_axes(self):
+        # authenticate(email=...): o axes le o USERNAME_FIELD; sem ele o par IP+usuario viraria so IP
+        from axes.models import AccessAttempt
+
+        self._login('senha-errada-123', '203.0.113.1')
+        self.assertEqual(list(AccessAttempt.objects.values_list('username', 'ip_address')),
+                         [(self.email, '203.0.113.1')])
+
     def test_falha_loga_evento_sem_o_email_em_claro(self):
         with self.assertLogs('aranha_estetica.views.conta.autenticacao', 'WARNING') as logs:
             self._login('senha-errada-123', '203.0.113.1')

@@ -18,6 +18,7 @@ mensagem (que carrega o codigo OTP) so vai para o log com DEBUG=True.
 """
 import ipaddress
 import logging
+import re
 from typing import Optional
 
 import requests
@@ -174,6 +175,12 @@ def _requisicao(metodo: str, url: str, telefone_fmt: str, **kwargs):
     return None
 
 
+# Corpo do erro do provedor no log sem numeros longos: se o provedor ecoar a mensagem, o codigo do
+# SMS nao vai para o log (telefone, e-mail e CPF o filtro RedigirLog ja tira)
+def _corpo_erro(response) -> str:
+    return re.sub(r'\d{4,}', '[n]', response.text[:200])
+
+
 def _resultado(response, telefone_fmt: str) -> bool:
     if response is None:
         return False
@@ -183,7 +190,7 @@ def _resultado(response, telefone_fmt: str) -> bool:
         return True
     logger.error(
         'sms_erro_http',
-        extra={'status': response.status_code, 'body': response.text[:200], 'provedor': provedor},
+        extra={'status': response.status_code, 'body': _corpo_erro(response), 'provedor': provedor},
     )
     return False
 

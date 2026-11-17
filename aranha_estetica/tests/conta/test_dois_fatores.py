@@ -36,7 +36,7 @@ class Enforce2FAFalhaFechadaTests(TestCase):
         self.assertEqual(self.client.get(reverse('aranha:painel_overview')).status_code, 200)
 
     def test_rota_json_responde_403_e_nao_assina_push(self):
-        corpo = json.dumps({'endpoint': 'https://push.example.com/x', 'keys': {'p256dh': 'k', 'auth': 'a'}})
+        corpo = json.dumps({'endpoint': 'https://fcm.googleapis.com/fcm/send/x', 'keys': {'p256dh': 'k', 'auth': 'a'}})
         with mock.patch(TEM_2FA, side_effect=QUEDA), self.assertLogs('aranha_estetica', 'ERROR'):
             resp = self.client.post(reverse('aranha:webpush_subscribe'), data=corpo,
                                     content_type='application/json')

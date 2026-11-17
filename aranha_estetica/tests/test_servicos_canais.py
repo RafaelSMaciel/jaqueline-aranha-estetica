@@ -420,7 +420,7 @@ class WebPush2FATests(TestCase):
     """rev_security-08: sessao so com senha (TOTP pendente) nao assina push."""
 
     CORPO = json.dumps({
-        'endpoint': 'https://push.example.com/atacante',
+        'endpoint': 'https://fcm.googleapis.com/fcm/send/atacante',
         'keys': {'p256dh': 'chave', 'auth': 'segredo'},
     })
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any, Mapping, TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.utils import timezone
@@ -24,6 +25,30 @@ if TYPE_CHECKING:
     from ..models import Usuario, AssinaturaPush
 
 logger = logging.getLogger(__name__)
+
+# Push services dos navegadores (Chrome/Edge/Opera, Firefox, Safari, Windows). O servidor faz POST
+# para o endpoint da assinatura: fora desta lista o envio viraria request p/ um host arbitrario.
+PUSH_HOSTS = frozenset({
+    'fcm.googleapis.com', 'android.googleapis.com',
+    'updates.push.services.mozilla.com', 'web.push.apple.com',
+})
+PUSH_SUFIXOS = ('.notify.windows.com', '.push.apple.com')
+ENDPOINT_MAX = 600
+
+
+def endpoint_de_push_valido(endpoint: str) -> bool:
+    """https, porta padrao, sem credencial na URL e host de um push service conhecido."""
+    if not endpoint or len(endpoint) > ENDPOINT_MAX:
+        return False
+    try:
+        partes = urlsplit(endpoint)
+        porta = partes.port
+    except ValueError:
+        return False
+    if partes.scheme != 'https' or partes.username or partes.password or porta not in (None, 443):
+        return False
+    host = (partes.hostname or '').lower()
+    return host in PUSH_HOSTS or host.endswith(PUSH_SUFIXOS)
 
 
 def get_vapid_public_key() -> str:

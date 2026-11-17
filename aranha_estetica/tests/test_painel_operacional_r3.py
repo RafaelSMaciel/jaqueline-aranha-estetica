@@ -140,7 +140,7 @@ class PortalAnotarTests(TestCase):
         resp = cliente.get(reverse('aranha:profissional_agenda'))
         m = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.content.decode())
         self.assertIsNotNone(m)
-        payload = {'endpoint': 'https://push.example.com/abc',
+        payload = {'endpoint': 'https://fcm.googleapis.com/fcm/send/abc',
                    'keys': {'p256dh': 'chave-p256dh', 'auth': 'chave-auth'}}
         resp = cliente.post(reverse('aranha:webpush_subscribe'), json.dumps(payload),
                             content_type='application/json', HTTP_X_CSRFTOKEN=m.group(1))

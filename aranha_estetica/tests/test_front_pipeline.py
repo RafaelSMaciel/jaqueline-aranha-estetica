@@ -99,7 +99,7 @@ class WebpushCsrfTests(TestCase):
         m = re.search(r'name="csrf-token" content="([^"]+)"', html) or             re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', html)
         self.assertIsNotNone(m, 'pagina sem token CSRF legivel pelo webpush.js')
 
-        corpo = json.dumps({'endpoint': 'https://push.example.com/abc',
+        corpo = json.dumps({'endpoint': 'https://fcm.googleapis.com/fcm/send/abc',
                             'keys': {'p256dh': 'p' * 20, 'auth': 'a' * 10}})
         sem_token = c.post(reverse('aranha:webpush_subscribe'), corpo,
                            content_type='application/json', HTTP_X_CSRFTOKEN='')

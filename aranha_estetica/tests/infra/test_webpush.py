@@ -78,3 +78,38 @@ class EnvioPushTests(TestCase):
         with mock.patch(WEBPUSH, side_effect=falhas) as webpush:
             self.assertEqual(push.send_push_to_user(self.user, PAYLOAD), 1)
         self.assertEqual(webpush.call_count, 2)
+
+
+class EndpointDePushTests(TestCase):
+    """O servidor faz POST no endpoint da assinatura: so push services conhecidos (antes bastava
+    ser https, e um usuario da equipe apontava o envio para qualquer host)."""
+
+    def test_push_services_dos_navegadores(self):
+        for url in ('https://fcm.googleapis.com/fcm/send/abc',
+                    'https://updates.push.services.mozilla.com/wpush/v2/abc',
+                    'https://web.push.apple.com/QGx',
+                    'https://wns2-par02p.notify.windows.com/w/?token=abc'):
+            with self.subTest(url=url):
+                self.assertTrue(push.endpoint_de_push_valido(url))
+
+    def test_recusa_host_desconhecido_porta_credencial_e_http(self):
+        for url in ('https://atacante.example/push', 'https://fcm.googleapis.com.atacante.example/x',
+                    'https://fcm.googleapis.com:8443/x', 'https://user:pw@fcm.googleapis.com/x',
+                    'http://fcm.googleapis.com/x', 'https://[::1/x', '',
+                    'https://fcm.googleapis.com/' + 'a' * 600):
+            with self.subTest(url=url[:60]):
+                self.assertFalse(push.endpoint_de_push_valido(url))
+
+
+@override_settings(ADMIN_2FA_OBRIGATORIO=False, PROFISSIONAL_2FA_OBRIGATORIO=False)
+class AssinarPushHostDesconhecidoTests(TestCase):
+    def test_endpoint_https_de_host_arbitrario_devolve_400(self):
+        import json
+
+        user = Usuario.objects.create_user(email='dona@clinica.test', password='x-senha-123', nome='Dona',
+                                           papel=Usuario.PAPEL_ADMIN)
+        self.client.force_login(user)
+        corpo = json.dumps({'endpoint': 'https://atacante.example/push', 'keys': {'p256dh': 'k', 'auth': 'a'}})
+        resp = self.client.post('/webpush/subscribe/', data=corpo, content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(AssinaturaPush.objects.exists())

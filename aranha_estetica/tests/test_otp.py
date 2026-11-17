@@ -326,6 +326,16 @@ class SmsgoTests(TestCase):
         self.assertFalse(sms.enviar_sms('17999990000', 'oi'))
         self.assertEqual(req.call_count, 2)
 
+    @patch('aranha_estetica.utils.sms.requests.request')
+    def test_erro_que_ecoa_a_mensagem_nao_leva_o_codigo_ao_log(self, req):
+        eco = {'error': True, 'message': 'invalid sender for: Clinica: codigo 482913'}
+        req.side_effect = [_resposta(200, {'token': 'oat_1'}), _resposta(422, eco)]
+        with self.assertLogs('aranha_estetica.utils.sms', 'ERROR') as logs:
+            self.assertFalse(sms.enviar_sms('17999990000', 'Clinica: codigo 482913'))
+        registro = next(r for r in logs.records if r.getMessage() == 'sms_erro_http')
+        self.assertNotIn('482913', registro.body)
+        self.assertIn('invalid sender', registro.body)
+
     @override_settings(SMSGO_API_KEY='')
     @patch('aranha_estetica.utils.sms.requests.request')
     def test_sem_chave_falha_fechado(self, req):

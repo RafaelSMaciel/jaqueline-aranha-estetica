@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST, require_GET
 
 from ...models import AssinaturaPush
-from ...services.push import get_vapid_public_key
+from ...services.push import endpoint_de_push_valido, get_vapid_public_key
 from ...utils.respostas import MSG_2FA, json_erro, json_ok
 
 logger = logging.getLogger(__name__)
@@ -74,8 +74,8 @@ def webpush_subscribe(request):
 
     if not endpoint or not p256dh or not auth:
         return json_erro('campos_ausentes', 'Informe endpoint, p256dh e auth.')
-    # Push services reais sao sempre https; evita o servidor fazer request p/ URL arbitraria.
-    if not endpoint.startswith('https://') or len(endpoint) > 600:
+    # So push services conhecidos: evita o servidor fazer request p/ URL arbitraria.
+    if not endpoint_de_push_valido(endpoint):
         return json_erro('endpoint_invalido', 'Endpoint de push invalido.')
 
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:300]

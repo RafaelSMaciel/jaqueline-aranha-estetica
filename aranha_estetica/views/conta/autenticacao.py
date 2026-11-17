@@ -86,6 +86,7 @@ def usuario_login(request):
             messages.error(request, 'Preencha e-mail e senha.')
             return redirect('aranha:usuario_login')
 
+        # email=: o django-axes le o USERNAME_FIELD (email) das credenciais p/ o bloqueio IP+usuario
         usuario = authenticate(request, email=email, password=senha)
 
         if pode_acessar(usuario):
