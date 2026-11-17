@@ -159,7 +159,28 @@ function marcarRolagens() {
 let quadroRolagem = 0
 window.addEventListener('resize', () => { cancelAnimationFrame(quadroRolagem); quadroRolagem = requestAnimationFrame(marcarRolagens) })
 
+// ── Menu lateral do painel: a rolagem sobrevive a troca de tela ──
+// Cada tela e uma pagina nova: o menu voltava ao topo e quem abria um item do fim da lista
+// (Configuracoes, Auditoria) perdia de vista onde estava. Guarda a rolagem (sessionStorage, so
+// conveniencia) e garante o item da tela aberta visivel.
+const CHAVE_MENU = 'painel-menu-rolagem'
+function restaurarMenu() {
+  const menu = document.getElementById('sidenavMain')
+  if (!menu) return
+  try { menu.scrollTop = Number(sessionStorage.getItem(CHAVE_MENU)) || 0 } catch (e) { /* modo privado */ }
+  const atual = menu.querySelector('a[aria-current="page"]')
+  if (atual) {
+    const m = menu.getBoundingClientRect()
+    const a = atual.getBoundingClientRect()
+    if (a.top < m.top || a.bottom > m.bottom) menu.scrollTop += a.top - m.top - (m.height - a.height) / 2
+  }
+  window.addEventListener('pagehide', () => {
+    try { sessionStorage.setItem(CHAVE_MENU, String(menu.scrollTop)) } catch (e) { /* modo privado */ }
+  })
+}
+
 document.querySelectorAll('[data-abas]').forEach(iniciarAbas)
 marcarRolagens()
+restaurarMenu()
 // tabela dentro de aba escondida so tem largura quando a aba abre
 document.addEventListener('click', (e) => { if (e.target.closest('[data-aba]')) requestAnimationFrame(marcarRolagens) })

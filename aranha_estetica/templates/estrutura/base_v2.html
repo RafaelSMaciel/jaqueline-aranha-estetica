@@ -24,6 +24,7 @@
   {# nonce obrigatorio: a CSP de prod bloqueia <style> sem nonce mesmo com JS desligado #}
   <noscript><style nonce="{{ csp_nonce }}">.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   {% vite_hmr_client %}
+  <link rel="stylesheet" href="{% vite_asset_url 'aranha_estetica/static/src/css/app.css' %}">
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
   {% block schema_extra %}{% endblock %}

@@ -19,7 +19,7 @@ from ...constants import (
     CONTATO_TETO_DIARIO_GLOBAL as TETO_DIARIO_GLOBAL,
 )
 from ...forms.publico import ContatoForm, primeiro_erro
-from ...utils import datas
+from ...utils import datas, telefone
 from ...utils.branding import get_branding
 from ...utils.captcha import captcha_invalido, turnstile_enabled, turnstile_site_key
 from ...utils.email import email_configurado
@@ -68,7 +68,7 @@ def _enviar(form) -> int:
     corpo = (
         f'Nome: {dados["name"]}\n'
         f'E-mail: {dados["email"]}\n'
-        f'Telefone: {dados["phone"] or "não informado"}\n'
+        f'Telefone: {telefone.formatar(dados["phone"]) if dados["phone"] else "não informado"}\n'
         f'Assunto: {form.assunto}\n\n'
         f'Mensagem:\n{dados["message"]}'
     )

@@ -14,6 +14,9 @@ export default defineConfig({
     // worker nunca serve JS velho depois de um deploy; o static/js/ antigo nao tinha versao).
     rollupOptions: {
       input: {
+        // CSS como entrada propria: a casca o liga por <link> no <head> (bloqueia a pintura ate o
+        // estilo chegar). Importado pelo app.js, no dev ele entrava por JS e a tela piscava sem estilo.
+        estilos: 'aranha_estetica/static/src/css/app.css',
         app: 'aranha_estetica/static/src/js/app.js',
         wizard: 'aranha_estetica/static/src/js/wizard.js',
         // abas, menu "⋯", modais e Ctrl+K das telas da equipe (painel e portal da profissional)

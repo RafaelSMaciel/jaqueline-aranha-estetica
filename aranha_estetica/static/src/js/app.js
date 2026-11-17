@@ -1,6 +1,6 @@
 import Alpine from '@alpinejs/csp'
 // HTMX removido: sem nenhum hx-* no projeto e injetava <style> sem nonce (CSP).
-import '../css/app.css'
+// O CSS (css/app.css) entra por <link> na casca, antes deste script (vite.config.js, entrada 'estilos').
 
 function aplicarTema(novo) {
   document.documentElement.dataset.theme = novo

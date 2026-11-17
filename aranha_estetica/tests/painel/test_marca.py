@@ -35,7 +35,7 @@ class MarcaFormTests(TestCase):
                           INSTAGRAM_URL='instagram', THEME_COLOR='azul')
         self.assertFalse(form.is_valid())
         self.assertEqual({campo: erros[0] for campo, erros in form.errors.items()}, {
-            'WHATSAPP_NUMERO': 'WhatsApp: informe DDD + número (ex: 17 99123-4567) ou com DDI (5517991234567).',
+            'WHATSAPP_NUMERO': 'WhatsApp: informe DDD + número (ex: 11 99123-4567) ou com DDI (5511991234567).',
             'CLINIC_EMAIL': 'E-mail de contato inválido.',
             'ENCARREGADO_EMAIL': 'E-mail do encarregado de dados inválido.',
             'CLINIC_CNPJ': 'CNPJ (14 dígitos) ou CPF (11 dígitos) inválido.',

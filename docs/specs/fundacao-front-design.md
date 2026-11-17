@@ -50,7 +50,7 @@ PALETA crua                 →  TOKEN semântico                    →  UTILIT
 - **Arquivos:** `static/src/css/tokens.css` (paleta + semânticos; `[data-theme="escuro"]` e
   `prefers-color-scheme: dark` sem escolha redefinem os semânticos — o mesmo bloco duas vezes) e
   `static/src/css/app.css` (`@import "tailwindcss"`, fontes, `@theme`, `@source`, a camada base e o
-  foco). O `app.css` importa as duas camadas de página:
+  foco; entrada `estilos` do Vite, ligada por `<link>` no `<head>` das quatro cascas). O `app.css` importa as duas camadas de página:
   - **`componentes.css`** — design system das telas da equipe (painel e portal): `.btn` e variantes,
     `.campo`/`.rotulo`/`.ajuda`/`.erro-campo`, `.cartao`, `.selo`, `.nota`, `.kpi`, `.tabela`
     (+ `.tabela-responsiva`), `.aba`, `.menu-acoes`, `.dialogo-*`, `.vazio`, `.barra-filtros`,
@@ -134,7 +134,7 @@ mapa canônico com SVG inline), `<c-toast>` (mensagens do Django via `chrome/men
 
 | Entrada | Onde | O que faz |
 |---|---|---|
-| `app.js` | Todas as cascas | Alpine CSP-safe (`temaToggle`, `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`, `pacoteCriar`), `data-confirm` global delegado (substitui `window.confirm` inline); importa o `app.css` |
+| `app.js` | Todas as cascas | Alpine CSP-safe (`temaToggle`, `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`, `pacoteCriar`), `data-confirm` global delegado (substitui `window.confirm` inline). O `app.css` **não** é importado aqui: é a entrada `estilos` do Vite e cada casca o liga por `<link rel="stylesheet" href="{% vite_asset_url ... %}">` antes do script — bloqueia a pintura até o estilo chegar (importado pelo JS, no dev a página pintava sem estilo a cada troca de tela) |
 | `wizard.js` | `agendamento/agendamento_publico.html` | Wizard de agendamento (vanilla, estado em `sessionStorage`, reidratação após recusa do servidor) |
 | `painel.js` | Painel e portal | Abas, menu "⋯", modais (`data-abrir-dialogo`/`data-fechar-dialogo`, clique no fundo fecha), Ctrl+K na busca, foco/nome na tabela que rola — vanilla, por delegação no `document` |
 | `painel-busca.js` | Painel | Busca instantânea |

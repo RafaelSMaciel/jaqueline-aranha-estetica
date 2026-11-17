@@ -342,7 +342,7 @@ def check_config_producao(app_configs=None, databases=None, **kwargs):
         avisos.append(checks.Warning(
             'WHATSAPP_NUMERO vazio ou invalido: botoes/links de WhatsApp ficam ocultos, '
             'inclusive o fallback do agendamento quando o SMS falha.',
-            hint='Defina na tela Branding do painel ou na env WHATSAPP_NUMERO: ex.: 5517991234567, '
+            hint='Defina na tela Branding do painel ou na env WHATSAPP_NUMERO: ex.: 5511991234567, '
                  'ou DDD+numero (10-11 digitos ganham 55 sozinho). A tela Branding vence a env.',
             id='aranha.W004',
         ))

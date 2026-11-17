@@ -27,7 +27,7 @@ BRANDING_FIELDS = [
     ('CLINIC_PHONE', 'Telefone exibido', 'text'),
     ('CLINIC_ADDRESS', 'Endereço', 'text'),
     ('CLINIC_HOURS', 'Horário de funcionamento', 'text'),
-    ('WHATSAPP_NUMERO', 'WhatsApp (só dígitos com DDI, ex: 5517991234567)', 'text'),
+    ('WHATSAPP_NUMERO', 'WhatsApp (só dígitos com DDI, ex: 5511991234567)', 'text'),
     ('INSTAGRAM_URL', 'URL do Instagram', 'url'),
     ('THEME_COLOR', 'Cor da barra do navegador/app no celular (hex, ex: #C9A84C)', 'color'),
     # Politica de privacidade (LGPD arts. 9 e 41): quem e o controlador e o encarregado
@@ -42,7 +42,7 @@ DEFAULTS = {
     'CLINIC_SUBTITLE': 'Estética facial e corporal · Atendimento exclusivo',
     'CLINIC_EMAIL': '',
     'CLINIC_PHONE': '',
-    'CLINIC_ADDRESS': 'R. Humberto Delboni, 1107 - Jardim Fuscaldo, São José do Rio Preto - SP',
+    'CLINIC_ADDRESS': 'Osasco - SP',  # rua e número: preencher na tela Branding do painel
     'CLINIC_HOURS': 'Seg a Sex · 9h às 19h  |  Sáb · 9h às 13h',
     'WHATSAPP_NUMERO': '',
     'INSTAGRAM_URL': '',

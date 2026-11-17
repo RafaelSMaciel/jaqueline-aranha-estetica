@@ -44,6 +44,39 @@ class FrontPipelineGuards(TestCase):
         app_js = (_SRC.parent / 'js' / 'app.js').read_text(encoding='utf-8')
         self.assertNotIn("import 'htmx.org'", app_js)
 
+    def test_css_entra_por_link_no_head_e_nao_pelo_js(self):
+        # Importado pelo app.js, no dev o CSS entrava por JS depois da primeira pintura e a tela
+        # piscava sem estilo a cada troca de pagina. Agora e a entrada 'estilos' do Vite, ligada por
+        # <link> antes do script em toda casca (bloqueia a pintura ate o estilo chegar).
+        app_js = (_SRC.parent / 'js' / 'app.js').read_text(encoding='utf-8')
+        self.assertNotIn("import '../css/app.css'", app_js)
+        vite = (Path(settings.BASE_DIR) / 'vite.config.js').read_text(encoding='utf-8')
+        self.assertIn("estilos: 'aranha_estetica/static/src/css/app.css'", vite)
+        link = ('<link rel="stylesheet" href="{% vite_asset_url '
+                "'aranha_estetica/static/src/css/app.css' %}\">")
+        tpl = Path(settings.BASE_DIR) / 'aranha_estetica' / 'templates'
+        for casca in ('estrutura/base_v2.html', 'estrutura/base_auth.html', 'painel/base_v2.html',
+                      'profissional/base.html'):
+            with self.subTest(casca=casca):
+                html = (tpl / casca).read_text(encoding='utf-8')
+                self.assertIn(link, html)
+                self.assertLess(html.index(link), html.index("vite_asset 'aranha_estetica/static/src/js/app.js'"))
+
+    def test_menu_lateral_guarda_a_rolagem_entre_telas(self):
+        # cada tela e uma pagina nova: sem isto o menu voltava ao topo e o item aberto sumia
+        painel_js = (_SRC.parent / 'js' / 'painel.js').read_text(encoding='utf-8')
+        bloco = painel_js.split('function restaurarMenu()')[1].split('\n}\n')[0]
+        self.assertIn("getElementById('sidenavMain')", bloco)
+        self.assertIn("'pagehide'", bloco)
+        self.assertIn('aria-current="page"', bloco)
+        self.assertIn('restaurarMenu()', painel_js.split('function restaurarMenu()')[1])
+
+    def test_abas_sem_barra_de_rolagem_vertical(self):
+        # overflow-x:auto sozinho deixa o eixo y em auto: a borda da aba ativa (1px) virava barra vertical
+        css = (_SRC / 'componentes.css').read_text(encoding='utf-8')
+        bloco = css.split('.abas-lista {')[1].split('}')[0]
+        self.assertIn('overflow-y: hidden', bloco)
+
     def test_cookie_consent_persistido_em_cookie_sem_chamar_o_servidor(self):
         app_js = (_SRC.parent / 'js' / 'app.js').read_text(encoding='utf-8')
         bloco = app_js.split("Alpine.data('cookieConsent'")[1].split('Alpine.data(')[0]

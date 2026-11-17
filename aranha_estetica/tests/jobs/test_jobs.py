@@ -190,6 +190,19 @@ class FeriadosTests(TestCase):
         self.assertEqual(feriados.carregar([2035, 2036]), 13)
         self.assertFalse(AgendaExcecao.objects.get(data_inicio=date(2035, 12, 25)).ativo)
 
+    def test_carregar_acentua_nome_antigo_da_migration_e_preserva_nome_editado(self):
+        """A 0012 semeou 2026-2027 sem acento ('Dia da Consciencia Negra'): o calendario mostrava
+        assim. A carga corrige so esses; nome que a clinica escreveu fica como esta."""
+        feriados.carregar([2035])
+        AgendaExcecao.objects.filter(data_inicio=date(2035, 11, 20)).update(motivo='Dia da Consciencia Negra')
+        AgendaExcecao.objects.filter(data_inicio=date(2035, 11, 15)).update(motivo='Proclamacao da Republica')
+        AgendaExcecao.objects.filter(data_inicio=date(2035, 12, 25)).update(motivo='Natal (clínica fechada)')
+        self.assertEqual(feriados.carregar([2035]), 0)
+        motivo = dict(AgendaExcecao.objects.filter(data_inicio__year=2035).values_list('data_inicio', 'motivo'))
+        self.assertEqual(motivo[date(2035, 11, 20)], 'Consciência Negra')
+        self.assertEqual(motivo[date(2035, 11, 15)], 'Proclamação da República')
+        self.assertEqual(motivo[date(2035, 12, 25)], 'Natal (clínica fechada)')
+
     def test_job_devolve_quantos_criou(self):
         from aranha_estetica.jobs_manutencao import job_carregar_feriados
 

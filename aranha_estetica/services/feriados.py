@@ -10,6 +10,7 @@ Quem usa: o comando ``carregar_feriados`` (e o ``seed``) e o job ``feriados`` (j
 """
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Iterable
 from datetime import date, timedelta
 
@@ -67,12 +68,23 @@ def anos_padrao() -> list[int]:
     return [ano, ano + 1]
 
 
+def _sem_acento(texto: str) -> str:
+    return ''.join(c for c in unicodedata.normalize('NFKD', texto) if not unicodedata.combining(c)).casefold()
+
+
+def _nome_antigo(motivo: str, nome: str) -> bool:
+    """Nome semeado pela 0012 (2026-2027) sem acento: 'Dia da Consciencia Negra', 'Finados'..."""
+    antigo, novo = _sem_acento(motivo), _sem_acento(nome)
+    return motivo != nome and antigo in (novo, f'dia da {novo}')
+
+
 def carregar(anos: Iterable[int] | None = None) -> int:
-    """Cria os feriados que faltam nos ``anos`` (padrao: atual + seguinte). Devolve quantos criou."""
+    """Cria os feriados que faltam nos ``anos`` (padrao: atual + seguinte). Devolve quantos criou.
+    O feriado que ja existe com o nome antigo sem acento ganha o nome certo (o resto fica como esta)."""
     criados = 0
     for ano in (anos or anos_padrao()):
         for dia, nome in feriados_do_ano(ano):
-            _feriado, criado = AgendaExcecao.objects.get_or_create(
+            feriado, criado = AgendaExcecao.objects.get_or_create(
                 origem=AgendaExcecao.ORIGEM_FERIADO_NACIONAL,
                 data_inicio=dia,
                 defaults={
@@ -84,4 +96,6 @@ def carregar(anos: Iterable[int] | None = None) -> int:
                 },
             )
             criados += criado
+            if not criado and _nome_antigo(feriado.motivo, nome):
+                AgendaExcecao.objects.filter(pk=feriado.pk).update(motivo=nome)
     return criados

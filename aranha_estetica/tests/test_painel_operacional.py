@@ -846,6 +846,19 @@ class AlertaSaudeVisivelTests(TestCase):
         self.assertIn('Alerta de saúde: Alergias: Lidocaina', html)  # visao semana (sr-only)
         self.assertIn(reverse('aranha:prontuario_detalhe', args=[self.cli.pk]), html)
 
+    def test_semana_mostra_reagendado_riscado_e_com_o_status(self):
+        """O horario que a cliente remarcou continua na semana (historico), mas riscado e com
+        'Reagendado' escrito: antes aparecia igual a um atendimento que vai acontecer."""
+        self.agendado.status = 'REAGENDADO'
+        self.agendado.save(update_fields=['status'])
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('aranha:profissional_agenda'),
+                               {'data': _local(1).date().isoformat()})
+        semana = resp.content.decode().split('id="agenda-semana"')[1]
+        self.assertIn('line-through', semana)
+        self.assertIn('Reagendado', semana)
+        self.assertIn('Pendente', semana)   # o pedido ainda sem resposta tambem fica escrito
+
     def test_anotar_mostra_alerta(self):
         self.client.force_login(self.user)
         resp = self.client.get(reverse('aranha:profissional_anotar', args=[self.agendado.pk]))

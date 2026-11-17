@@ -10,7 +10,7 @@
 
 ## 1. Posicionamento
 
-A Jaqueline Aranha Estética é uma clínica de **estética e bem-estar** em São José do Rio Preto/SP. O
+A Jaqueline Aranha Estética é uma clínica de **estética e bem-estar** em Osasco/SP. O
 catálogo vai da massagem relaxante e da drenagem a injetáveis (toxina botulínica, preenchimentos,
 bioestimulador).
 
@@ -185,7 +185,7 @@ A agenda usa cores de status por convenção, para leitura rápida pela equipe:
 
 | Recurso | O que faz | Por quê |
 |---|---|---|
-| **SEO local** | título e descrição por página, Open Graph, dados estruturados schema.org (`BeautySalon`/`HealthAndBeautyBusiness`, `Service` com `Offer`, `FAQPage`, `BreadcrumbList`), sitemap e robots; páginas privadas com `noindex` | Aparecer na busca "estética em Rio Preto" e no compartilhamento pelo WhatsApp com imagem e texto certos. |
+| **SEO local** | título e descrição por página, Open Graph, dados estruturados schema.org (`BeautySalon`/`HealthAndBeautyBusiness`, `Service` com `Offer`, `FAQPage`, `BreadcrumbList`), sitemap e robots; páginas privadas com `noindex` | Aparecer na busca "estética em Osasco" e no compartilhamento pelo WhatsApp com imagem e texto certos. |
 | **Agendamento online 24 h** | a cliente escolhe o horário livre e confirma com um código SMS | Converte na hora em que a vontade surge, sem esperar resposta. |
 | **Prova social honesta** | nota média só com **10+ avaliações**; "clientes atendidas" só a partir de **50** (arredondado para baixo); anos de experiência só se a clínica preencher | Número real gera confiança. Número inventado é publicidade enganosa (CDC, art. 37). |
 | **Depoimentos** | só nota ≥ 9 no NPS, com autorização da cliente e aprovação da clínica | Depoimento verdadeiro, com consentimento (LGPD). |

@@ -107,6 +107,8 @@ class ContatoViewTests(TestCase):
         self.assertIn('clinica@test.com', enviado.recipients())
         # Resposta vai direto p/ quem escreveu (o from e o noreply)
         self.assertEqual(enviado.reply_to, ['ana@exemplo.com.br'])
+        # telefone com mascara (o form guarda so os digitos)
+        self.assertIn('Telefone: (17) 98888-0000', enviado.body)
 
     # ── Falha de email: nao derruba a request e NAO finge sucesso ───────────
 

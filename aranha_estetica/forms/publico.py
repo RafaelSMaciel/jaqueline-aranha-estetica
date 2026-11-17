@@ -12,7 +12,7 @@ from ..utils import datas
 from ..utils import telefone as telefones
 
 HONEYPOT = 'website'
-MSG_TELEFONE = 'Informe um celular válido com DDD, ex.: (17) 99999-9999.'
+MSG_TELEFONE = 'Informe um celular válido com DDD, ex.: (11) 99999-9999.'
 
 
 class _AntiRobo(forms.Form):

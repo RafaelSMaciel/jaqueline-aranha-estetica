@@ -20,6 +20,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
 
   {% vite_hmr_client %}
+  <link rel="stylesheet" href="{% vite_asset_url 'aranha_estetica/static/src/css/app.css' %}">
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
 </head>

@@ -46,6 +46,7 @@
         name="telefone"
         class="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-texto text-sm"
         value="{{ telefone|default_if_none:'' }}"
+        placeholder="(11) 99999-9999" autocomplete="tel" inputmode="tel"
         {% if aguardando_codigo %}readonly{% endif %}
         required
       >

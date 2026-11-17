@@ -151,14 +151,18 @@
         {% if atds %}
         <ul class="mt-2 flex flex-col gap-1.5">
           {% for atd in atds %}
-          <li class="rounded-lg bg-fundo px-2.5 py-1.5 text-legenda leading-snug text-texto">
+          {# encerrado (cancelado, reagendado p/ outro horario, falta) fica esmaecido e riscado, com o status escrito #}
+          <li class="rounded-lg bg-fundo px-2.5 py-1.5 text-legenda leading-snug text-texto{% if atd.encerrado %} opacity-70{% endif %}">
             <p class="flex min-w-0 items-center gap-1.5">
-              <span class="shrink-0 font-bold tabular-nums">{{ atd.data_hora_inicio|time:"H:i" }}</span>
-              <span class="truncate">{{ atd.cliente.nome }}</span>
+              <span class="shrink-0 font-bold tabular-nums{% if atd.encerrado %} line-through{% endif %}">{{ atd.data_hora_inicio|time:"H:i" }}</span>
+              <span class="truncate{% if atd.encerrado %} line-through{% endif %}">{{ atd.cliente.nome }}</span>
               {% if atd.alertas %}
               <c-icone nome="alerta" class="w-3.5 h-3.5 shrink-0 text-erro" /><span class="sr-only">Alerta de saúde: {% for a in atd.alertas %}{{ a.label }}: {{ a.valor }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>
               {% endif %}
             </p>
+            {% if atd.encerrado or atd.status == 'PENDENTE' %}
+            <p class="mt-0.5 text-texto-suave">{{ atd.get_status_display }}</p>
+            {% endif %}
             {% if atd.termo_pendente or atd.ficha_pendente %}
             <p class="mt-0.5 font-bold text-aviso">{% if atd.termo_pendente %}Termo pendente{% endif %}{% if atd.termo_pendente and atd.ficha_pendente %} · {% endif %}{% if atd.ficha_pendente %}Ficha pendente{% endif %}</p>
             {% endif %}

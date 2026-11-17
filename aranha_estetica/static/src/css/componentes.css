@@ -258,7 +258,9 @@
   /* ── Abas: <c-abas> + <c-abas.aba> + <c-abas.painel> (painel.js liga role=tab/tabpanel e as setas) ── */
   .abas-lista {
     display: flex; gap: 0.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--cor-borda);
-    overflow-x: auto; scrollbar-width: thin;
+    /* overflow-y explicito: so overflow-x:auto faz o eixo y virar auto e o 1px da borda da aba
+       ativa (margin-bottom:-1px) mostrava uma barra de rolagem vertical ao lado das abas */
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
   }
   .aba {
     display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; margin-bottom: -1px;

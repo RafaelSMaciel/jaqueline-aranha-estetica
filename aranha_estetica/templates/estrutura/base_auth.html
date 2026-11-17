@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" href="{% static 'assets/pwa/apple-touch-icon.png' %}">
   <meta name="theme-color" content="{{ THEME_COLOR|default:'#C9A84C' }}">
   {% vite_hmr_client %}
+  <link rel="stylesheet" href="{% vite_asset_url 'aranha_estetica/static/src/css/app.css' %}">
   {% vite_asset 'aranha_estetica/static/src/js/app.js' %}
   {% block css %}{% endblock %}
 </head>

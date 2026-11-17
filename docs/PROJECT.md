@@ -43,7 +43,7 @@
 
 ## 1. Visão geral
 
-Sistema single-tenant da clínica de estética Jaqueline Aranha (São José do Rio Preto/SP).
+Sistema single-tenant da clínica de estética Jaqueline Aranha (Osasco/SP).
 Um único projeto Django, renderizado no servidor, com duas superfícies:
 
 | Superfície | Quem usa | Base de template |
@@ -699,7 +699,7 @@ portal), `/lgpd/aceitar-cookies/` (o aviso de cookies não grava nada no servido
 | `/painel/nps/` (+ `<pk>/publicacao/`) | NPS e moderação de depoimentos |
 | `/painel/anamneses/...`, `/painel/termos/` (+ `criar/`, `compliance/`) | Formulários e termos |
 | `/painel/notificacoes/`, `/painel/auditoria/`, `/painel/usuarios/...`, `/painel/configuracoes/` (+ `criar/`, `<pk>/editar/`, `<pk>/excluir/` = restaurar padrão), `/painel/branding/`, `/painel/email-preview/[<nome>/]` | Sistema: notificações, auditoria, usuários (ninguém muda o próprio papel; o último ADMIN ativo não é rebaixado nem desativado), **Regras operacionais** (só o registro tipado), **Identidade visual** (marca e contatos). As escritas de usuários, profissionais, procedimentos e regras usam `@escrita_painel` (POST + 30/min por usuário) |
-| `/webpush/{public-key,subscribe,unsubscribe}/` | Web Push da equipe |
+| `/webpush/{public-key,subscribe,unsubscribe}/` | Web Push da equipe (assinatura só com endpoint de push service conhecido: FCM, Mozilla, Apple, Windows — `services/push.endpoint_de_push_valido`) |
 | `/painel/api/` (+ `openapi.yaml`) | **Documentação da API**: Swagger UI (swagger-ui-dist do npm, tema claro/escuro do painel) do `api/openapi.yaml`; "Try it out" só em GET (as escritas mudam dados reais), sem validador externo. Só ADMIN (e 2FA); o YAML também baixa daqui |
 | `/django-admin-sv/` | Django admin (só ADMIN com sessão 2FA verificada) |
 
@@ -1303,8 +1303,8 @@ Falta, da dona da conta (nenhum desses passa por código):
      registrador/DNS, Meta Business, SMSGo, provedor de e-mail, Sentry, cron e monitor. Faça o
      inventário (conta, dono, quem tem acesso) e revise a cada trimestre ([`LGPD.md`](LGPD.md) §6).
    - GitHub: a `main` já está protegida (checks do CI obrigatórios, inclusive para admin; sem
-     force-push nem exclusão). Ligue também *Secret scanning* + *Push protection*
-     (Settings > Code security).
+     force-push nem exclusão). *Secret scanning*, *Push protection* e alertas + correções do
+     Dependabot ligados em 2026-11-06 (o repositório é público).
    - Railway: *Wait for CI* no serviço `web` (deploy só depois do CI verde) e variáveis sensíveis
      como *sealed*. Postgres **sem TCP proxy público**: ligue só durante uma manutenção, desligue
      em seguida e troque a senha se ele ficou aberto.
@@ -1828,6 +1828,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-10-30 | Nome padronizado: **Jaqueline Aranha Estética** em documentos, diagramas (PlantUML e Lucid), API, `package.json`, Postgres local, `DB_APPLICATION_NAME` e backups; documentos gerados passam a `docs/tcc/JaquelineAranhaEstetica-*`. Identificadores gravados em dado ou em migration mantêm o nome antigo (§15) |
 | 2026-10-31 | Diagramas refeitos no Lucidchart a partir dos models (`docs/geradores/diagramas_lucid.py`), completos e separados em dez assuntos: MER em notação de Chen com cardinalidade (mín., máx.) e atributos com os nomes das colunas, DER das 37 tabelas, classes em UML (visibilidade, tipos, multiplicidade, derivados, operações com assinatura, composição, enumerações) e casos de uso com «include», «extend» com condição e pontos de extensão. `docs/` reorganizada: `diagramas/` (PNGs: completos, recortes, outros), `geradores/` (scripts e dados) e `tcc/` (só os arquivos gerados); PlantUML (`docs/uml/`) removido; requisitos em PDF simples e em linguagem leiga (`gerar_requisitos.py`) |
 | 2026-11-03 | SMS pré-pago: `utils/sms` com dois provedores, **SMSGo** por padrão (`SMS_PROVEDOR=smsgo`, `SMSGO_API_KEY`; chave trocada por token Bearer de 48 h no cache, renovado no 401) e Zenvia como opção; política e `LGPD.md` com a SMSGo como operadora e sem o jsDelivr. **Sessão única da cliente verificada** (`services/sessao_cliente`): o código do wizard abre a área da cliente e o do portal libera agendar; cada pedido online gasta a verificação. **2FA** conferido em qualquer sessão autenticada (saiu o marcador `usuario_id`; suite com a obrigatoriedade desligada). Link do termo sem `mailto:` (e-mail do cadastro não é verificado). **Catálogo de regras** (`aranha_estetica/regras.py`) gera a tabela §24 do `REGRAS-DE-NEGOCIO.md` (`manage.py gerar_docs_regras`, teste contra drift); spec do registry reescrita como implementada |
+| 2026-11-06 | Varredura de segurança da `dev` (autenticação, sessão, permissões, injeção, XSS, webhooks, cripto, logs; histórico do git sem segredo): nenhuma vulnerabilidade de alta confiança. Ajustes: assinatura de push só para push services conhecidos; corpo de erro do provedor de SMS no log sem números longos (o código não vaza se o provedor ecoar a mensagem); teste que trava o axes gravando a conta da tentativa. GitHub: secret scanning, push protection e Dependabot ligados. `main` igualada à `dev`. |
+| 2026-11-16 | Clínica em **Osasco/SP**: endereço padrão `Osasco - SP` (rua e número na tela Identidade visual), SEO e textos, exemplos de celular com DDD 11. Varredura manual de todo o site, painel, portal e PWA (offline e celular): CSS como entrada própria do Vite (`estilos`) ligado por `<link>` nas cascas — no dev a tela piscava sem estilo a cada troca de página; abas sem barra de rolagem vertical sobrando; menu lateral do painel guarda a rolagem entre telas (o item aberto fica visível); semana do portal da profissional com cancelado/reagendado/falta riscado e com o status escrito; telefone formatado no e-mail do contato; a carga de feriados (`services/feriados.carregar`, job mensal) acentua os nomes que a 0012 semeou sem acento em 2026–2027 |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
-**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-10-30
+**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-11-16

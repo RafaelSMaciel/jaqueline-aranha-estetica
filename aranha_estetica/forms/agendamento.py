@@ -36,7 +36,7 @@ PREFIXO_TERMO = 'aceite_termo_'
 
 MSG_CAMPOS = 'Preencha todos os campos obrigatórios.'
 MSG_POLITICA = 'Para agendar, confirme que leu e aceita a Política de Privacidade.'
-MSG_CELULAR = 'Informe um celular válido com DDD, ex.: (17) 99999-9999.'
+MSG_CELULAR = 'Informe um celular válido com DDD, ex.: (11) 99999-9999.'
 MSG_SEM_OTP = 'Confirme seu celular com o código enviado por SMS antes de concluir.'
 MSG_EMAIL = 'Informe um e-mail válido ou deixe o campo em branco.'
 MSG_NASCIMENTO = 'Data de nascimento inválida.'

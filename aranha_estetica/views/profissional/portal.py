@@ -25,6 +25,8 @@ from ..comum import responder_link_ics
 
 logger = logging.getLogger(__name__)
 
+ENCERRADOS_SEM_SESSAO = (StatusAtendimento.CANCELADO, StatusAtendimento.REAGENDADO, StatusAtendimento.FALTOU)
+
 
 def _redirect_seguro(request, destino, fallback='aranha:profissional_agenda'):
     """Redirect so p/ URL local (anti open-redirect no campo 'next')."""
@@ -132,6 +134,8 @@ def agenda(request):
         at.alertas = alertas.get(at.cliente_id, [])
         at.termo_pendente = at.pk in sem_termo
         at.ficha_pendente = at.pk in sem_ficha
+        # cancelado, reagendado p/ outro horario ou falta: a semana mostra riscado (nao vai acontecer)
+        at.encerrado = at.status in ENCERRADOS_SEM_SESSAO
 
     context = {
         'profissional': prof,

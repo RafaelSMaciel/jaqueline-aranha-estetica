@@ -346,7 +346,7 @@ def _valor_da_marca(chave: str, valor: str) -> str:
         digitos = normalizar_whatsapp(valor)  # 10-11 digitos ganham o DDI 55
         if not digitos:
             raise forms.ValidationError(
-                'WhatsApp: informe DDD + número (ex: 17 99123-4567) ou com DDI (5517991234567).')
+                'WhatsApp: informe DDD + número (ex: 11 99123-4567) ou com DDI (5511991234567).')
         return digitos
     if chave in ('CLINIC_EMAIL', 'ENCARREGADO_EMAIL'):
         try:

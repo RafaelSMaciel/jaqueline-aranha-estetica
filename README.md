@@ -1,7 +1,7 @@
 # Jaqueline Aranha Estética
 
 Site e sistema de gestão da clínica de estética da biomédica Jaqueline Aranha
-(São José do Rio Preto/SP). Um único app Django serve o **site público** (vitrine,
+(Osasco/SP). Um único app Django serve o **site público** (vitrine,
 agendamento online, área "Meus agendamentos", LGPD) e o **painel da equipe**
 (agenda, clientes, ficha/prontuário, pacotes, promoções, comissões, NPS, termos).
 
