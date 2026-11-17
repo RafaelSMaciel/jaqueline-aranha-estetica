@@ -1098,6 +1098,11 @@
                         if (txt) txt.textContent = 'Reenviar';
                         var campoCodigo = document.getElementById('otp-codigo');
                         if (campoCodigo) campoCodigo.focus();
+                        // Ambiente de testes / dev: SMS simulado, o servidor devolve o codigo
+                        if (res.data.codigo_teste && campoCodigo) {
+                            campoCodigo.value = res.data.codigo_teste;
+                            setStatusMsg('Ambiente de testes (SMS simulado): código ' + res.data.codigo_teste + ' já preenchido. Clique em Verificar.', true);
+                        }
                     } else if (codigo === 'limite') {
                         setStatusMsg('Aguarde um minuto antes de pedir outro código.', false);
                     } else {

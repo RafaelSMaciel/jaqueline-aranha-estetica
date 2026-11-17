@@ -17,7 +17,7 @@ from django.conf import settings
 
 from ..models import CodigoOtp
 from ..utils import telefone
-from ..utils.sms import enviar_otp_sms, pode_enviar, sms_disponivel
+from ..utils.sms import enviar_otp_sms, pode_enviar, sms_disponivel, sms_modo_dev
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -58,6 +58,19 @@ def eh_celular_br(digitos) -> bool:
     fixo (cadastro feito na recepcao, confirmacao do agendamento).
     """
     return telefone.eh_celular(digitos)
+
+
+def codigo_na_tela() -> bool:
+    """SMS simulado (so log) no ambiente de testes publicado ou no dev local: o codigo volta na
+    resposta e a tela o mostra ja preenchido — demonstracao sem provedor de SMS. Nunca em
+    producao: la AMBIENTE_TESTE e DEBUG sao False e o SMS e real."""
+    return bool(getattr(settings, 'AMBIENTE_TESTE', False) or settings.DEBUG) and sms_modo_dev()
+
+
+def codigo_de_teste(request) -> dict:
+    """{'codigo_teste': ...} p/ a resposta JSON quando codigo_na_tela(); {} no resto."""
+    codigo = getattr(request, 'otp_codigo_teste', None)
+    return {'codigo_teste': codigo} if codigo else {}
 
 
 def solicitar_otp(
@@ -123,6 +136,8 @@ def solicitar_otp(
     )
     if enviar_otp_sms(telefone, codigo, ip=ip):
         logger.info('otp_sms_enviado', extra={'proposito': proposito})
+        if request is not None and codigo_na_tela():
+            setattr(request, 'otp_codigo_teste', codigo)   # a view devolve (codigo_de_teste) e a tela preenche
         return True, 'ok', CodigoOtp.CANAL_SMS
 
     logger.error('otp_sms_falha', extra={'email_hash': _email_hash(email), 'proposito': proposito})

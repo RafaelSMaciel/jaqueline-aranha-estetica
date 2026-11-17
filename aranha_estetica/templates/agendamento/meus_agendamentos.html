@@ -74,6 +74,8 @@
                             </span>
                             <p class="code-aviso__titulo">Confira seu celular</p>
                             <p class="code-aviso__texto">Se houver cadastro, enviamos um código de 6 dígitos por SMS para o celular cadastrado.</p>
+                            {# ambiente de testes / dev: SMS simulado, o codigo vem na resposta (services/otp.codigo_na_tela) #}
+                            <p id="aviso-codigo-teste" class="code-aviso__texto font-bold" role="status" hidden></p>
                         </div>
                         <div class="code-inputs">
                             <input type="text" class="code-input" maxlength="1" data-idx="0" inputmode="numeric" autocomplete="one-time-code" aria-label="Dígito 1 do código">
@@ -477,6 +479,15 @@ var CSRF_TOKEN = '{{ csrf_token }}';
                     secao.hidden = false;
                     secao.scrollIntoView({behavior: 'smooth', block: 'center'});
                     document.querySelector('.code-input[data-idx="0"]').focus();
+                    if (res.data.codigo_teste) {
+                        String(res.data.codigo_teste).split('').forEach(function(d, i) {
+                            var ci = document.querySelector('.code-input[data-idx="' + i + '"]');
+                            if (ci) ci.value = d;
+                        });
+                        var aviso = document.getElementById('aviso-codigo-teste');
+                        aviso.textContent = 'Ambiente de testes (SMS simulado): código ' + res.data.codigo_teste + ' já preenchido. Clique em Verificar código.';
+                        aviso.hidden = false;
+                    }
                     startResendTimer();
                 }
             })

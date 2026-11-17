@@ -89,7 +89,7 @@ def solicitar_otp_agendamento(request):
                 'telefone': mask_telefone(digitos), 'motivo': motivo,
             })
         return _falha_envio(motivo)
-    return json_ok(canal=canal_usado)
+    return json_ok(canal=canal_usado, **otp_service.codigo_de_teste(request))
 
 
 @require_POST
@@ -196,7 +196,7 @@ def meus_agendamentos_enviar_otp(request):
                 'telefone': mask_telefone(digitos), 'motivo': motivo,
             })
     otp_service.esperar_latencia_minima(inicio)   # cadastrado e desconhecido levam o mesmo tempo
-    return json_ok(mensagem=MSG_SE_HOUVER_CADASTRO)
+    return json_ok(mensagem=MSG_SE_HOUVER_CADASTRO, **otp_service.codigo_de_teste(request))
 
 
 @require_POST

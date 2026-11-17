@@ -195,6 +195,25 @@ class OtpAgendamentoEndpointTests(TestCase):
         self.assertIsNone(resp.json()['prefill'])
         self.assertEqual(self.client.session['cliente_telefone'], '17900000001')
 
+    def test_codigo_na_tela_so_no_ambiente_de_testes_com_sms_simulado(self):
+        """Demonstracao no ambiente de testes publicado (SMS so no log): o codigo volta na resposta
+        e a tela o preenche. Fora dele (producao, SMS real) a resposta nunca traz o codigo."""
+        url_portal = reverse('aranha:meus_agendamentos_enviar_otp')
+        criar_cliente(nome='Demo', telefone='17977770001')
+        with override_settings(AMBIENTE_TESTE=True):
+            resp = self.client.post(self.url_sol, {'telefone': '17900000002'})
+            self.assertEqual(resp.json()['codigo_teste'], self.codigos['17900000002'])
+            resp = self.client.post(url_portal, {'identificador': '17977770001'})
+            self.assertEqual(resp.json()['codigo_teste'], self.codigos['17977770001'])
+        with override_settings(AMBIENTE_TESTE=True, SMS_DEV_LOG_ONLY=False, SMSGO_API_KEY='chave'):
+            resp = self.client.post(self.url_sol, {'telefone': '17900000003'})   # SMS real: nao mostra
+            self.assertTrue(resp.json()['ok'])
+            self.assertNotIn('codigo_teste', resp.json())
+        cache.clear()
+        resp = self.client.post(self.url_sol, {'telefone': '17900000004'})       # sem AMBIENTE_TESTE
+        self.assertTrue(resp.json()['ok'])
+        self.assertNotIn('codigo_teste', resp.json())
+
     def test_cliente_recorrente_com_email_verifica_pelo_telefone(self):
         Cliente.objects.create(
             nome='Joana', telefone='17999990000', email='joana@example.com',
