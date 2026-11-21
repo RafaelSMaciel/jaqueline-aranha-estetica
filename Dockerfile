@@ -2,7 +2,7 @@
 # static/dist e gitignored: sem este stage a imagem sai sem manifest e todo
 # template com {% vite_asset %} da 500. Tailwind v4 exige Node >= 20.
 # Imagens base fixadas por digest (multi-arch; o Dependabot atualiza): tag movida nao muda a imagem.
-FROM node:22-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS front
+FROM node:26-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS front
 
 WORKDIR /src
 COPY package.json package-lock.json ./
