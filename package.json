@@ -13,22 +13,22 @@
     "build": "vite build"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.1",
-    "axe-core": "4.13.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "axe-core": "4.14.1",
     "tailwindcss": "^4.3.1",
-    "vite": "^6.4.3"
+    "vite": "^8.3.8"
   },
   "dependencies": {
-    "@alpinejs/csp": "^3.15.12",
+    "@alpinejs/csp": "^3.17.5",
     "@fontsource/lato": "5.3.0",
     "@fontsource/playfair-display": "5.3.0",
-    "@fullcalendar/core": "6.1.21",
-    "@fullcalendar/daygrid": "6.1.21",
-    "@fullcalendar/interaction": "6.1.21",
-    "@fullcalendar/list": "6.1.21",
-    "@fullcalendar/timegrid": "6.1.21",
-    "chart.js": "4.5.1",
-    "swagger-ui-dist": "5.34.0"
+    "@fullcalendar/core": "7.1.5",
+    "@fullcalendar/daygrid": "6.1.22",
+    "@fullcalendar/interaction": "6.1.22",
+    "@fullcalendar/list": "6.1.22",
+    "@fullcalendar/timegrid": "6.1.22",
+    "chart.js": "4.6.1",
+    "swagger-ui-dist": "5.35.0"
   },
   "scarfSettings": {
     "enabled": false
