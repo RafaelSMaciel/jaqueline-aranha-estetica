@@ -14,7 +14,7 @@ RUN npm run build && test -f aranha_estetica/static/dist/manifest.json
 
 
 # ─── Stage 1: builder (compila wheels) ──────────────────────────────────
-FROM python:3.12-slim@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f AS builder
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -34,7 +34,7 @@ RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt -c requirem
 
 
 # ─── Stage 2: runtime (imagem final, leve) ──────────────────────────────
-FROM python:3.12-slim@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f AS runtime
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
