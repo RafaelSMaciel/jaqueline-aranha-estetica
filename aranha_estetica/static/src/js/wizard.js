@@ -200,8 +200,10 @@
     }
 
     // ═══ STEP NAVIGATION ═══
-    // Sem avanco automatico: cada etapa termina no botao "Continuar". A etapa vai p/ o historico
-    // do navegador (o "Voltar" do celular volta uma etapa, nao sai do agendamento) e o foco vai
+    // Avanco automatico: escolher o tratamento abre a data, e escolher o horario (com a
+    // profissional definida) abre a confirmacao. O botao "Continuar" segue no fim de cada etapa
+    // (volta-se com "Voltar" e continua com a mesma escolha). A etapa vai p/ o historico do
+    // navegador (o "Voltar" do celular volta uma etapa, nao sai do agendamento) e o foco vai
     // p/ o titulo da etapa nova (leitor de tela anuncia onde a pessoa esta).
     var etapaAtual = 1;
 
@@ -295,7 +297,8 @@
             liberarContinuar('btn-continuar-2', false);
             currentMonth = primeiroDoMes();
             loadMonth();
-            avisar(selectedProc.nome + ' selecionado. Use Continuar para escolher a data.');
+            avisar(selectedProc.nome + ' selecionado. Escolha a data.');
+            goToStep(2);
         });
     }
 
@@ -506,7 +509,7 @@
             pbtn.textContent = selectedProf.nome;
             profOptions.appendChild(pbtn);
             liberarContinuar('btn-continuar-2', true);
-            avisar(slot.horario + ' com ' + selectedProf.nome + '. Use Continuar para confirmar.');
+            goToStep3();
         } else {
             selectedSlot.profissionais.forEach(function(prof) {
                 var b = document.createElement('button');
@@ -522,7 +525,7 @@
                     selectedProf = prof;
                     salvarEstado();
                     liberarContinuar('btn-continuar-2', true);
-                    avisar(slot.horario + ' com ' + prof.nome + '. Use Continuar para confirmar.');
+                    goToStep3();
                 });
                 profOptions.appendChild(b);
             });

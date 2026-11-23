@@ -95,7 +95,7 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         self.page.wait_for_selector('#step-2.active')
 
     def _ir_para_passo_3(self):
-        """Escolhe um dia >= 2 dias a frente e o primeiro horario; Continuar leva ao passo 3."""
+        """Escolhe um dia >= 2 dias a frente e o primeiro horario, que ja leva ao passo 3."""
         self._abrir()
         minimo = (timezone.localdate() + timedelta(days=2)).isoformat()
         for _ in range(3):
@@ -111,8 +111,7 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
                 self.page.click('#cal-next')
         self.assertTrue(dias, 'nenhum dia disponivel no calendario')
         self.page.click(f'.cal-day[data-date="{dias[0]}"]')
-        self.page.click('.slot-btn >> nth=0')
-        self.page.click('#btn-continuar-2')  # sem avanco automatico (1 profissional ja escolhido)
+        self.page.click('.slot-btn >> nth=0')   # 1 profissional: o horario ja leva ao passo 3
         self.page.wait_for_selector('#step-3.active')
         self.page.fill('#form-telefone', '17999998888')
         self.page.check('#form-aceite-politica')
