@@ -31,7 +31,7 @@
     "dev": {
       "deploy": {
         "preDeployCommand": [
-          "sh -c 'python manage.py migrate_atomico --noinput && python manage.py bootstrap_admin && python manage.py seed --demo'"
+          "sh -c 'python manage.py migrate_atomico --noinput && python manage.py bootstrap_admin && python manage.py seed --demo && python manage.py popular_demo'"
         ]
       }
     }
