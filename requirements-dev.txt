@@ -3,18 +3,18 @@
 # traceback dos workers no `manage.py test --parallel` (CI: jobs da tag migracoes)
 tblib==3.2.2
 # erros + fuso (pyproject.toml [tool.ruff.lint]); gancho local: .pre-commit-config.yaml
-ruff==0.17.0
+ruff==0.17.6
 pre-commit==4.7.0
 # catraca de cobertura (pyproject.toml [tool.coverage]; CI job Django SQLite)
-coverage==7.16.2
+coverage==7.17.3
 # wizard no navegador (tests/test_wizard_browser.py; CI job navegador). Chromium: playwright install chromium
-playwright==1.64.0
+playwright==1.65.2
 pip-audit==2.10.1
 # camadas views > services > models (pyproject.toml [tool.importlinter]; `lint-imports`)
-import-linter==2.15
+import-linter==2.17
 # tipos nos services (pyproject.toml [tool.mypy])
-mypy==1.18.2
-django-stubs[compatible-mypy]==5.2.7
+mypy==2.4.1
+django-stubs[compatible-mypy]==6.1.2
 # variantes responsivas das fotos do site (scripts/imagens.py; saida versionada em static/assets/clinica/variantes)
 Pillow==13.0.0
 # contrato da API (tests/test_openapi.py): le e valida aranha_estetica/api/openapi.yaml (OpenAPI 3.1)
