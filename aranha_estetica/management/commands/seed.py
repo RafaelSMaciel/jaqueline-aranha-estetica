@@ -102,13 +102,23 @@ class Command(BaseCommand):
             '--demo', action='store_true',
             help='Cria também clientes e atendimentos fictícios (recusado em produção).',
         )
+        parser.add_argument(
+            '--inicial', action='store_true',
+            help='Carga inicial: só roda se o banco ainda não tem nenhum procedimento (1º deploy de '
+                 'produção, no pre-deploy); com catálogo, não faz nada. Vale em produção sem --force.',
+        )
 
     def handle(self, *args, **options):
         if _em_producao():
             if options['demo']:
                 raise CommandError('Dados fictícios (--demo) nunca são criados em produção.')
-            if not options['force']:
+            if not (options['force'] or options['inicial']):
                 raise CommandError('Recusando rodar seed em produção. Use --force se tem certeza.')
+        # Carga inicial (pre-deploy de producao): o catalogo real entra uma vez, no banco vazio. Depois
+        # disso o cadastro e da clinica — o deploy nunca recria procedimento que ela apagou ou renomeou.
+        if options['inicial'] and Procedimento.objects.exists():
+            self.stdout.write('Seed inicial: o catálogo já existe — nada a fazer.')
+            return
 
         with transaction.atomic():
             prof = self._profissional()

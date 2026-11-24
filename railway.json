@@ -19,7 +19,7 @@
   "deploy": {
     "numReplicas": 1,
     "preDeployCommand": [
-      "sh -c 'python manage.py migrate_atomico --noinput && python manage.py bootstrap_admin'"
+      "sh -c 'python manage.py migrate_atomico --noinput && python manage.py bootstrap_admin && python manage.py seed --inicial'"
     ],
     "startCommand": "sh -c 'exec gunicorn clinica.wsgi --bind 0.0.0.0:${PORT:-8080} --workers ${WEB_CONCURRENCY:-1} --threads ${WEB_THREADS:-4} --timeout ${WEB_TIMEOUT:-120} --access-logfile - --error-logfile - --logger-class clinica.gunicorn_logger.LoggerSemTokens'",
     "restartPolicyType": "ON_FAILURE",

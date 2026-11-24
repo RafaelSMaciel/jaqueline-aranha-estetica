@@ -500,7 +500,7 @@ sem variante ainda aparece: o `{% foto %}` cai na original, sem `srcset`.
 
 | Comando | O que faz |
 |---|---|
-| `seed [--demo] [--force]` | Idempotente e não destrutivo: profissional Jaqueline Aranha, catálogo real (23 procedimentos, com preço base quando há valor — um é "sob consulta"), habilitações, agenda seg–sex 9h–18h e sáb 9h–15h, termo LGPD v1.0 (se não houver), anamnese padrão e feriados. **Não cria usuários.** `--demo` = 3 clientes e atendimentos fictícios (recusado em produção). Em produção exige `--force`. |
+| `seed [--demo] [--force]` | Idempotente e não destrutivo: profissional Jaqueline Aranha, catálogo real (23 procedimentos, com preço base quando há valor — um é "sob consulta"), habilitações, agenda seg–sex 9h–18h e sáb 9h–15h, termo LGPD v1.0 (se não houver), anamnese padrão e feriados. **Não cria usuários.** `--demo` = 3 clientes e atendimentos fictícios (recusado em produção). Em produção exige `--force`. **`--inicial`**: carga inicial — só roda com o banco sem nenhum procedimento (é o que o pre-deploy de produção chama, sem `--force`); com catálogo, não faz nada. |
 | `popular_demo` | Só no ambiente de testes (recusado em produção): operação fictícia **enxuta** para demonstração — 3 clientes e 2 profissionais (a Jaqueline e a esteticista fictícia Bianca), ~6 semanas de histórico e os próximos dias, com roteiro fixo (sem sorteio) e criada pelos serviços do sistema (agenda + transições): comissão, débito de pacote, cashback de indicação, falta, retorno feito/marcado/a marcar, NPS, ficha de saúde, prontuário, lista de espera, bloqueio e promoção saem coerentes, e toda tela do painel tem o que mostrar. Idempotente (não roda se a primeira cliente já existe); para recomeçar, banco novo. As 10:00 ficam livres nos próximos dias (roteiro da apresentação). Roda depois do `seed` (sem `--demo`) |
 | `bootstrap_admin [--reset-senha]` | Cria/reativa o ADMIN a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NOME` (e-mail em minúsculas; senha passa pelos validadores). Senha de conta existente só muda se estava desativada/sem senha ou com `ADMIN_PASSWORD_RESET=true`. Reativação apaga o 2FA antigo da conta. Nunca derruba o pre-deploy; ao final escreve **ERRO** em stderr se não sobrar ADMIN utilizável. |
 | `migrate_atomico [--noinput]` | `migrate` numa transação única no Postgres (tudo ou nada), `SET LOCAL lock_timeout = '5s'`, `SET LOCAL app.origem = 'migracao'` (trilha `historico_alteracao`), `SET CONSTRAINTS ALL IMMEDIATE` entre migrations. Fora do Postgres vira `migrate` normal. Usado no pre-deploy e na CI. |
@@ -1242,7 +1242,8 @@ Passo a passo (projeto do Railway reativado):
 
 1. **Environment** `dev` no projeto (Settings › Environments) com o serviço web ligado ao repositório,
    **branch `dev`** (produção segue da `main`). O `railway.json` já traz o pre-deploy deste
-   environment: `migrate_atomico`, `bootstrap_admin`, `seed` e `popular_demo` (idempotentes).
+   environment: `migrate_atomico`, `bootstrap_admin`, `seed` e `popular_demo` (idempotentes). O de
+   produção (o padrão do arquivo) roda `migrate_atomico`, `bootstrap_admin` e `seed --inicial`.
 2. **Postgres 18** no environment: imagem `ghcr.io/railwayapp-templates/postgres-ssl:18` (nunca
    `:latest`; o check `aranha.W015` avisa outro major).
 3. **Variáveis** do serviço web:
@@ -1331,7 +1332,9 @@ Falta, da dona da conta (nenhum desses passa por código):
 > **Estado em 2026-11-03:** ainda não há produção. O ambiente de testes (`dev`) está no ar e o
 > `prod` está configurado no Railway como mudança staged (§13.3), à espera do go-live. O primeiro deploy de produção
 > cria um **banco novo** (o `PGDATA` do `prod` já aponta para um cluster vazio): o `migrate_atomico`
-> aplica `0001`→`0079` numa transação e o `seed --force` carrega o catálogo. O roteiro de
+> aplica `0001`→`0080` numa transação e o `seed --inicial` do pre-deploy carrega o catálogo real uma
+> única vez (só com o banco sem nenhum procedimento; nos deploys seguintes não faz nada — o cadastro
+> passa a ser da clínica). O roteiro de
 > atualização de um banco já existente (`0026` → `0079`) fica no §14 a.1, para o caso de o cluster
 > antigo um dia ser reaproveitado.
 

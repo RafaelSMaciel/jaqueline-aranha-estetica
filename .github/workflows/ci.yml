@@ -317,7 +317,7 @@ jobs:
             echo "ADMIN_EMAIL=smoke@ci.example.com"
             echo "ADMIN_PASSWORD=$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
           } > "$RUNNER_TEMP/smoke.env"
-      - name: preDeployCommand do railway.json (migrate_atomico + bootstrap_admin)
+      - name: preDeployCommand do railway.json (migrate_atomico + bootstrap_admin + seed --inicial)
         run: |
           pre="$(jq -r '.deploy.preDeployCommand[0]' railway.json)"
           docker run --rm --network host --env-file "$RUNNER_TEMP/smoke.env" jaqueline-aranha-estetica:ci sh -c "$pre"

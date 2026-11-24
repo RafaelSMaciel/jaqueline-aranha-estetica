@@ -90,6 +90,23 @@ class SeedProducaoTests(TestCase):
         self.assertEqual(Cliente.objects.filter(email__endswith='@example.com').count(), 3)
 
     @mock.patch.dict('os.environ', {'RAILWAY_ENVIRONMENT_NAME': 'production'})
+    def test_inicial_carrega_o_catalogo_uma_vez_inclusive_em_producao(self):
+        """`seed --inicial` (pre-deploy de producao): banco sem procedimento recebe o catalogo real,
+        sem --force e sem dado ficticio; com catalogo, nao faz nada (nao recria o que a clinica apagou)."""
+        with mock.patch.dict('os.environ', {'DJANGO_ENV': 'prod'}):
+            _seed('--inicial')
+        self.assertGreater(Procedimento.objects.count(), 20)
+        self.assertFalse(Cliente.objects.exists())
+        apagado = Procedimento.objects.get(nome='Limpeza de Pele')
+        Procedimento.objects.filter(pk=apagado.pk).update(nome='Limpeza de Pele Premium')
+        total = Procedimento.objects.count()
+        saida = StringIO()
+        with mock.patch.dict('os.environ', {'DJANGO_ENV': 'prod'}):
+            call_command('seed', '--inicial', stdout=saida)
+        self.assertIn('nada a fazer', saida.getvalue())
+        self.assertEqual(Procedimento.objects.count(), total)
+        self.assertFalse(Procedimento.objects.filter(nome='Limpeza de Pele').exists())
+
     def test_force_carrega_catalogo_em_producao(self):
         _seed('--force')
         self.assertEqual(Procedimento.objects.count(), len(CATALOGO))
