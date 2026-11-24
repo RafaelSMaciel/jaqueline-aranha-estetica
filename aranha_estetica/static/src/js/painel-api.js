@@ -10,18 +10,15 @@ import '../css/painel-api.css'
 
 const alvo = document.getElementById('swagger')
 
-// Tema escuro do proprio Swagger UI (html.dark-mode) acompanha o do painel: a escolha da pessoa
-// (data-theme, tambem quando ela troca pelo botao) ou, sem escolha, o do sistema.
+// Tema escuro do proprio Swagger UI (html.dark-mode) acompanha o do painel: so quando a pessoa
+// escolheu o escuro (data-theme, tambem ao trocar pelo botao). Sem escolha = claro (padrao do site).
 const raiz = document.documentElement
-const sistemaEscuro = window.matchMedia('(prefers-color-scheme: dark)')
 function sincronizarTema() {
-  const escolhido = raiz.dataset.theme
-  raiz.classList.toggle('dark-mode', escolhido ? escolhido === 'escuro' : sistemaEscuro.matches)
+  raiz.classList.toggle('dark-mode', raiz.dataset.theme === 'escuro')
 }
 
 if (alvo) {
   sincronizarTema()
-  sistemaEscuro.addEventListener('change', sincronizarTema)
   new MutationObserver(sincronizarTema).observe(raiz, { attributes: true, attributeFilter: ['data-theme'] })
 
   SwaggerUIBundle({

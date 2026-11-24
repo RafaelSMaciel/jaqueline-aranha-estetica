@@ -76,36 +76,78 @@ class SelectDeStatusNavegadorTests(StaticLiveServerTestCase):
                                    'url': self.live_server_url}])
         self.page = self.context.new_page()
         self.page.set_default_timeout(15000)
+        # Confirmacoes = dialogo do design system (lib/confirmar.js); confirm()/alert() nativos do
+        # navegador nao podem mais aparecer
         self.dialogos = []
-
-        def responder(dialogo):
-            self.dialogos.append(dialogo.message)
-            dialogo.accept()
-        self.page.on('dialog', responder)
+        self.nativos = []
+        self.page.on('dialog', lambda dialogo: (self.nativos.append(dialogo.message), dialogo.dismiss()))
 
     def _agenda(self):
         self.page.goto(f"{self.live_server_url}{reverse('aranha:painel_agendamentos')}")
 
-    def _escolher(self, at, status):
+    def _confirmar(self):
+        """Espera o dialogo de confirmacao, guarda (pergunta, rotulo do botao) e clica na acao."""
+        dialogo = self.page.wait_for_selector('dialog.dialogo-confirmar[open]')
+        botao = dialogo.query_selector('[data-confirmar-ok]')
+        self.dialogos.append((dialogo.query_selector('.dialogo-titulo').text_content(), botao.text_content()))
+        botao.click()
+
+    def _escolher(self, at, status, confirmacoes=1):
+        self.page.select_option(f'select[data-atend-id="{at.pk}"]', status)
+        for _ in range(confirmacoes - 1):
+            self._confirmar()
         with self.page.expect_navigation():   # sucesso recarrega a pagina
-            self.page.select_option(f'select[data-atend-id="{at.pk}"]', status)
+            self._confirmar()
 
     def test_confirmar_pelo_select(self):
         at = criar_atendimento(criar_cliente('Nara'), self.prof, self.proc)
         self._agenda()
         self._escolher(at, 'CONFIRMADO')
         self.assertEqual(Atendimento.objects.get(pk=at.pk).status, 'CONFIRMADO')
-        self.assertEqual(self.dialogos, ['Alterar o status para "Confirmar presença"?'])
+        # o botao leva o nome da acao (nada de "OK")
+        self.assertEqual(self.dialogos, [('Alterar o status para "Confirmar presença"?', 'Confirmar presença')])
+        self.assertEqual(self.nativos, [])
+
+    def test_voltar_no_dialogo_nao_altera_o_status(self):
+        at = criar_atendimento(criar_cliente('Nara'), self.prof, self.proc)
+        self._agenda()
+        seletor = f'select[data-atend-id="{at.pk}"]'
+        self.page.select_option(seletor, 'CANCELADO')
+        dialogo = self.page.wait_for_selector('dialog.dialogo-confirmar[open]')
+        # acao destrutiva: botao vermelho com o nome da acao e o foco no "Voltar"
+        self.assertEqual(dialogo.query_selector('[data-confirmar-ok]').text_content(), 'Cancelar atendimento')
+        self.assertIn('btn-perigo', dialogo.query_selector('[data-confirmar-ok]').get_attribute('class'))
+        self.assertTrue(self.page.evaluate("document.activeElement.hasAttribute('data-confirmar-voltar')"))
+        self.page.keyboard.press('Escape')
+        self.page.wait_for_selector('dialog.dialogo-confirmar', state='detached')
+        self.assertEqual(self.page.input_value(seletor), '')
+        self.assertEqual(Atendimento.objects.get(pk=at.pk).status, 'AGENDADO')
+        self.assertEqual(self.nativos, [])
+
+    def test_aprovar_pede_confirmacao_no_dialogo_com_os_dados_do_pedido(self):
+        pendente = criar_atendimento(criar_cliente('Paula Souza'), self.prof, self.proc, status='PENDENTE')
+        self._agenda()
+        self.page.click(f'form[action$="/{pendente.pk}/aprovar/"] button[type="submit"]')
+        dialogo = self.page.wait_for_selector('dialog.dialogo-confirmar[open]')
+        self.assertEqual(dialogo.query_selector('.dialogo-titulo').text_content(), 'Aprovar agendamento de Paula Souza?')
+        self.assertIn(self.proc.nome, dialogo.query_selector('.confirmar-detalhe').text_content())
+        self.assertEqual(dialogo.query_selector('[data-confirmar-ok]').text_content(), 'Aprovar')
+        self.assertEqual(Atendimento.objects.get(pk=pendente.pk).status, 'PENDENTE')   # so depois de confirmar
+        with self.page.expect_navigation():
+            dialogo.query_selector('[data-confirmar-ok]').click()
+        self.assertEqual(Atendimento.objects.get(pk=pendente.pk).status, 'AGENDADO')
+        self.assertEqual(self.nativos, [])
 
     def test_termo_publicado_depois_de_abrir_pede_override(self):
         at = ja_comecou(criar_atendimento(criar_cliente('Olga'), self.prof, self.proc))
         self._agenda()
         VersaoTermo.objects.create(tipo='PROCEDIMENTO', procedimento=self.proc, titulo='Termo', conteudo='R.',
                                    versao='1.0', vigente_desde=timezone.localdate())
-        self._escolher(at, 'REALIZADO')   # 409 termo_pendente -> confirma -> reenvia com sem_termo
+        self._escolher(at, 'REALIZADO', confirmacoes=2)   # 409 termo_pendente -> confirma -> reenvia com sem_termo
         self.assertEqual(Atendimento.objects.get(pk=at.pk).status, 'REALIZADO')
         self.assertEqual(len(self.dialogos), 2)
-        self.assertIn('ainda não aceitou o termo', self.dialogos[1])
+        self.assertIn('ainda não aceitou o termo', self.dialogos[1][0])
+        self.assertEqual(self.nativos, [])
         self.assertTrue(LogAuditoria.objects.filter(acao='Realizado sem termo aceito', registro_id=at.pk).exists())
 
     def test_calendario_carrega_eventos_pelo_modulo(self):

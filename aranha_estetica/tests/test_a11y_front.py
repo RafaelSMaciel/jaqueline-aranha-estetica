@@ -81,9 +81,10 @@ class ContrasteMarcaTests(SimpleTestCase):
 
     def test_tokens_de_acao_de_sucesso_nos_dois_temas(self):
         tokens = (_CSS / 'tokens.css').read_text(encoding='utf-8')
-        # :root (claro), [data-theme="escuro"] e o bloco do sistema (prefers-color-scheme)
-        self.assertEqual(tokens.count('--cor-sucesso-forte:'), 3)
-        self.assertEqual(tokens.count('--cor-sobre-sucesso:'), 3)
+        # :root (claro, o padrao) e [data-theme="escuro"] (so por escolha: nao segue o sistema)
+        self.assertEqual(tokens.count('--cor-sucesso-forte:'), 2)
+        self.assertEqual(tokens.count('--cor-sobre-sucesso:'), 2)
+        self.assertNotIn('prefers-color-scheme', tokens)
         app = (_CSS / 'app.css').read_text(encoding='utf-8')
         self.assertIn('--color-sucesso-forte: var(--cor-sucesso-forte);', app)
 

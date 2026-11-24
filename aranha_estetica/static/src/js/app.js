@@ -1,4 +1,5 @@
 import Alpine from '@alpinejs/csp'
+import { avisar, confirmar, ligarDataConfirm } from './lib/confirmar.js'
 // HTMX removido: sem nenhum hx-* no projeto e injetava <style> sem nonce (CSP).
 // O CSS (css/app.css) entra por <link> na casca, antes deste script (vite.config.js, entrada 'estilos').
 
@@ -12,11 +13,10 @@ function aplicarTema(novo) {
 
 // Componente CSP-safe (sem expressao JS inline em atributo).
 // Uso na casca: <button x-data="temaToggle" x-on:click="alternar">
-// Sem escolha salva o tema segue o sistema: o "atual" e o que a pessoa esta vendo.
+// Sem escolha salva o tema e o claro (padrao do site; nao segue o sistema).
 Alpine.data('temaToggle', () => ({
   alternar() {
-    const escolhido = document.documentElement.dataset.theme
-    const atual = escolhido || (matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro')
+    const atual = document.documentElement.dataset.theme || 'claro'
     aplicarTema(atual === 'escuro' ? 'claro' : 'escuro')
   },
 }))
@@ -173,15 +173,12 @@ Alpine.data('pacoteCriar', () => comDialogo({
   },
 }))
 
-// Confirmacao CSP-safe global: qualquer elemento com data-confirm pede confirm()
-// antes de submeter/seguir. Substitui onclick/onsubmit inline (proibidos no CSP build).
-document.addEventListener('click', function (e) {
-  const el = e.target.closest('[data-confirm]')
-  if (el && !window.confirm(el.getAttribute('data-confirm'))) {
-    e.preventDefault()
-    e.stopPropagation()
-  }
-})
+// Confirmacao global: qualquer elemento com data-confirm abre o dialogo do design system
+// (lib/confirmar.js) antes de submeter/seguir — no lugar do confirm() nativo do navegador.
+ligarDataConfirm()
+// As telas do painel (status, calendario) usam as mesmas funcoes
+window.confirmar = confirmar
+window.avisar = avisar
 
 // ── Scroll-reveal (vanilla, CSP-safe) ──
 // Elementos .reveal sobem/fade ao entrar na viewport, com stagger entre irmaos.

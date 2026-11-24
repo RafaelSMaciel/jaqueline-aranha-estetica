@@ -1,9 +1,10 @@
 {% menu_publico as menu %}
+{% cliente_logada as logada %}
 {% with nl="px-3 py-2 rounded-full text-sm font-medium no-underline transition hover:bg-fundo hover:text-marca" %}
 <header x-data="navMenu" x-on:keydown.escape.window="fecharTeclado" class="sticky top-0 z-50 border-b border-borda bg-superficie/95 backdrop-blur supports-[backdrop-filter]:bg-superficie/80">
-  <div class="mx-auto max-w-6xl flex items-center justify-between gap-3 px-6 py-3.5">
+  <div class="mx-auto max-w-6xl flex items-center justify-between gap-2 sm:gap-3 px-4 sm:px-6 py-3.5">
 
-    <a href="{% url 'aranha:inicio' %}" class="font-serif text-lg font-bold text-texto no-underline shrink-0">{{ CLINIC_NAME }}</a>
+    <a href="{% url 'aranha:inicio' %}" class="font-serif text-base sm:text-lg font-bold text-texto no-underline min-w-0 truncate lg:shrink-0 lg:overflow-visible">{{ CLINIC_NAME }}</a>
 
     {# ── Nav desktop (lg: nome + 7 itens + ações pedem ~900px; abaixo, o menu do celular) ── #}
     <nav class="hidden lg:flex items-center gap-0.5" aria-label="Navegação principal">
@@ -13,13 +14,24 @@
     </nav>
 
     {# ── Ações ── #}
-    <div class="flex items-center gap-1.5 shrink-0">
+    <div class="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
       <button type="button" x-data="temaToggle" x-on:click="alternar" aria-label="Alternar tema claro/escuro"
               class="p-2 rounded-full text-texto-suave hover:bg-fundo hover:text-texto transition">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
         </svg>
       </button>
+
+      {# Area da cliente: "Entrar" (celular + codigo por SMS) ou, com a sessao aberta, "Meus agendamentos". #}
+      {# Rotulo visivel onde cabe (md, e de xl p/ cima); no celular e na faixa lg — menu inteiro + nome da #}
+      {# clinica — fica so o icone (o rotulo vai no aria-label/title e no menu do celular). #}
+      <a href="{% url 'aranha:meus_agendamentos' %}" id="nav-area-cliente"
+         aria-label="{% if logada %}Meus agendamentos{% else %}Entrar para ver meus agendamentos{% endif %}"
+         title="{% if logada %}Meus agendamentos{% else %}Entrar · Meus agendamentos{% endif %}"
+         class="inline-flex items-center gap-1.5 rounded-full border border-transparent p-2 text-sm font-semibold text-texto no-underline transition hover:bg-fundo hover:text-marca md:border-borda md:px-3.5 md:py-2 md:hover:border-marca lg:border-transparent lg:p-2 xl:border-borda xl:px-3.5 xl:py-2">
+        <svg class="h-5 w-5 md:h-4 md:w-4 lg:h-5 lg:w-5 xl:h-4 xl:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span class="hidden md:inline lg:hidden xl:inline">{% if logada %}Meus agendamentos{% else %}Entrar{% endif %}</span>
+      </a>
 
       <c-cta-agendar class="hidden sm:inline-flex items-center rounded-full bg-marca-forte px-4 py-2 text-sm font-semibold text-sobre-marca no-underline hover:opacity-90 transition" />
 
@@ -39,6 +51,10 @@
     {% for item in menu %}
     <a href="{{ item.href }}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-medium {% if item.atual %}text-marca bg-fundo{% else %}text-texto{% endif %} no-underline hover:bg-fundo transition"{% if item.atual %} aria-current="page"{% endif %}>{{ item.rotulo }}</a>
     {% endfor %}
+    <a href="{% url 'aranha:meus_agendamentos' %}" x-on:click="fechar" class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-texto no-underline hover:bg-fundo transition border-t border-borda mt-2 pt-3">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      {% if logada %}Meus agendamentos{% else %}Entrar · Meus agendamentos{% endif %}
+    </a>
     <c-cta-agendar texto="{% if AGENDAR_WHATSAPP %}Agendar pelo WhatsApp{% else %}Agendar{% endif %}" x-on:click="fechar" class="block px-4 py-2.5 rounded-lg text-sm font-semibold text-center text-sobre-marca bg-marca-forte no-underline hover:opacity-90 transition mt-2" />
   </nav>
 </header>

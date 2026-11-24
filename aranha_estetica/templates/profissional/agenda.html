@@ -48,12 +48,12 @@
         <form method="post" action="{% url 'aranha:profissional_rejeitar' pk=p.pk %}" class="m-0">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
-          <c-botao tipo="submit" variante="perigo-contorno" icone="fechar" data-confirm="Rejeitar agendamento?">Rejeitar<span class="sr-only"> o agendamento de {{ p.cliente.nome }}</span></c-botao>
+          <c-botao tipo="submit" variante="perigo-contorno" icone="fechar" data-confirm="Rejeitar agendamento de {{ p.cliente.nome }}? {{ p.procedimento.nome }}, {{ p.data_hora_inicio|date:'D, d/m \à\s H:i' }}. O horário volta a ficar livre e a cliente é avisada.">Rejeitar<span class="sr-only"> o agendamento de {{ p.cliente.nome }}</span></c-botao>
         </form>
         <form method="post" action="{% url 'aranha:profissional_aprovar' pk=p.pk %}" class="m-0">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
-          <c-botao tipo="submit" variante="sucesso" icone="check" data-confirm="Aprovar agendamento?">Aprovar<span class="sr-only"> o agendamento de {{ p.cliente.nome }}</span></c-botao>
+          <c-botao tipo="submit" variante="sucesso" icone="check" data-confirm="Aprovar agendamento de {{ p.cliente.nome }}? {{ p.procedimento.nome }}, {{ p.data_hora_inicio|date:'D, d/m \à\s H:i' }}. A cliente recebe a confirmação.">Aprovar<span class="sr-only"> o agendamento de {{ p.cliente.nome }}</span></c-botao>
         </form>
       </div>
     </li>

@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="{% if tema == 'escuro' %}dark{% else %}light{% endif %}">
   <title>{% block titulo %}{{ CLINIC_NAME }}{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}{{ CLINIC_SUBTITLE }}{% endblock %}">
   {% block head_seo %}

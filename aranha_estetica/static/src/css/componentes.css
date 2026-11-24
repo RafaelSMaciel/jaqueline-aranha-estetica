@@ -326,6 +326,31 @@
   dialog.dialogo-sm { max-width: 28rem; }
   dialog.dialogo-lg { max-width: 56rem; }
 
+  /* ── Confirmacao/aviso (static/src/js/lib/confirmar.js): no lugar do confirm()/alert() nativos ── */
+  dialog.dialogo-confirmar { max-width: 26rem; }
+  dialog.dialogo-confirmar[open] { animation: confirmar-entra 0.16s ease-out; }
+  .confirmar-corpo { flex-direction: row; align-items: flex-start; gap: 0.875rem; padding: 1.5rem 1.25rem 1.25rem; }
+  .confirmar-icone {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 2.5rem; height: 2.5rem; border-radius: 9999px;
+    background: var(--cor-marca-suave); color: var(--cor-marca);
+  }
+  .confirmar-icone svg { width: 1.25rem; height: 1.25rem; }
+  .confirmar-icone--perigo { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+  .confirmar-icone--sucesso { background: var(--cor-sucesso-fundo); color: var(--cor-sucesso); }
+  .confirmar-icone--aviso { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
+  .confirmar-textos { min-width: 0; padding-top: 0.25rem; }
+  .confirmar-textos .dialogo-titulo { overflow-wrap: anywhere; }
+  .confirmar-detalhe { margin-top: 0.375rem; font-size: var(--text-corpo); line-height: 1.5; color: var(--cor-texto-suave); overflow-wrap: anywhere; }
+  .dialogo-confirmar .dialogo-rodape { border-top: none; padding-top: 0.25rem; padding-bottom: 1.25rem; }
+  @media (max-width: 479px) {
+    /* celular: botoes ocupam a largura, a acao por cima (alcance do polegar) */
+    .dialogo-confirmar .dialogo-rodape { flex-direction: column-reverse; }
+    .dialogo-confirmar .dialogo-rodape .btn { width: 100%; min-height: 2.75rem; }
+  }
+  @keyframes confirmar-entra { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { dialog.dialogo-confirmar[open] { animation: none; } }
+
   /* ── Barra de filtros (formulario GET acima de lista) ── */
   .barra-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
   .barra-filtros > .grupo-campo { flex: 1 1 11rem; }
@@ -338,16 +363,17 @@
 
   /* ── Lista de itens (linhas dentro de cartao: pendentes, hoje/amanha...) ── */
   .lista-itens > * + * { border-top: 1px solid var(--cor-borda); }
-  .item-lista { display: flex; align-items: center; gap: 0.875rem; padding: 0.875rem 1.25rem; min-width: 0; }
+  /* flex-wrap + base de 13rem no corpo: sem espaco p/ nome + acoes na mesma linha (coluna estreita
+     da visao geral em notebook de 1280px), as acoes descem — antes o nome quebrava letra a letra */
+  .item-lista { display: flex; flex-wrap: wrap; align-items: center; gap: 0.875rem; padding: 0.875rem 1.25rem; min-width: 0; }
   .item-lista-hora {
     flex-shrink: 0; width: 3.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--cor-texto);
   }
-  .item-lista-corpo { flex: 1; min-width: 0; }
-  .item-lista-titulo { font-weight: 700; color: var(--cor-texto); overflow-wrap: anywhere; }
+  .item-lista-corpo { flex: 1 1 13rem; min-width: 0; }
+  .item-lista-titulo { font-weight: 700; color: var(--cor-texto); overflow-wrap: break-word; }
   .item-lista-meta { font-size: 0.875rem; color: var(--cor-texto-suave); }
   .item-lista-acoes { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-shrink: 0; }
   @media (max-width: 639.98px) {
-    .item-lista { flex-wrap: wrap; }
     .item-lista-acoes { width: 100%; justify-content: flex-start; }
   }
 

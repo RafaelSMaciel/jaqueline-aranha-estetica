@@ -1,7 +1,7 @@
 [x-cloak] { display: none !important; }
 
-/* Tema: data-theme="claro|escuro" vem do cookie `tema` (escolha da pessoa). Sem cookie, o
-   <html> sai sem data-theme e o tema segue o sistema (prefers-color-scheme, bloco abaixo).
+/* Tema: o padrao e o CLARO (decisao do dono, 2026-11-24) — nao segue mais o sistema. O escuro so
+   entra por escolha da pessoa: botao do cabecalho -> cookie `tema` -> <html data-theme="escuro">.
    Contraste conferido (WCAG AA): texto >= 4,5:1, borda de campo e foco >= 3:1. */
 :root {
   color-scheme: light;
@@ -82,7 +82,7 @@
   --sombra-flutuante: 0 12px 32px rgb(31 26 20 / 0.14), 0 2px 6px rgb(31 26 20 / 0.08);
 }
 
-/* Escuro — o mesmo bloco duas vezes: escolha explicita (cookie) e sistema sem escolha. */
+/* Escuro — so por escolha explicita (cookie `tema`). */
 [data-theme="escuro"] {
   color-scheme: dark;
   --cor-fundo: #14171A;
@@ -127,51 +127,4 @@
   --cor-sobre-perigo: #ffffff;
   --sombra-cartao: 0 1px 2px rgb(0 0 0 / 0.3);
   --sombra-flutuante: 0 12px 32px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    color-scheme: dark;
-    --cor-fundo: #14171A;
-    --cor-superficie: #1B2024;
-    --cor-texto: #EDEFEC;
-    --cor-texto-suave: #9AA0A2;
-    --cor-marca: #C9A84C;
-    --cor-marca-forte: #C9A84C;
-    --cor-borda: #2A3034;
-    --cor-borda-campo: #6B7378;
-    --cor-foco: #C9A84C;
-    --cor-erro: #E07A7A;
-    --cor-sucesso: #5DCAA5;
-    --cor-aviso: #F2D27A;
-    --cor-sucesso-forte: #1D7A4F;
-    --cor-sobre-sucesso: #ffffff;
-    --cor-erro-fundo: #3F1F21;
-    --cor-sucesso-fundo: #183528;
-    --cor-aviso-fundo: #3A3115;
-    --cor-info: #9DC3F2;       --cor-info-fundo: #1C2D44;
-    --cor-destaque: #C9B3EE;   --cor-destaque-fundo: #2F2640;
-    --st-pendente-fundo: #3A3115;   --st-pendente-texto: #F2D27A;
-    --st-agendado-fundo: #2A3138;   --st-agendado-texto: #C3CCD6;
-    --st-confirmado-fundo: #1C2D44; --st-confirmado-texto: #9DC3F2;
-    --st-realizado-fundo: #183528;  --st-realizado-texto: #8FD8B0;
-    --st-cancelado-fundo: #3F1F21;  --st-cancelado-texto: #F0A3A3;
-    --st-faltou-fundo: #3E2A16;     --st-faltou-texto: #F3B97A;
-    --st-reagendado-fundo: #2F2640; --st-reagendado-texto: #C9B3EE;
-    --cor-cromo-fundo: #15120E;
-    --cor-cromo-elevado: #211C16;
-    --cor-cromo-borda: #2E271F;
-    --cor-cromo-texto: #E8E1D5;
-    --cor-cromo-suave: #A89C89;
-    --cor-cromo-ativo-fundo: #33291A;
-    --cor-cromo-ativo-texto: #E3C674;
-    --cor-fundo-realce: #252B30;
-    --cor-borda-forte: #3A4045;
-    --cor-marca-suave: #2B2416;
-    --cor-marca-forte-hover: #B8963C;
-    --cor-perigo-forte: #A32D2D;
-    --cor-perigo-forte-hover: #8E2626;
-    --cor-sobre-perigo: #ffffff;
-    --sombra-cartao: 0 1px 2px rgb(0 0 0 / 0.3);
-    --sombra-flutuante: 0 12px 32px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
-  }
 }

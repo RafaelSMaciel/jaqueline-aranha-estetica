@@ -3,7 +3,7 @@
 // profissional, django-admin, meus agendamentos, links com token) NUNCA vai
 // para o Cache Storage — ele sobrevive ao logout em computador compartilhado.
 // Subir VERSION a cada mudanca: o activate apaga os caches antigos.
-const VERSION = 'v10';  // v10: /duvidas/ e site com novo layout; v9: icones novos (192/maskable) e pagina offline; v8: JS das telas no build do Vite
+const VERSION = 'v11';  // v11: tema claro por padrao, cabecalho com Entrar/Meus agendamentos e agendamento com varios tratamentos; v10: /duvidas/ e site com novo layout; v9: icones novos (192/maskable) e pagina offline; v8: JS das telas no build do Vite
 const STATIC_CACHE = `aranha-static-${VERSION}`;
 const RUNTIME_CACHE = `aranha-runtime-${VERSION}`;
 const IMAGE_CACHE = `aranha-img-${VERSION}`;
@@ -39,7 +39,7 @@ const MAX_IMAGE_ENTRIES = 60;
 
 const OFFLINE_HTML =
   '<!doctype html><html lang="pt-br"><meta charset="utf-8">' +
-  '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark">' +
+  '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">' +
   '<title>Sem conexão</title>' +
   '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#FAFAF8;color:#1B1F23;' +
   'font-family:Lato,system-ui,sans-serif;text-align:center;padding:2rem">' +

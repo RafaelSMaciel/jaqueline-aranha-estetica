@@ -5,8 +5,20 @@
 // Resposta no contrato de utils/respostas: decide pelo `codigo`, mostra a `mensagem`.
 // Handler delegado no document (CSP com nonce, nada de on* inline).
 import { postJson } from './lib/requisicao.js';
+import { avisar, confirmar } from './lib/confirmar.js';
 
 const MSG_SEM_TERMO = 'A cliente ainda não aceitou o termo do procedimento. Marcar como realizado mesmo assim?';
+
+const OPCOES_SEM_TERMO = { rotulo: 'Marcar realizado', variante: 'perigo' };
+// Botao de confirmar = o que a mudanca faz ("Cancelar atendimento"), nunca "OK"
+const ACOES = {
+  REALIZADO: { rotulo: 'Marcar realizado', variante: 'sucesso' },
+  FALTOU: { rotulo: 'Marcar falta', variante: 'perigo' },
+  CANCELADO: { rotulo: 'Cancelar atendimento', variante: 'perigo' },
+  CONFIRMADO: { rotulo: 'Confirmar presença', variante: 'sucesso' },
+  AGENDADO: { rotulo: 'Aprovar', variante: 'sucesso' },
+};
+const TITULO_ERRO = { titulo: 'Não deu certo' };
 
 function enviarStatus(sel, payload) {
   postJson(sel.dataset.url, payload)
@@ -15,16 +27,17 @@ function enviarStatus(sel, payload) {
       // Termo publicado depois de abrir a pagina: o servidor recusa com codigo termo_pendente; pede a
       // confirmacao explicita e reenvia com o override (fica na trilha: 'Realizado sem termo aceito')
       if (data.codigo === 'termo_pendente' && !payload.sem_termo) {
-        if (confirm(MSG_SEM_TERMO)) {
+        confirmar(MSG_SEM_TERMO, OPCOES_SEM_TERMO).then(function (sim) {
+          if (!sim) { sel.value = ''; return; }
           payload.sem_termo = true;
           enviarStatus(sel, payload);
-        } else { sel.value = ''; }
+        });
         return;
       }
-      alert('Erro: ' + (data.mensagem || 'Falha ao atualizar'));
+      avisar(data.mensagem || 'Não foi possível atualizar o status.', TITULO_ERRO);
       sel.value = '';
     })
-    .catch(function () { alert('Erro de rede'); sel.value = ''; });
+    .catch(function () { avisar('Sem conexão. Tente de novo.', TITULO_ERRO); sel.value = ''; });
 }
 
 document.addEventListener('change', function (e) {
@@ -32,15 +45,16 @@ document.addEventListener('change', function (e) {
   if (!sel || !sel.value) return;
   const rotulo = sel.options[sel.selectedIndex].text.trim();
   const payload = { atendimento_id: sel.dataset.atendId, status: sel.value };
-  if (sel.value === 'REALIZADO' && sel.dataset.termoPendente === '1') {
-    // Override explicito (auditado no servidor): termo do procedimento nao aceito
-    if (!confirm(MSG_SEM_TERMO)) { sel.value = ''; return; }
-    payload.sem_termo = true;
-  } else if (!confirm('Alterar o status para "' + rotulo + '"?')) {
-    sel.value = '';
-    return;
-  }
-  enviarStatus(sel, payload);
+  // Override explicito (auditado no servidor): termo do procedimento nao aceito
+  const semTermo = sel.value === 'REALIZADO' && sel.dataset.termoPendente === '1';
+  const pergunta = semTermo
+    ? confirmar(MSG_SEM_TERMO, OPCOES_SEM_TERMO)
+    : confirmar('Alterar o status para "' + rotulo + '"?', ACOES[sel.value] || { rotulo: 'Alterar status' });
+  pergunta.then(function (sim) {
+    if (!sim) { sel.value = ''; return; }
+    if (semTermo) payload.sem_termo = true;
+    enviarStatus(sel, payload);
+  });
 });
 
 // Lote: a barra aparece com >= 1 pendente marcado (checkbox .bulk-checkbox, form="bulkForm")

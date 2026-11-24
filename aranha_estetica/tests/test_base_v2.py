@@ -20,7 +20,9 @@ class BaseV2Tests(TestCase):
     def test_sem_escolha_nao_fixa_tema(self):
         html = self._render('')
         self.assertNotIn('data-theme', html)
-        self.assertIn('name="color-scheme" content="light dark"', html)
+        # sem escolha = claro (padrao do site, nao segue o sistema); escuro so com o cookie
+        self.assertIn('name="color-scheme" content="light"', html)
+        self.assertIn('name="color-scheme" content="dark"', self._render('escuro'))
 
 
     def test_renderiza_messages_uma_vez(self):

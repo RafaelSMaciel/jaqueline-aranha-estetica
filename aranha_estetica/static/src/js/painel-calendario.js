@@ -12,6 +12,7 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import interactionPlugin from '@fullcalendar/interaction'
 import { postJson } from './lib/requisicao.js'
+import { avisar, confirmar } from './lib/confirmar.js'
 
 const calendarEl = document.getElementById('calendar')
 const ROTULOS_STATUS = {
@@ -85,19 +86,20 @@ function iniciar() {
   }
 
   function moverEvento(info) {
-    if (!confirm('Reagendar para ' + info.event.start.toLocaleString('pt-BR') + '?')) {
-      info.revert()
-      return
-    }
-    const fim = info.event.end || info.event.start
-    postJson(urlMover, { id: info.event.id, start: info.event.start.toISOString(), end: fim.toISOString() })
-      .then((data) => {
-        if (!data.ok) {
-          alert('Erro: ' + (data.mensagem || 'Falha ao mover'))
-          info.revert()
-        }
-      })
-      .catch(() => { alert('Erro de rede.'); info.revert() })
+    const quando = info.event.start.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' })
+    const erro = { titulo: 'Não deu certo' }
+    confirmar('Reagendar este atendimento?', { detalhe: 'Novo horário: ' + quando + '.', rotulo: 'Reagendar' }).then((sim) => {
+      if (!sim) { info.revert(); return }
+      const fim = info.event.end || info.event.start
+      postJson(urlMover, { id: info.event.id, start: info.event.start.toISOString(), end: fim.toISOString() })
+        .then((data) => {
+          if (!data.ok) {
+            avisar(data.mensagem || 'Não foi possível mover o atendimento.', erro)
+            info.revert()
+          }
+        })
+        .catch(() => { avisar('Sem conexão. Tente de novo.', erro); info.revert() })
+    })
   }
 
   const calendar = new Calendar(calendarEl, {

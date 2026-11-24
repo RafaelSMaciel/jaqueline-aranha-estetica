@@ -3,6 +3,7 @@
     <a {% agendar_link %} class="...">Agendar</a>
     <a {% agendar_link procedimento=proc.pk %} ...>          (pre-seleciona no wizard)
     {% menu_publico as itens %}{% for i in itens %}...{% endfor %}
+    {% cliente_logada as logada %}                         (sessao da cliente aberta: cabecalho)
     {{ termo.conteudo|texto_termo }}                       (texto do termo LGPD, sanitizado)
     {% foto 'facial-3' alt='...' sizes='(min-width: 768px) 50vw, 100vw' classe='...' prioridade=True %}
 """
@@ -55,6 +56,17 @@ def menu_publico(context):
         {'href': alvo if alvo.startswith('/') else reverse(alvo), 'rotulo': rotulo, 'atual': alvo == atual}
         for alvo, rotulo in MENU
     ]
+
+
+@register.simple_tag(takes_context=True)
+def cliente_logada(context) -> bool:
+    """A sessao da cliente esta aberta (celular verificado por SMS)? O cabecalho mostra "Meus
+    agendamentos" em vez de "Entrar". Sem request (pagina de erro, e-mail) = False."""
+    request = context.get('request')
+    if request is None or not hasattr(request, 'session'):
+        return False
+    from ..services import sessao_cliente
+    return bool(sessao_cliente.telefone(request))
 
 
 @lru_cache(maxsize=1)

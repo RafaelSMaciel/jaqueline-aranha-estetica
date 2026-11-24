@@ -145,11 +145,11 @@ pelo parser HTML e quebrava o 1º Aprovar e o lote).
           <div class="flex flex-wrap gap-2 max-md:justify-end">
             <form method="post" action="{% url 'aranha:admin_aprovar_agendamento' pk=agend.pk %}" class="m-0">
               {% csrf_token %}
-              <c-botao tipo="submit" variante="sucesso" tamanho="sm" icone="check" data-confirm="Aprovar agendamento?">Aprovar</c-botao>
+              <c-botao tipo="submit" variante="sucesso" tamanho="sm" icone="check" data-confirm="Aprovar agendamento de {{ agend.cliente.nome }}? {{ agend.procedimento.nome }}, {{ agend.data_hora_inicio|date:'D, d/m \à\s H:i' }}, com {{ agend.profissional.nome }}. A cliente recebe a confirmação.">Aprovar</c-botao>
             </form>
             <form method="post" action="{% url 'aranha:admin_rejeitar_agendamento' pk=agend.pk %}" class="m-0">
               {% csrf_token %}
-              <c-botao tipo="submit" variante="perigo-contorno" tamanho="sm" icone="fechar" data-confirm="Rejeitar agendamento?">Rejeitar</c-botao>
+              <c-botao tipo="submit" variante="perigo-contorno" tamanho="sm" icone="fechar" data-confirm="Rejeitar agendamento de {{ agend.cliente.nome }}? {{ agend.procedimento.nome }}, {{ agend.data_hora_inicio|date:'D, d/m \à\s H:i' }}. O horário volta a ficar livre e a cliente é avisada.">Rejeitar</c-botao>
             </form>
           </div>
           {% endif %}

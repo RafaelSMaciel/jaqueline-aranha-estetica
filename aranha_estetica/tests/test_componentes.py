@@ -63,8 +63,9 @@ class BotaoTests(SimpleTestCase):
     def test_perigo_preenchido_tem_texto_proprio_nos_dois_temas(self):
         self.assertIn('var(--cor-sobre-perigo)', _regra('.btn-perigo'))
         tokens = (_CSS / 'tokens.css').read_text(encoding='utf-8')
-        self.assertEqual(tokens.count('--cor-perigo-forte:'), 3)
-        self.assertEqual(tokens.count('--cor-sobre-perigo:'), 3)
+        # :root (claro, o padrao) e [data-theme="escuro"] — o bloco do sistema saiu (tema claro por padrao)
+        self.assertEqual(tokens.count('--cor-perigo-forte:'), 2)
+        self.assertEqual(tokens.count('--cor-sobre-perigo:'), 2)
 
 
 class CampoTests(SimpleTestCase):
