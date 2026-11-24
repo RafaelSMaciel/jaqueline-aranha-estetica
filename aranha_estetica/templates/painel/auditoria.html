@@ -56,7 +56,7 @@
           </div>
         </td>
         {# snapshot usuario_nome: usuario excluido nao vira "Sistema" #}
-        <td data-rotulo="Quem"><span>{% firstof log.usuario_nome log.usuario.nome log.usuario.email "Sistema" %}</span></td>
+        <td data-rotulo="Quem"><span class="min-w-0 [overflow-wrap:anywhere]">{% firstof log.usuario_nome log.usuario.nome log.usuario.email "Sistema" %}</span></td>
         <td data-rotulo="Quando" class="whitespace-nowrap tabular-nums">{{ log.criado_em|date:"d/m/Y H:i" }}</td>
         <td data-rotulo="Tabela">{% if log.tabela %}<c-selo>{{ log.tabela }}</c-selo>{% else %}<span class="text-texto-suave">—</span>{% endif %}</td>
       </tr>
