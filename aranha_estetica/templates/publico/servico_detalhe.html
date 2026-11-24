@@ -64,7 +64,8 @@
           {{ procedimento.get_categoria_display }}
         </p>
 
-        <h1 class="text-4xl md:text-5xl font-bold text-texto leading-tight">{{ procedimento.nome }}</h1>
+        {# Nome vem do cadastro e pode ser uma palavra longa ("Microagulhamento"): cabe na coluna do tablet em pe e no celular de 360px #}
+        <h1 class="text-[clamp(1.875rem,9.5vw,2.25rem)] lg:text-5xl font-bold text-texto leading-tight [overflow-wrap:anywhere]">{{ procedimento.nome }}</h1>
 
         {# Duracao e preco em selos separados; o nome da promocao num selo proprio (quebra de linha limpa) #}
         <ul class="flex flex-wrap items-center gap-2.5 text-sm" aria-label="Duração e valor">
