@@ -106,6 +106,29 @@ npm run dev                          # Vite em http://localhost:5173 (HMR)
 python manage.py runserver           # http://127.0.0.1:8000
 ```
 
+**Windows (PowerShell), do zero** — testado num clone limpo em 2026-11-24; os dados são os mesmos
+do ambiente de testes (3 clientes, 2 profissionais):
+
+```powershell
+git clone https://github.com/RafaelSMaciel/jaqueline-aranha-estetica.git
+cd jaqueline-aranha-estetica
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt -c requirements.lock
+Copy-Item .env.example .env
+.venv\Scripts\python.exe manage.py migrate
+.venv\Scripts\python.exe manage.py seed
+$env:DEMO_PROFISSIONAL_SENHA = "<senha da profissional de demonstração>"
+.venv\Scripts\python.exe manage.py popular_demo        # demonstração enxuta (em vez do seed --demo)
+$env:ADMIN_EMAIL = "voce@exemplo.com"; $env:ADMIN_PASSWORD = "<10+ caracteres>"
+.venv\Scripts\python.exe manage.py bootstrap_admin
+npm.cmd ci
+npm.cmd run dev                                         # terminal 1 (deixar aberto)
+.venv\Scripts\python.exe manage.py runserver            # terminal 2
+```
+
+`npm.cmd` (e não `npm`) evita o bloqueio de scripts do PowerShell; chamar o `python.exe` da venv
+dispensa o `Activate.ps1`. Em `DEBUG` o código do SMS aparece na própria tela, já preenchido.
+
 - `npm run build` gera `aranha_estetica/static/dist/` + `manifest.json` (usado quando
   `DEBUG=False`, no CI e na imagem Docker).
 - Em dev (`DEBUG=True`) o 2FA só é obrigatório se `ADMIN_2FA_OBRIGATORIO=true`, e o SMS

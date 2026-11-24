@@ -532,5 +532,7 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         self.page.fill('#form-nascimento', '1990-06-15')
         self.page.fill('#form-email', 'maria@example.com')
         self.assertTrue(self.page.is_hidden('#erro-nome'))
+        # o aviso junto do botao acompanha as correcoes, sem esperar outro envio
+        self.page.wait_for_selector('#form-erro-geral', state='hidden')
         self.assertTrue(self._valido())
         self.assertTrue(self.page.is_hidden('#form-erro-geral'))

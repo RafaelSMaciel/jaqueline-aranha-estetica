@@ -1399,19 +1399,39 @@
         });
     });
 
+    function textoFaltam(n) {
+        if (!n) return '';
+        return n === 1 ? 'Falta um item para concluir. Veja o campo destacado acima.'
+            : 'Faltam ' + n + ' itens para concluir. Veja os campos destacados acima.';
+    }
+
+    // O aviso junto do botao acompanha as correcoes: reconta os erros ainda pintados a cada
+    // alteracao (ficava "Faltam 7 itens" com tudo ja preenchido, ate o proximo envio).
+    function atualizarErroGeral() {
+        var geral = document.getElementById('form-erro-geral');
+        if (!geral || geral.hidden || !bookingForm) return;
+        var n = 0;
+        bookingForm.querySelectorAll('.form-erro').forEach(function(el) {
+            if (el !== geral && !el.hidden && el.textContent.trim()) n++;
+        });
+        erroGeral(textoFaltam(n));
+    }
+
     // ═══ SUBMIT (guarda contra duplo clique) ═══
     var bookingForm = document.getElementById('booking-form');
     var btnConfirmar = document.getElementById('btn-confirmar');
     var textoConfirmar = btnConfirmar ? btnConfirmar.innerHTML : '';
     if (bookingForm) {
+        // depois dos tratadores de cada campo (que limpam o proprio erro)
+        ['input', 'change'].forEach(function(evento) {
+            bookingForm.addEventListener(evento, function() { setTimeout(atualizarErroGeral, 0); });
+        });
         bookingForm.addEventListener('submit', function(e) {
             if (bookingForm.dataset.enviando === '1') { e.preventDefault(); return; }
             var resultado = validarFormulario();
             if (resultado.quantos) {
                 e.preventDefault();
-                erroGeral(resultado.quantos === 1
-                    ? 'Falta um item para concluir. Veja o campo destacado acima.'
-                    : 'Faltam ' + resultado.quantos + ' itens para concluir. Veja os campos destacados acima.');
+                erroGeral(textoFaltam(resultado.quantos));
                 var alvo = resultado.primeiro;
                 if (alvo) {
                     var bloco = alvo.closest('.ficha-campo, .form-field, .aceite-box') || alvo;

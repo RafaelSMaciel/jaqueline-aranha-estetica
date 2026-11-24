@@ -101,7 +101,7 @@ bundle JS falhar o painel (forms) continua visivel.
   <div class="lg:pl-[17rem] min-h-screen flex flex-col">
 
     {# ── Barra do topo ── #}
-    <header class="sticky top-0 z-[100] flex items-center gap-3 h-16 px-4 sm:px-6 lg:px-8 bg-superficie/95 backdrop-blur border-b border-borda">
+    <header class="sticky top-0 z-[100] flex items-center gap-2 sm:gap-3 h-16 px-4 sm:px-6 lg:px-8 bg-superficie/95 backdrop-blur border-b border-borda">
 
       {# Hamburguer (celular/tablet) #}
       <button
@@ -115,7 +115,7 @@ bundle JS falhar o painel (forms) continua visivel.
         <c-icone nome="menu" class="w-5 h-5" />
       </button>
 
-      <a href="{% url 'aranha:painel_overview' %}" class="lg:hidden min-w-0 truncate font-serif text-lg font-semibold text-texto no-underline">{{ CLINIC_NAME }}</a>
+      <a href="{% url 'aranha:painel_overview' %}" class="lg:hidden min-w-0 truncate font-serif text-base sm:text-lg font-semibold text-texto no-underline">{{ CLINIC_NAME }}</a>
 
       {# Busca rapida de clientes (sm+) — Ctrl+K foca (painel.js); Enter abre a lista filtrada #}
       <form method="get" action="{% url 'aranha:painel_clientes' %}" role="search" class="hidden sm:block relative flex-1 max-w-md">
@@ -132,7 +132,7 @@ bundle JS falhar o painel (forms) continua visivel.
         <kbd class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden md:inline-flex items-center rounded border border-borda bg-superficie px-1.5 text-xs font-bold text-texto-suave" aria-hidden="true">Ctrl K</kbd>
       </form>
 
-      <div class="ml-auto flex items-center gap-1">
+      <div class="ml-auto flex items-center gap-0 sm:gap-1">
         {# Busca no celular: leva a lista de clientes (o campo nao cabe na barra) #}
         <a href="{% url 'aranha:painel_clientes' %}" class="btn btn-fantasma btn-icone sm:hidden" aria-label="Buscar cliente" title="Buscar cliente">
           <c-icone nome="busca" class="w-5 h-5" />

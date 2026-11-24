@@ -29,8 +29,8 @@
       {# ── Navegar ── #}
       <nav class="lg:col-span-2" aria-label="Navegação do rodapé">
         <h2 class="font-serif text-base font-semibold text-rodape-titulo">Navegar</h2>
-        <ul class="mt-4 space-y-2.5 text-sm">
-          {% with lc="text-rodape-suave no-underline hover:text-marca-forte transition" %}
+        <ul class="mt-3 space-y-0.5 text-sm">
+          {% with lc="inline-block py-1 text-rodape-suave no-underline hover:text-marca-forte transition" %}
           <li><a href="{% url 'aranha:inicio' %}" class="{{ lc }}">Início</a></li>
           <li><a href="{% url 'aranha:quem_somos' %}" class="{{ lc }}">Sobre nós</a></li>
           <li><a href="{% url 'aranha:especialidades' %}" class="{{ lc }}">Serviços</a></li>
@@ -46,8 +46,8 @@
       {# ── Autoatendimento (citado no FAQ) ── #}
       <nav class="lg:col-span-2" aria-label="Área do cliente">
         <h2 class="font-serif text-base font-semibold text-rodape-titulo">Para você</h2>
-        <ul class="mt-4 space-y-2.5 text-sm">
-          {% with lc="text-rodape-suave no-underline hover:text-marca-forte transition" %}
+        <ul class="mt-3 space-y-0.5 text-sm">
+          {% with lc="inline-block py-1 text-rodape-suave no-underline hover:text-marca-forte transition" %}
           <li><a href="{% url 'aranha:meus_agendamentos' %}" class="{{ lc }}">Meus agendamentos</a></li>
           <li><a href="{% url 'aranha:lista_espera_publica' %}" class="{{ lc }}">Lista de espera</a></li>
           <li><a href="{% url 'aranha:lgpd_meus_dados' %}" class="{{ lc }}">Meus dados (LGPD)</a></li>
@@ -98,11 +98,12 @@
 
   {# ── Barra inferior ── #}
   <div class="relative border-t border-white/10">
-    <div class="mx-auto max-w-6xl px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-rodape-suave">
+    {# sm..xl: folga a direita — o WhatsApp/"voltar ao topo" flutuantes cobririam os links no fim da pagina #}
+    <div class="mx-auto max-w-6xl px-6 sm:pr-20 2xl:pr-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-rodape-suave">
       <p>© {% now "Y" %} {{ CLINIC_NAME }}. Todos os direitos reservados.</p>
       <div class="flex items-center gap-5">
-        <a href="{% url 'aranha:politica_privacidade' %}" class="no-underline hover:text-marca-forte transition">Política de Privacidade</a>
-        <a href="{% url 'aranha:termos_uso' %}" class="no-underline hover:text-marca-forte transition">Termos de Uso</a>
+        <a href="{% url 'aranha:politica_privacidade' %}" class="inline-block py-1.5 no-underline hover:text-marca-forte transition">Política de Privacidade</a>
+        <a href="{% url 'aranha:termos_uso' %}" class="inline-block py-1.5 no-underline hover:text-marca-forte transition">Termos de Uso</a>
       </div>
     </div>
   </div>

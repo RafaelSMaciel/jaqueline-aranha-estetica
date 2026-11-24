@@ -12,7 +12,7 @@
 # Senha so local (porta presa ao 127.0.0.1). Dados no volume `pgdata_aranha_estetica` (docker compose down -v apaga).
 services:
   db:
-    # mesmo digest do CI (.github/workflows/ci.yml); o Dependabot atualiza
+    # mesmo digest do CI (.github/workflows/ci.yml); atualizar os dois juntos, a mao
     image: postgres:18@sha256:bc8d7bdd54dc38115ef954fef07f30a96bb2b5b080effa692e0093f03eabac8f
     environment:
       POSTGRES_USER: aranha_estetica

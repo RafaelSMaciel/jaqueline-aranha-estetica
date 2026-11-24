@@ -120,7 +120,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 dialog.dialogo {
   margin: auto;   /* o reset do Tailwind zera a margem que centraliza o modal */
   padding: 0; border: none; background: transparent; color: inherit;
-  width: calc(100% - 2rem); max-width: 42rem; max-height: calc(100vh - 2rem); overflow: visible;
+  width: calc(100% - 2rem); max-width: var(--dialogo-largura, 42rem); max-height: calc(100vh - 2rem); overflow: visible;
+  /* modal aberto de dentro de uma celula de tabela (agenda): nao herda o nowrap da celula */
+  white-space: normal;
 }
 dialog.dialogo::backdrop { background: rgb(0 0 0 / .45); }
 dialog.dialogo > * { margin-inline: auto; }

@@ -101,4 +101,7 @@ html:not(.dark-mode) .swagger-painel .swagger-ui .btn.authorize svg {
   .swagger-painel .swagger-ui .opblock .opblock-summary-path { max-width: 100%; overflow-wrap: anywhere; }
   .swagger-painel .swagger-ui .markdown code { overflow-wrap: anywhere; }
   .swagger-painel .swagger-ui .opblock .opblock-summary-description { flex-basis: 100%; }
+  .swagger-painel .swagger-ui .opblock-tag { flex-wrap: wrap; row-gap: 0.25rem; }
+  .swagger-painel .swagger-ui .opblock-tag > a, .swagger-painel .swagger-ui .opblock-tag > span { flex: 1 1 auto; }
+  .swagger-painel .swagger-ui .opblock-tag small { order: 3; flex: 1 1 100%; padding: 0; }
 }

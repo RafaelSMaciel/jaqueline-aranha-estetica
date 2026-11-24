@@ -26,7 +26,9 @@ pre-commit install                   # ganchos do §4 (uma vez por clone)
 ```
 
 Mudou `requirements.txt`? Regere o lock (cabeçalho do `requirements.lock`) e reinstale com
-`-c requirements.lock`. O Dependabot (`.github/dependabot.yml`) abre PRs semanais na `dev`.
+`-c requirements.lock`. Atualização de versão é manual desde 2026-11-24: o Dependabot
+(`.github/dependabot.yml`, `open-pull-requests-limit: 0`) não abre mais PR semanal — só alerta e
+abre PR de correção de segurança.
 
 Resto do setup (`.env`, `migrate`, `seed --demo`, `bootstrap_admin`, Vite + runserver): [README](../README.md#rodando-localmente).
 
@@ -139,8 +141,8 @@ reprova se faltar ou sobrar).
 
 `.github/workflows/ci.yml` (push em `main`/`dev`). Tabela de jobs: [PROJECT.md §12](PROJECT.md#12-testes-e-ci).
 Endurecimento: token só leitura (`permissions: contents: read`), `timeout-minutes` em todo job,
-actions fixadas por SHA e imagens (`postgres`, `python`, `node`) por digest — o Dependabot
-atualiza o pin —, cache de camadas do `docker build` e o smoke da imagem com o pre-deploy e o start
+actions fixadas por SHA e imagens (`postgres`, `python`, `node`) por digest — o pin é atualizado
+à mão (o Dependabot só abre PR de correção de segurança) —, cache de camadas do `docker build` e o smoke da imagem com o pre-deploy e o start
 lidos do `railway.json`. O job `auditoria-deps` é bloqueante: `pip-audit` no `requirements.lock`,
 `npm audit --package-lock-only --audit-level=high` (vulnerabilidade alta do front derruba) e
 gitleaks no histórico do push. O `tests/test_deploy_config.CiFixadoTests` reprova pin solto.

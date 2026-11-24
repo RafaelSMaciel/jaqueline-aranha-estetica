@@ -125,6 +125,8 @@ function iniciar() {
     events: eventsSource,
     eventClick: showEvent,
     eventDrop: moverEvento,
+    // bloco estreito (semana no tablet) corta o titulo: o texto inteiro vai no balao do navegador
+    eventDidMount: (info) => { info.el.title = info.event.title },
   })
   calendar.render()
   calendarEl.calendario = calendar   // testes no navegador conferem a instancia

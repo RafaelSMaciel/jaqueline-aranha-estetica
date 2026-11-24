@@ -412,8 +412,9 @@
     & .proc-icon { width: 40px; height: 40px; margin-bottom: .6rem; }
   }
 }
-/* no celular o botao flutuante do WhatsApp e o "voltar ao topo" cobririam o Continuar preso ao pe */
-@media (max-width: 768px) {
+/* celular e tablet: o botao flutuante do WhatsApp e o "voltar ao topo" cobririam o Continuar preso ao
+   pe (ate ~1060px a barra do pedido chega ao canto onde eles ficam) */
+@media (max-width: 1099px) {
   body:has(.pagina-agendamento) :is(.zap-float, .to-top) { display: none; }
 }
 @media (max-width: 576px) {
@@ -719,7 +720,7 @@
     display: inline-flex; align-items: center; justify-content: center; color: var(--cor-texto-suave); transition: all .25s; cursor: pointer;
   }
   & .btn-refresh:hover { border-color: var(--cor-marca-forte); color: var(--cor-marca); transform: rotate(90deg); }
-  & .btn-sair { display: inline-flex; align-items: center; gap: .25rem; border: 0; background: transparent; padding: 0; cursor: pointer; font-size: .8125rem; color: var(--cor-texto-suave); }
+  & .btn-sair { display: inline-flex; align-items: center; gap: .25rem; min-height: 1.75rem; border: 0; background: transparent; padding: 0 .25rem; cursor: pointer; font-size: .8125rem; color: var(--cor-texto-suave); }
 
   /* ─── vazio ─── */
   & .empty-state {
