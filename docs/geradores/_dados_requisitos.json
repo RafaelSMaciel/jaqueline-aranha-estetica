@@ -2583,8 +2583,8 @@
    },
    {
     "id": "RN03",
-    "titulo": "Idade mínima",
-    "descricao": "O agendamento online exige data de nascimento e idade mínima de 18 anos."
+    "titulo": "Idade para agendar online",
+    "descricao": "O agendamento online exige data de nascimento e idade de 18 a 120 anos; data futura, de hoje ou com ano impossível é recusada, com a mensagem ao lado do campo."
    },
    {
     "id": "RN04",
@@ -2599,7 +2599,7 @@
    {
     "id": "RN06",
     "titulo": "Fluxo do agendamento público",
-    "descricao": "Procedimento → data/horário → dados + código SMS → confirmar, num caso de uso só (services/agendamento_online.solicitar; o form confere o OTP e a view só liga os dois). O servidor revalida tudo no confirmar: termo LGPD vigente, procedimento/profissional ativos, habilitação, data futura, feriado, slot livre para a duração inteira, fichas e aceites; cada recusa tem um código. A ficha obrigatória respondida nos 12 meses anteriores ao horário não é exigida de novo (só a pendente ou vencida); \"Atualizar\" uma ficha em dia ou opcional grava uma resposta nova. Dia sem horário livre oferece \"Avise-me se vagar\" (lista de espera já preenchida). Sem provedor de SMS o agendamento online fica indisponível e o botão Agendar leva ao WhatsApp."
+    "descricao": "Tratamentos (um ou mais — RN58) → data/horário de cada um → dados + código SMS → confirmar, num caso de uso só (services/agendamento_online.solicitar_varios; o form confere o OTP e a view só liga os dois). O servidor revalida tudo no confirmar: termo LGPD vigente, procedimento/profissional ativos, habilitação, data futura, feriado, slot livre para a duração inteira, fichas e aceites; cada recusa tem um código. A ficha obrigatória respondida nos 12 meses anteriores ao horário não é exigida de novo (só a pendente ou vencida); \"Atualizar\" uma ficha em dia ou opcional grava uma resposta nova. Dia sem horário livre oferece \"Avise-me se vagar\" (lista de espera já preenchida). Sem provedor de SMS o agendamento online fica indisponível e o botão Agendar leva ao WhatsApp."
    },
    {
     "id": "RN07",
@@ -2654,7 +2654,7 @@
    {
     "id": "RN17",
     "titulo": "Consentimentos de comunicação",
-    "descricao": "Três autorizações por finalidade × canal — promoções por e-mail, lembrete/aviso de vaga por WhatsApp e pesquisa de satisfação por WhatsApp —, nunca pré-marcadas. Cada concessão ou revogação é uma linha nova e imutável (texto exibido, IP, navegador, autor, data); vale a mais recente; marcar de novo depois de um descadastro volta a valer. O descadastro por link revoga marketing e pesquisa e mantém o lembrete D-1. A equipe revoga a pedido da cliente e só registra autorização com justificativa. Responder \"PARAR\" (ou sair, stop, cancelar mensagens, descadastrar — a mensagem inteira) no WhatsApp revoga o lembrete e a pesquisa por WhatsApp (origem WHATSAPP) e a cliente recebe a confirmação com o caminho de volta."
+    "descricao": "Três autorizações por finalidade × canal — promoções por e-mail, lembrete/aviso de vaga por WhatsApp e pesquisa de satisfação por WhatsApp —, nunca pré-marcadas e escolhidas só em \"Meus agendamentos › Minhas preferências\": o agendamento online não pergunta sobre avisos e nunca concede nem revoga autorização (a página de sucesso aponta para as preferências). Cada concessão ou revogação é uma linha nova e imutável (texto exibido, IP, navegador, autor, data); vale a mais recente; marcar de novo depois de um descadastro volta a valer. O descadastro por link revoga marketing e pesquisa e mantém o lembrete D-1. A equipe revoga a pedido da cliente e só registra autorização com justificativa. Responder \"PARAR\" (ou sair, stop, cancelar mensagens, descadastrar — a mensagem inteira) no WhatsApp revoga o lembrete e a pesquisa por WhatsApp (origem WHATSAPP) e a cliente recebe a confirmação com o caminho de volta."
    },
    {
     "id": "RN18",
@@ -2855,6 +2855,21 @@
     "id": "RN57",
     "titulo": "Números do site só com dado real",
     "descricao": "Os números do site público (home, \"Sobre\" e páginas de serviço) saem de services/prova_social, nunca escritos à mão: nota média = média do NPS (0–10) ÷ 2, em 5 estrelas desenhadas em meias, só com 10 ou mais respostas; clientes atendidas = clientes distintas com atendimento REALIZADO, só a partir de 50 e arredondadas para baixo (\"127\" vira \"120+\"); tratamentos = procedimentos agendáveis online; anos de experiência = regra operacional anos_experiencia (inteiro opcional de 1 a 60; em branco não aparece). Número abaixo do mínimo some da página. Recalculados a cada 10 minutos (cache), e na hora quando a configuração muda."
+   },
+   {
+    "id": "RN58",
+    "titulo": "Vários tratamentos no mesmo pedido",
+    "descricao": "Um pedido pelo site leva de 1 a 3 tratamentos (MAX_TRATAMENTOS_POR_PEDIDO), cada um com o seu horário e a sua profissional — a tela abre um calendário por tratamento. Cada tratamento vira um atendimento próprio e o pedido é tudo ou nada (uma transação). Não entram no mesmo pedido o mesmo tratamento duas vezes nem horários que se sobrepõem: a cliente não faz dois tratamentos ao mesmo tempo, e com a mesma profissional vale também o intervalo entre sessões. A lista de horários de um tratamento já sai sem os que batem com os outros do pedido e o servidor confere de novo no confirmar. O teto de 3 horários futuros ativos conta os tratamentos do próprio pedido. Ficha, termos e código por SMS são pedidos uma vez só."
+   },
+   {
+    "id": "RN59",
+    "titulo": "Qualidade dos dados do agendamento",
+    "descricao": "O cadastro feito pelo site não aceita qualquer coisa: nome e sobrenome só com letras (cadastro novo; número, símbolo ou a mesma letra 3 vezes seguida recusam), idade de 18 a 120 anos, celular com DDD entre os 67 da Anatel, 9 + 8 dígitos e sem número de enfeite (os 8 dígitos finais iguais), e-mail válido quando preenchido. A tela mostra o erro ao lado de cada campo (ao sair do campo e ao enviar, com o foco no primeiro) e o servidor valida tudo de novo; a recusa do servidor aparece junto do formulário."
+   },
+   {
+    "id": "RN60",
+    "titulo": "Ficha de anamnese padrão",
+    "descricao": "A ficha padrão do agendamento é obrigatória e feita de perguntas de sim ou não (gestante ou amamentando, alergia, ácidos/retinoides, procedimento estético recente). O campo de texto só aparece — e só então é exigido — como detalhe de um Sim (pergunta com \"se\" no schema); o que vier nele depois de um Não é descartado. Resposta escrita precisa ter pelo menos 2 letras e não pode ser um caractere só repetido. A ficha respondida vale 12 meses (RN06) e só é gravada com o consentimento do art. 11 (RN15)."
    }
   ],
   "requisitos_funcionais": [
@@ -2891,7 +2906,10 @@
      "RN10",
      "RN11",
      "RN18",
-     "RN19"
+     "RN19",
+     "RN58",
+     "RN59",
+     "RN60"
     ]
    },
    {
@@ -3040,7 +3058,10 @@
      "UC01"
     ],
     "regras": [
-     "RN06"
+     "RN06",
+     "RN58",
+     "RN59",
+     "RN60"
     ]
    },
    {

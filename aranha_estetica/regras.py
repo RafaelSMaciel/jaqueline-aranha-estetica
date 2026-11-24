@@ -130,8 +130,18 @@ def _buffer():
 
 
 def _idade_minima():
-    from .forms.agendamento import IDADE_MINIMA
-    return f'{IDADE_MINIMA} anos'
+    from .forms.agendamento import IDADE_MAXIMA, IDADE_MINIMA
+    return f'{IDADE_MINIMA} a {IDADE_MAXIMA} anos'
+
+
+def _tratamentos_por_pedido():
+    from .constants import MAX_TRATAMENTOS_POR_PEDIDO
+    return f'até {MAX_TRATAMENTOS_POR_PEDIDO} (cada um com o seu horário; tudo ou nada)'
+
+
+def _celular_aceito():
+    from .utils.telefone import DDDS_VALIDOS
+    return f'DDD entre os {len(DDDS_VALIDOS)} da Anatel + 9 + 8 dígitos (os 8 não podem ser todos iguais)'
 
 
 def _ativos_online():
@@ -283,7 +293,9 @@ CATALOGO: tuple[Regra, ...] = (
     Regra('Antecedência máxima', _antecedencia_maxima, '`Profissional.max_advance_dias`'),
     Regra('Intervalo dos slots', _intervalo_slots, '`SlotService.INTERVALO`'),
     Regra('Buffer do procedimento', _buffer, '`Procedimento.buffer_minutos`'),
-    Regra('Idade mínima (online)', _idade_minima, '`forms/agendamento.IDADE_MINIMA`'),
+    Regra('Idade para agendar pelo site', _idade_minima, '`forms/agendamento.IDADE_MINIMA` / `IDADE_MAXIMA`'),
+    Regra('Celular aceito para o código por SMS', _celular_aceito, '`utils/telefone.eh_celular`'),
+    Regra('Tratamentos por pedido pelo site', _tratamentos_por_pedido, '`constants.MAX_TRATAMENTOS_POR_PEDIDO`'),
     Regra('Horários futuros ativos para pedir pelo site', _ativos_online, '`constants.MAX_ATIVOS_ONLINE`'),
     Regra('Pedido pelo site aprovado sozinho', _autoaprovacao,
           '`constants.LIMITE_AUTOAPROVACAO`, `services/agenda.status_inicial_publico`'),

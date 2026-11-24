@@ -42,7 +42,16 @@ O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
   CEP e endereço opcionais — CPF,
   CEP e endereço só pela finalidade (nota fiscal e contrato de pacote). RG, profissão e foto não são
   coletados (saíram na 0074).
-- **Idade mínima para agendar online: 18 anos** (data de nascimento obrigatória no wizard).
+- **Idade para agendar online: de 18 a 120 anos** (data de nascimento obrigatória no wizard; data
+  futura, de hoje ou com ano impossível é recusada).
+- **Qualidade do cadastro feito pelo site** (o wizard mostra o erro ao lado do campo e o servidor
+  valida de novo — `forms/agendamento.AgendamentoPublicoForm`):
+  - **nome**: nome e sobrenome (2 palavras de 2+ letras), só letras e os sinais de nome (apóstrofo,
+    hífen, ponto); número, símbolo ou a mesma letra 3 vezes seguida ("aaa") recusam. Vale para
+    cadastro novo — quem já tem cadastro fica com o nome do cadastro (§3);
+  - **celular**: DDD entre os 67 códigos nacionais da Anatel, 9 + 8 dígitos, e não pode ser número
+    de enfeite (os 8 dígitos finais todos iguais: "99999-9999"). Fixo não recebe o código por SMS;
+  - **e-mail**: opcional; se preenchido, precisa ser válido.
 - **Bloqueio por faltas:** cada FALTOU soma 1 em `faltas_consecutivas` — e cada **cancelamento
   tardio** da própria cliente também (§8: menos de 24 h de um horário já aprovado); ao atingir o limite
   (regra operacional `MAX_FALTAS_BLOQUEIO`, Painel > Regras operacionais: inteiro de **1 a 10**,
@@ -58,10 +67,22 @@ O papel RECEPCAO saiu (migration 0072): a dona faz a recepção pelo painel.
 
 ## 3. Agendamento público (wizard)
 
-Fluxo: **procedimento → data/horário (e profissional) → dados + código SMS → confirmar**.
+Fluxo: **tratamentos (um ou mais) → data/horário de cada um (e profissional) → dados + código SMS
+→ confirmar**.
 
-Caso de uso único: `services/agendamento_online.solicitar` (o form do wizard só lê o POST e
-confere o OTP; a regra inteira mora no service, e cada recusa tem um `codigo`).
+Caso de uso único: `services/agendamento_online.solicitar_varios` (o form do wizard só lê o POST,
+valida o formato dos dados e confere o OTP; a regra inteira mora no service, e cada recusa tem um
+`codigo`).
+
+- **Vários tratamentos no mesmo pedido:** a cliente escolhe de **1 a 3 tratamentos**
+  (`MAX_TRATAMENTOS_POR_PEDIDO`) e marca um horário para cada um — a tela abre um calendário por
+  tratamento. Cada tratamento vira um atendimento próprio (com a sua profissional, o seu preço e o
+  seu status), e o pedido é **tudo ou nada**: se um horário não puder ser gravado, nenhum é. Não
+  entram no mesmo pedido: o mesmo tratamento duas vezes e **horários que se sobrepõem** — a cliente
+  não faz dois tratamentos ao mesmo tempo, mesmo com profissionais diferentes; com a mesma
+  profissional vale também o intervalo entre sessões (buffer do procedimento). A lista de horários
+  de um tratamento já sai sem os que batem com os outros do pedido, e o servidor confere de novo
+  no confirmar. A ficha de anamnese, os termos e o código por SMS são pedidos uma vez só.
 
 - **Código OTP obrigatório em todo agendamento** (cliente nova ou recorrente), preso ao celular
   informado; o telefone do formulário tem de ser o verificado na sessão da cliente (código de até
@@ -73,8 +94,9 @@ confere o OTP; a regra inteira mora no service, e cada recusa tem um `codigo`).
   Nascimento vazio no cadastro é preenchido; o e-mail segue a regra abaixo.
 - **Teto de pedidos pelo site:** quem já tem **3 horários futuros ativos** (`MAX_ATIVOS_ONLINE`;
   PENDENTE/AGENDADO/CONFIRMADO, de qualquer canal) não marca outro pelo site ("fale conosco pelo
-  WhatsApp") — o PENDENTE trava a agenda, e sem teto um celular verificado reservaria a semana. A
-  recepção segue marcando pelo painel.
+  WhatsApp") — o PENDENTE trava a agenda, e sem teto um celular verificado reservaria a semana. Os
+  tratamentos do próprio pedido contam: com 2 horários marcados, um pedido de 2 tratamentos é
+  recusado. A recepção segue marcando pelo painel.
 - **Horários** vêm do `SlotService` (§5) e o servidor **revalida** no confirmar: procedimento e
   profissional ativos, profissional habilitado, horário futuro, não é feriado/recesso ativo, slot
   ainda livre para a duração inteira.
@@ -108,9 +130,14 @@ confere o OTP; a regra inteira mora no service, e cada recusa tem um `codigo`).
   uma resposta nova.
 - **Dia sem horário livre:** a lista de horários oferece "Avise-me se vagar", que abre a lista de
   espera (§17) já com o procedimento, a data e a profissional (quando escolhida) preenchidos.
-- **Comunicação:** caixas de e-mail marketing, lembrete por WhatsApp e pesquisa por WhatsApp
-  **nunca vêm marcadas**; marcar concede (data + IP); desmarcar revoga só quando a caixa mostrava
-  o estado do cadastro.
+- **Ficha padrão de anamnese** (`conteudo/anamnese.py`): **obrigatória**, com perguntas de sim ou
+  não (gestante ou amamentando, alergia, ácidos/retinoides, procedimento estético nos últimos 6
+  meses). O campo de texto só aparece — e só então é exigido — como detalhe de um Sim ("A que você
+  tem alergia?"), e a resposta escrita precisa ter palavras ("..." ou "123" não passam). §20.
+- **Comunicação:** o agendamento **não pergunta** sobre avisos (promoções por e-mail, lembrete por
+  WhatsApp, pesquisa por WhatsApp). A cliente escolhe só em **"Meus agendamentos › Minhas
+  preferências"** (§21), e a página de sucesso do pedido aponta para lá. Agendar nunca concede nem
+  revoga autorização.
 - **E-mail:** o digitado por quem provou o celular substitui o do cadastro; e-mail de outro
   cadastro é recusado.
 - Ao concluir: push "Novo agendamento" à profissional (se ela ativou) e o e-mail do status —
@@ -555,6 +582,11 @@ Regra em `services/lista_espera` (form público em `forms/publico.ListaEsperaFor
   global/categoria/procedimento, `obrigatorio`): respondidas no wizard ou por link
   `/anamnese/<token>/` (60 dias; consentimento art. 11 obrigatório). Formulário com respostas cujo
   schema muda vira nova versão (o antigo é desativado).
+- **Pergunta de detalhe:** uma pergunta com `"se": "<key de uma pergunta sim/não anterior>"` só
+  aparece e só é exigida quando aquela foi respondida Sim; o que vier nela depois de um Não é
+  descartado. **Resposta escrita** precisa ter pelo menos 2 letras e não pode ser um caractere só
+  repetido (`services/anamnese.texto_plausivel`) — o sistema não julga o conteúdo, só barra o que
+  com certeza não é resposta.
 - **Onde a ficha vale** — regra única `FormularioAnamnese.aplica_a` / `aplicaveis_a` (wizard,
   alertas do painel, convites), **3 escopos**: global; categoria do procedimento; o procedimento.
   Todo atendimento é presencial (o escopo por modalidade saiu na 0073). O wizard recebe do servidor
@@ -607,10 +639,11 @@ Regra em `services/lista_espera` (form público em `forms/publico.ListaEsperaFor
 - **Consentimentos de comunicação** com histórico (tabela `consentimento`, append-only): promoções
   por e-mail, pesquisa por WhatsApp e lembrete por WhatsApp. Cada concessão/revogação é uma linha
   com texto exibido, IP, user-agent, origem e data; **vale o registro mais recente** (quem se
-  descadastrou e marca de novo no agendamento volta a receber). **Descadastro** (link) revoga
-  marketing e pesquisa e mantém o lembrete D-1. A cliente muda as três em **"Minhas preferências"**
-  do portal (o checkbox mostra o estado vigente; marcar concede com o mesmo texto do agendamento,
-  desmarcar revoga; origem PORTAL, com IP e navegador; par sem mudança não grava nada). A equipe, na
+  descadastrou e marca de novo nas preferências volta a receber). **Descadastro** (link) revoga
+  marketing e pesquisa e mantém o lembrete D-1. A cliente escolhe as três **só em "Minhas
+  preferências"** do portal (o checkbox mostra o estado vigente; marcar concede, desmarcar revoga;
+  origem PORTAL, com IP e navegador; par sem mudança não grava nada) — desde 2026-11-24 o
+  agendamento online não pergunta mais (as linhas com origem AGENDAMENTO_ONLINE são de antes). A equipe, na
   ficha do cliente, **revoga** a pedido; registrar autorização pelo painel exige justificativa
   (fica com o autor).
 - **Consentimento de dado de saúde** (art. 11 I) fica fora da tabela `consentimento`: a concessão é
@@ -714,7 +747,9 @@ Rode `python manage.py gerar_docs_regras` (o teste `test_regras_catalogo` reprov
 | Antecedência máxima | 60 dias (1–365, por profissional) | `Profissional.max_advance_dias` |
 | Intervalo dos slots | 30 min | `SlotService.INTERVALO` |
 | Buffer do procedimento | 0–120 min (por procedimento) | `Procedimento.buffer_minutos` |
-| Idade mínima (online) | 18 anos | `forms/agendamento.IDADE_MINIMA` |
+| Idade para agendar pelo site | 18 a 120 anos | `forms/agendamento.IDADE_MINIMA` / `IDADE_MAXIMA` |
+| Celular aceito para o código por SMS | DDD entre os 67 da Anatel + 9 + 8 dígitos (os 8 não podem ser todos iguais) | `utils/telefone.eh_celular` |
+| Tratamentos por pedido pelo site | até 3 (cada um com o seu horário; tudo ou nada) | `constants.MAX_TRATAMENTOS_POR_PEDIDO` |
 | Horários futuros ativos para pedir pelo site | até 3 (o 4º é recusado) | `constants.MAX_ATIVOS_ONLINE` |
 | Pedido pelo site aprovado sozinho | cliente já atendida, sem falta em aberto e com menos de 2 horários futuros: nasce AGENDADO; senão PENDENTE | `constants.LIMITE_AUTOAPROVACAO`, `services/agenda.status_inicial_publico` |
 | Pedido pendente sem decisão | cancelado 1 h antes do início, se ninguém decidir | `constants.PRAZO_DECISAO_PENDENTE` (job `limpeza_status`) |
