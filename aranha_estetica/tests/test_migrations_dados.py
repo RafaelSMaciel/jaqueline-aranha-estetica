@@ -1490,11 +1490,13 @@ class Consentimentos0050Tests(_MigracaoBase):
 
         _subir_ate_o_fim()
         descad = Cliente.all_objects.get(pk=self.casos['descadastrado'][0])
-        self.assertEqual(consentimentos.estado_wizard(descad), {
+        # estado que a area da cliente mostra em "Minhas preferencias" (os opt-ins sairam do wizard)
+        estado = {p['campo']: p['concedido'] for p in consentimentos.preferencias_portal(descad)}
+        self.assertEqual(estado, {
             'consent_email_marketing': False, 'consent_whatsapp_nps': False, 'consent_whatsapp_confirmacao': True,
         })
         # reconsentimento depois da migracao volta a valer (o ultimo registro manda)
-        consentimentos.registrar(descad, 'MARKETING', 'EMAIL', True, origem='AGENDAMENTO_ONLINE')
+        consentimentos.registrar(descad, 'MARKETING', 'EMAIL', True, origem='PORTAL')
         self.assertTrue(consentimentos.vigente(descad, 'MARKETING', 'EMAIL'))
 
 

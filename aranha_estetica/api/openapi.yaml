@@ -112,7 +112,7 @@ paths:
         Dias de hoje até o limite de antecedência (`max_advance`) em que alguma profissional
         habilitada tem expediente — descontados feriados, recessos, folgas e bloqueios do dia
         inteiro. Não garante horário livre: os horários vêm de `/ajax/horarios-disponiveis/`.
-      x-limite: 30/min por IP
+      x-limite: 60/min por IP
       parameters:
         - name: mes
           in: query
@@ -159,7 +159,12 @@ paths:
         em cada um e o **preço na data** (promoção inclusa) — o mesmo valor que o agendamento grava.
         Mesma regra do `SlotService` usada pelo painel e pelo reagendamento: ocupação no intervalo
         inteiro, intervalo entre atendimentos, antecedência mínima e bloqueios.
-      x-limite: 30/min por IP
+
+        Pedido com vários tratamentos: `carrinho` leva os horários já escolhidos dos **outros**
+        tratamentos do mesmo pedido, e os horários que batem com eles saem da lista (a cliente não
+        faz dois ao mesmo tempo; com a mesma profissional vale também o intervalo entre sessões).
+        Só filtra o que é oferecido — o `POST /agendamento/confirmar/` valida o conjunto de novo.
+      x-limite: 60/min por IP
       parameters:
         - name: data
           in: query
@@ -169,6 +174,15 @@ paths:
           example: '2026-11-04'
         - $ref: '#/components/parameters/ProcedimentoId'
         - $ref: '#/components/parameters/ProfissionalIdFiltro'
+        - name: carrinho
+          in: query
+          required: false
+          description: |
+            JSON (até 600 caracteres) com os outros tratamentos do pedido que já têm horário:
+            `[{"p": <id do procedimento>, "f": <id da profissional>, "i": "<início ISO 8601 com fuso>"}]`.
+            Item malformado é ignorado.
+          schema: {type: string, maxLength: 600}
+          example: '[{"p": 3, "f": 1, "i": "2026-11-04T10:00:00-03:00"}]'
       responses:
         '200':
           description: Horários do dia (vazio = sem vaga).
@@ -316,7 +330,6 @@ paths:
                   telefone: '17991234567'
                   email: ana@example.com
                   data_nascimento: '1990-05-12'
-                  consents: {consent_email_marketing: false, consent_whatsapp_nps: true, consent_whatsapp_confirmacao: true}
                 aviso: ''
                 aviso_mensagem: ''
                 fichas_em_dia: {'3': '12/10/2026'}
@@ -1421,13 +1434,6 @@ components:
         telefone: {type: string}
         email: {type: string}
         data_nascimento: {type: string, description: "AAAA-MM-DD ou ''."}
-        consents:
-          type: object
-          description: Estado vigente de cada consentimento de comunicação.
-          properties:
-            consent_email_marketing: {type: boolean}
-            consent_whatsapp_nps: {type: boolean}
-            consent_whatsapp_confirmacao: {type: boolean}
     EventoCalendario:
       type: object
       description: Evento do FullCalendar — atendimento (com `extendedProps`) ou fundo (bloqueio, folga, feriado).

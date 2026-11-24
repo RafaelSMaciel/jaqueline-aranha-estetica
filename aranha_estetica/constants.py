@@ -24,6 +24,9 @@ LIMITE_AUTOAPROVACAO = 2
 # Teto de horarios futuros ativos (pendente/agendado/confirmado) p/ um novo pedido pelo site: cobre o
 # pacote semanal sem abrir espaco p/ sequestro de agenda. Acima disso a recepcao marca pelo painel.
 MAX_ATIVOS_ONLINE = 3
+# Tratamentos num mesmo pedido pelo site (cada um vira um atendimento, com o seu horario). Nunca acima
+# de MAX_ATIVOS_ONLINE: o pedido inteiro tem de caber no teto de horarios em aberto.
+MAX_TRATAMENTOS_POR_PEDIDO = 3
 # Pedido sem decisao e cancelado ate esta folga antes do inicio (job limpeza_status, de hora em
 # hora): a vaga volta p/ a lista de espera e a cliente sabe a tempo de escolher outro horario.
 PRAZO_DECISAO_PENDENTE = timedelta(hours=1)

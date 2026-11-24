@@ -200,7 +200,8 @@ verde em SQLite e Postgres).
 - **Booking:** OTP preso ao telefone e exigido de todo agendamento (só celular), cota de SMS
   checada antes de gerar código, slots revalidados no servidor, preço com promoção da data,
   aceite LGPD + consentimento art. 11 + termos do procedimento no wizard, opt-ins nunca
-  pré-marcados (desmarcar revoga), reagendamento preserva retorno e move a ficha, e-mail do
+  pré-marcados (desde 2026-11-24 só em "Minhas preferências", fora do wizard), até 3 tratamentos
+  por pedido (tudo ou nada), reagendamento preserva retorno e move a ficha, e-mail do
   cadastro substituído só com telefone provado.
 - **Painel:** agendamento interno pela recepção, valor cobrado, link do termo por atendimento,
   "Termo pendente" + override auditado "Realizado sem termo aceito", pacotes na ficha do cliente

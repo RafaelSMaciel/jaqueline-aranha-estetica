@@ -115,7 +115,29 @@ def _limpar_campo(campo: dict, valor):
         limite = min(int(limite), MAX_TEXTO_LONGO)
     except (TypeError, ValueError):
         limite = MAX_TEXTO
-    return _texto(valor, limite, label)
+    texto, erro = _texto(valor, limite, label)
+    if erro is None and not texto_plausivel(texto):
+        return None, f'"{label}": escreva uma resposta com palavras (ex.: o nome do produto).'
+    return texto, erro
+
+
+def texto_plausivel(texto: str) -> bool:
+    """Resposta escrita que da p/ ler: pelo menos 2 letras e nao um caractere so repetido.
+
+    Barra o que so preenche o campo ('.', '---', '123', 'aaaa', 'kkkk'); 'não', 'ok' e 'AAS' passam.
+    Nao julga o conteudo — so o que com certeza nao e resposta (a equipe le a ficha antes de atender).
+    """
+    letras = [c for c in texto if c.isalpha()]
+    if len(letras) < 2:
+        return False
+    return len(letras) < 4 or len({c.lower() for c in letras}) > 1
+
+
+def condicao_atendida(campo: dict, limpas: Mapping) -> bool:
+    """Pergunta condicional (``"se": "<key de uma pergunta sim/nao anterior>"``): so vale quando a
+    pergunta de controle foi respondida Sim. Sem ``se`` vale sempre."""
+    controle = campo.get('se')
+    return not controle or limpas.get(controle) is True
 
 
 def validar_respostas(schema, dados: Mapping) -> tuple[dict, list[str]]:
@@ -125,6 +147,8 @@ def validar_respostas(schema, dados: Mapping) -> tuple[dict, list[str]]:
     (None/''/lista vazia) fica fora do resultado e so gera erro se obrigatorio
     (bool False e resposta valida). bool vira True/False; checkboxes vira lista
     de opcoes validas; demais tipos ficam como texto (strip) dentro do limite.
+    Pergunta condicional (``se``) so entra — e so e exigida — quando a pergunta sim/nao de
+    controle foi respondida Sim; fora disso o que veio nela e descartado.
     """
     limpas: dict = {}
     erros: list[str] = []
@@ -132,6 +156,8 @@ def validar_respostas(schema, dados: Mapping) -> tuple[dict, list[str]]:
         dados = {}
     for campo in schema if isinstance(schema, list) else []:
         if not isinstance(campo, dict) or not campo.get('key'):
+            continue
+        if not condicao_atendida(campo, limpas):
             continue
         key = campo['key']
         label = campo.get('label') or key

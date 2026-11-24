@@ -64,6 +64,34 @@ def validate_cpf(value: str) -> None:
         raise ValidationError(_("CPF inválido."), code="invalid_cpf")
 
 
+# ─── Nome ───────────────────────────────────────────────────────────────
+
+# letras (com acento), espaco, apostrofo, hifen e ponto ("D'Ávila", "Ana-Clara", "Jr.")
+_NOME_RE = re.compile(r"[^\W\d_]+(?:[ '’.\-]+[^\W\d_]+)*\.?")
+_REPETIDO_RE = re.compile(r'(.)\1\1', re.IGNORECASE)
+MSG_NOME_COMPLETO = 'Informe seu nome completo (nome e sobrenome), só com letras.'
+
+
+def normalizar_nome(value: str) -> str:
+    """Nome sem espacos sobrando ('  Maria   Silva ' -> 'Maria Silva')."""
+    return ' '.join(str(value or '').split())
+
+
+def validate_nome_completo(value: str) -> None:
+    """Nome de pessoa para o cadastro feito pela propria cliente (agendamento online).
+
+    Exige nome e sobrenome (2 palavras com 2+ letras), so letras e os sinais de nome, e barra o
+    que com certeza nao e nome: numeros, simbolos e a mesma letra 3 vezes seguida ('aaa', 'kkkk').
+    Nao tenta adivinhar se o nome "existe" — isso a recepcao ve no atendimento.
+    """
+    nome = normalizar_nome(value)
+    palavras = [p for p in re.split(r"[ '’.\-]+", nome) if len(p) >= 2]
+    # 'III' (Joao Paulo III) e nome; fora isso, 3 letras iguais seguidas nao existem em nome
+    repetido = any(_REPETIDO_RE.search(p) for p in nome.split() if p.upper() != 'III')
+    if not _NOME_RE.fullmatch(nome) or len(palavras) < 2 or repetido:
+        raise ValidationError(MSG_NOME_COMPLETO, code='invalid_name')
+
+
 # ─── Datas ──────────────────────────────────────────────────────────────
 
 def validate_data_nascimento(value: date) -> None:

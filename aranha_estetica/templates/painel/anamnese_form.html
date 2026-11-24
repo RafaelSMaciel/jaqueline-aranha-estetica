@@ -96,6 +96,12 @@
           positiva como alerta de saúde (agenda, prontuário);
           <code class="rounded bg-fundo-realce px-1">false</code> nunca alerta; sem o campo, o sistema decide pelo texto.
         </p>
+        <p>
+          Pergunta de detalhe: <code class="rounded bg-fundo-realce px-1">"se": "key_da_pergunta_sim_nao"</code>
+          faz o campo aparecer (e ser exigido) só quando a pergunta
+          <code class="rounded bg-fundo-realce px-1">bool</code> indicada, que vem antes dele, foi respondida Sim —
+          ex.: “Tem alergia?” (bool) e “A quê?” (text com <code class="rounded bg-fundo-realce px-1">se</code>).
+        </p>
       </div>
     </div>
   </c-card>

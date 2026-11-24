@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from ...models import Cliente, CodigoOtp
-from ...services import agendamento_online, consentimentos
+from ...services import agendamento_online
 from ...services import otp as otp_service
 from ...services import sessao_cliente
 from ...services.agendamento_online import MSG_BLOQUEADO_ONLINE
@@ -120,10 +120,6 @@ def verificar_otp_agendamento(request):
             'telefone': cliente.telefone or '',
             'email': cliente.email or '',
             'data_nascimento': cliente.data_nascimento.isoformat() if cliente.data_nascimento else '',
-            # Estado atual dos opt-ins (linha vigente do historico): o wizard mostra
-            # os checkboxes como estao (desmarcar = revogar), nunca "pre-marcados"
-            # nem zerados as cegas.
-            'consents': consentimentos.estado_wizard(cliente),
         }
     return json_ok(prefill=prefill, aviso=aviso, aviso_mensagem=aviso_mensagem,
                    # horario escolhido no wizard: a ficha tem de estar em dia NELE (D14)

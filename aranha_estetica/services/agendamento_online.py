@@ -1,35 +1,44 @@
 """Caso de uso: pedido de agendamento pelo site (wizard publico, sem login).
 
 Identidade = celular verificado por SMS — o gate do OTP fica no form (forms/agendamento.py), que
-conhece a sessao. Aqui fica a regra, testavel sem HTTP e reutilizavel por outra porta. Ordem:
+conhece a sessao. Aqui fica a regra, testavel sem HTTP e reutilizavel por outra porta.
+
+Um pedido leva de 1 a MAX_TRATAMENTOS_POR_PEDIDO tratamentos (``PedidoAgendamento.itens``), cada um
+com o seu horario e a sua profissional: cada item vira um Atendimento, todos na mesma transacao —
+ou entram todos ou nenhum. Ordem:
 
 1. termo LGPD vigente (sem ele nao ha prova do aceite: nada e gravado);
-2. horario (``agenda.validar_horario``: habilitacao, futuro, feriado/recesso e o slot oferecido);
-3. fichas de anamnese do procedimento (schema + obrigatorias que a titular nao tem em dia — a
+2. o conjunto: sem tratamento repetido e sem horarios que se sobreponham (a cliente nao faz dois
+   ao mesmo tempo; com a mesma profissional vale tambem o intervalo entre sessoes);
+3. horario de cada item (``agenda.validar_horario``: habilitacao, futuro, feriado/recesso e o slot);
+4. fichas de anamnese dos procedimentos (schema + obrigatorias que a titular nao tem em dia — a
    ficha vale 12 meses, D14) e, havendo resposta, o consentimento de dado de saude (LGPD art. 11);
-4. termos de procedimento que a titular ainda nao aceitou (services/termos) — marcados no wizard;
-5. e-mail que ja e de outro cadastro (evita sequestro e IntegrityError);
-6. lock do horario no cache: serializa confirmacoes simultaneas (depois o banco decide);
-7. numa transacao: cadastro da titular, bloqueio online, teto de pedidos em aberto (D8),
-   opt-ins de comunicacao, reserva com o preco da data, e-mail (APROVACAO p/ a profissional ou
-   CONFIRMACAO p/ a cliente — D8), aceites com prova e fichas com a trilha do art. 11.
+5. termos de procedimento que a titular ainda nao aceitou (services/termos) — marcados no wizard;
+6. e-mail que ja e de outro cadastro (evita sequestro e IntegrityError);
+7. lock de cada horario no cache: serializa confirmacoes simultaneas (depois o banco decide);
+8. numa transacao: cadastro da titular, bloqueio online, teto de pedidos em aberto (D8), reserva
+   com o preco da data, e-mail (APROVACAO p/ a profissional ou CONFIRMACAO p/ a cliente — D8),
+   aceites com prova e fichas com a trilha do art. 11.
+
+Opt-ins de comunicacao (lembrete por WhatsApp, pesquisa, promocoes) NAO sao pedidos aqui: ficam so
+em "Meus agendamentos > Minhas preferencias" (decisao do dono, 2026-11-24).
 
 Toda recusa e ``RegraDeNegocio`` com ``codigo``; a view so mostra ``mensagem``.
 """
 from __future__ import annotations
 
 import logging
-from collections.abc import Collection, Iterator, Mapping
-from contextlib import contextmanager
+from collections.abc import Collection, Iterator, Mapping, Sequence
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
-from ..constants import MAX_ATIVOS_ONLINE
+from ..constants import MAX_ATIVOS_ONLINE, MAX_TRATAMENTOS_POR_PEDIDO
 from ..excecoes import RegraDeNegocio
 from ..models import (
     AceiteTermo,
@@ -46,7 +55,7 @@ from ..utils.auditoria import registrar_log
 from ..utils.datas import fmt_local
 from ..utils.email import email_configurado
 from ..utils.formatos import formatar_brl
-from . import agenda, anamnese, comunicacao, consentimentos, termos
+from . import agenda, anamnese, comunicacao, termos
 from .agendamento import formatar_data_hora, formatar_valor_atendimento
 from .anamnese import validar_respostas
 
@@ -76,14 +85,46 @@ MSG_LIMITE_ONLINE = (
     f'Você já tem {MAX_ATIVOS_ONLINE} horários marcados com a gente. '
     'Para marcar mais um, fale conosco pelo WhatsApp.'
 )
+MSG_LIMITE_COM_PEDIDO = (
+    f'Pelo site dá para ter até {MAX_ATIVOS_ONLINE} horários marcados ao mesmo tempo. '
+    'Tire um tratamento deste pedido ou fale conosco pelo WhatsApp.'
+)
+MSG_TRATAMENTOS_DEMAIS = (
+    f'Dá para agendar até {MAX_TRATAMENTOS_POR_PEDIDO} tratamentos de uma vez. '
+    'Para mais, faça outro pedido ou fale conosco pelo WhatsApp.'
+)
+MSG_TRATAMENTO_REPETIDO = 'O mesmo tratamento aparece duas vezes no pedido. Escolha cada tratamento uma vez.'
+MSG_HORARIOS_SOBREPOSTOS = (
+    'Os horários escolhidos se sobrepõem: um tratamento começa antes de o outro terminar. '
+    'Escolha outro horário para um deles.'
+)
 
 # Lock do horario no cache (s): so cobre a janela entre as checagens e o INSERT
 TRAVA_HORARIO_SEGUNDOS = 30
 
 
 @dataclass(frozen=True)
+class ItemPedido:
+    """Um tratamento do pedido: o procedimento, quem atende e quando (aware)."""
+    procedimento: Procedimento
+    profissional: Profissional
+    inicio: datetime
+
+    @property
+    def fim(self) -> datetime:
+        return self.inicio + agenda.duracao(self.procedimento)
+
+    @property
+    def buffer(self) -> timedelta:
+        return timedelta(minutes=self.procedimento.buffer_minutos or 0)
+
+
+@dataclass(frozen=True)
 class PedidoAgendamento:
-    """O que a cliente pediu no wizard, ja limpo (``AgendamentoPublicoForm.pedido()``)."""
+    """O que a cliente pediu no wizard, ja limpo (``AgendamentoPublicoForm.pedido()``).
+
+    ``procedimento``/``profissional``/``inicio`` sao o 1o tratamento; ``extras`` os demais do mesmo
+    pedido (o wizard deixa escolher varios). ``itens`` devolve todos, na ordem escolhida."""
     nome: str
     telefone: str                      # so digitos — o celular verificado por SMS nesta sessao
     data_nascimento: date
@@ -91,18 +132,26 @@ class PedidoAgendamento:
     procedimento: Procedimento
     profissional: Profissional
     inicio: datetime                   # aware
-    # campo do wizard (consentimentos.PARES) -> marcado
-    consents: Mapping[str, bool] = field(default_factory=dict)
-    # True = os checkboxes mostravam o estado do cadastro (prefill do OTP): so entao desmarcar revoga
-    consents_sincronizados: bool = False
+    extras: tuple[ItemPedido, ...] = ()
     termos_marcados: frozenset[int] = frozenset()   # ids das VersaoTermo marcadas no wizard
     # {id do formulario (str): {chave do schema: resposta}} — o JSON do wizard, ainda nao validado
     anamneses: Mapping[str, Any] = field(default_factory=dict)
     consent_saude: bool = False
 
+    @property
+    def itens(self) -> tuple[ItemPedido, ...]:
+        return (ItemPedido(self.procedimento, self.profissional, self.inicio), *self.extras)
+
 
 def solicitar(pedido: PedidoAgendamento, *, request: HttpRequest | None = None) -> Atendimento:
-    """Cria o atendimento do pedido feito pelo site ou levanta ``RegraDeNegocio``.
+    """Pedido de UM tratamento (ou o 1o atendimento de um pedido com varios): atalho de
+    ``solicitar_varios`` p/ quem so precisa do primeiro."""
+    return solicitar_varios(pedido, request=request)[0]
+
+
+def solicitar_varios(pedido: PedidoAgendamento, *, request: HttpRequest | None = None) -> list[Atendimento]:
+    """Cria os atendimentos do pedido feito pelo site (um por tratamento, na ordem do pedido) ou
+    levanta ``RegraDeNegocio`` — tudo ou nada.
 
     PENDENTE p/ a profissional aprovar ou AGENDADO direto p/ cliente de confianca
     (``agenda.status_inicial_publico``). ``request`` vai p/ a prova dos aceites e consentimentos
@@ -115,51 +164,87 @@ def solicitar(pedido: PedidoAgendamento, *, request: HttpRequest | None = None) 
         logger.error('booking_sem_termo_lgpd_vigente')
         raise RegraDeNegocio(MSG_SEM_TERMO_LGPD, codigo='sem_termo_lgpd')
 
-    agenda.validar_horario(pedido.profissional, pedido.procedimento, pedido.inicio)
+    itens = pedido.itens
+    validar_conjunto(itens)
+    for item in itens:
+        agenda.validar_horario(item.profissional, item.procedimento, item.inicio)
 
     titular = Cliente.objects.filter(telefone=pedido.telefone).first()
-    # Ficha obrigatoria respondida nos ultimos 12 meses (D14) nao e exigida de novo
-    fichas = fichas_respondidas(pedido.anamneses, pedido.procedimento,
-                                em_dia=anamnese.fichas_em_dia(titular, pedido.inicio))
-    if fichas and not pedido.consent_saude:
+    # Ficha obrigatoria respondida nos ultimos 12 meses (D14) nao e exigida de novo — e tem de
+    # estar em dia no ULTIMO horario do pedido
+    em_dia = anamnese.fichas_em_dia(titular, max(item.inicio for item in itens))
+    # {indice do item: [(formulario, respostas)]}: cada ficha e gravada uma vez, no 1o tratamento
+    # do pedido em que ela vale
+    fichas_por_item: dict[int, list[tuple[FormularioAnamnese, dict]]] = {}
+    vistas: set[int] = set()
+    for indice, item in enumerate(itens):
+        for formulario, respostas in fichas_respondidas(pedido.anamneses, item.procedimento, em_dia=em_dia):
+            if formulario.pk not in vistas:
+                vistas.add(formulario.pk)
+                fichas_por_item.setdefault(indice, []).append((formulario, respostas))
+    if fichas_por_item and not pedido.consent_saude:
         # Dado de saude (LGPD art. 11): nada e gravado sem o consentimento destacado.
         raise RegraDeNegocio(MSG_CONSENT_SAUDE, codigo='consent_saude_ausente')
 
-    termos_aceitos = _termos_aceitos(pedido, titular)
+    termos_por_item = [_termos_aceitos(pedido, titular, item.procedimento) for item in itens]
 
     if pedido.email and Cliente.objects.filter(email__iexact=pedido.email).exclude(
             telefone=pedido.telefone).exists():
         raise RegraDeNegocio(MSG_EMAIL_DE_OUTRO, codigo='email_de_outro_cadastro')
 
-    with _horario_travado(pedido.profissional, pedido.inicio), transaction.atomic():
-        cliente, cadastro_novo = _cadastro_da_titular(pedido)
-        if not cadastro_novo:
-            validar_limite_online(cliente)   # linha da cliente travada: pedidos simultaneos serializam
-        # Opt-ins -> historico (prova: texto do checkbox, IP, user-agent). Concede ao marcar;
-        # revoga ao desmarcar SO se o checkbox mostrava o estado do cadastro. Ultimo registro manda.
-        consentimentos.registrar_do_wizard(
-            cliente, dict(pedido.consents), sincronizados=pedido.consents_sincronizados,
-            cadastro_novo=cadastro_novo, request=request,
-        )
-        # Conflito com lock + preco da data (promocao do dia, o mesmo do resumo do wizard)
-        atendimento = agenda.reservar(
-            cliente=cliente, profissional=pedido.profissional, procedimento=pedido.procedimento,
-            inicio=pedido.inicio, status=agenda.status_inicial_publico(cliente),
-        )
-        if atendimento.status == Atendimento.STATUS_PENDENTE:
-            # Pedido p/ a profissional aprovar (o link do e-mail so leva a agenda do dia)
-            comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.APROVACAO)
-        else:
-            # Cliente de confianca (D8): horario ja garantido, confirmacao na hora
-            comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.CONFIRMACAO)
+    atendimentos: list[Atendimento] = []
+    with ExitStack() as travas:
+        # ordem fixa (profissional, horario): dois pedidos com os mesmos slots nao se cruzam
+        for item in sorted(itens, key=lambda i: (i.profissional.pk, i.inicio)):
+            travas.enter_context(_horario_travado(item.profissional, item.inicio))
+        with transaction.atomic():
+            cliente, cadastro_novo = _cadastro_da_titular(pedido)
+            # linha da cliente travada: pedidos simultaneos serializam
+            validar_limite_online(cliente if not cadastro_novo else None, novos=len(itens))
+            for indice, item in enumerate(itens):
+                # Conflito com lock + preco da data (promocao do dia, o mesmo do resumo do wizard)
+                atendimento = agenda.reservar(
+                    cliente=cliente, profissional=item.profissional, procedimento=item.procedimento,
+                    inicio=item.inicio, status=agenda.status_inicial_publico(cliente),
+                )
+                if atendimento.status == Atendimento.STATUS_PENDENTE:
+                    # Pedido p/ a profissional aprovar (o link do e-mail so leva a agenda do dia)
+                    comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.APROVACAO)
+                else:
+                    # Cliente de confianca (D8): horario ja garantido, confirmacao na hora
+                    comunicacao.enfileirar_email(atendimento, Notificacao.Tipo.CONFIRMACAO)
 
-        # Aceites com prova (IP, user-agent, SHA-256 do texto): Politica de Privacidade
-        # (versao LGPD vigente) + termo(s) do procedimento marcados no wizard.
-        AceiteTermo.registrar(cliente, termo_lgpd, request, atendimento)
-        for termo in termos_aceitos:
-            AceiteTermo.registrar(cliente, termo, request, atendimento)
-        _gravar_fichas(cliente, atendimento, fichas, request=request)
-    return atendimento
+                # Aceites com prova (IP, user-agent, SHA-256 do texto): Politica de Privacidade
+                # (versao LGPD vigente) + termo(s) do procedimento marcados no wizard.
+                AceiteTermo.registrar(cliente, termo_lgpd, request, atendimento)
+                for termo in termos_por_item[indice]:
+                    AceiteTermo.registrar(cliente, termo, request, atendimento)
+                _gravar_fichas(cliente, atendimento, fichas_por_item.get(indice, []), request=request)
+                atendimentos.append(atendimento)
+    return atendimentos
+
+
+def validar_conjunto(itens: Sequence[ItemPedido]) -> None:
+    """Os tratamentos de um pedido cabem juntos? Recusa pedido vazio ou acima do teto, tratamento
+    repetido e horarios que se sobrepoem.
+
+    A cliente nao faz dois tratamentos ao mesmo tempo (mesmo com profissionais diferentes). Com a
+    MESMA profissional conta tambem o intervalo entre sessoes (buffer) — a mesma conta do
+    SlotService p/ um atendimento ja marcado: cada horario foi oferecido sem saber do outro.
+    """
+    if not itens:
+        raise RegraDeNegocio('Escolha ao menos um tratamento.', codigo='sem_tratamento')
+    if len(itens) > MAX_TRATAMENTOS_POR_PEDIDO:
+        raise RegraDeNegocio(MSG_TRATAMENTOS_DEMAIS, codigo='tratamentos_demais')
+    if len({item.procedimento.pk for item in itens}) != len(itens):
+        raise RegraDeNegocio(MSG_TRATAMENTO_REPETIDO, codigo='tratamento_repetido')
+    for i, a in enumerate(itens):
+        for b in itens[i + 1:]:
+            mesma = a.profissional.pk == b.profissional.pk
+            folga_a = a.buffer if mesma else timedelta(0)
+            folga_b = b.buffer if mesma else timedelta(0)
+            if a.inicio < b.fim + folga_b and b.inicio < a.fim + folga_a:
+                raise RegraDeNegocio(MSG_HORARIOS_SOBREPOSTOS, codigo='horarios_sobrepostos')
 
 
 # ─── Fichas de anamnese (dado de saude) ─────────────────────────────────────
@@ -239,28 +324,35 @@ def _gravar_fichas(cliente, atendimento, fichas, *, request) -> None:
 
 # ─── Termos, cadastro e horario ─────────────────────────────────────────────
 
-def validar_limite_online(cliente: Cliente) -> None:
-    """Recusa o pedido pelo site de quem ja tem MAX_ATIVOS_ONLINE horarios futuros ativos (D8): o
+def validar_limite_online(cliente: Cliente | None, *, novos: int = 1) -> None:
+    """Recusa o pedido pelo site que passaria de MAX_ATIVOS_ONLINE horarios futuros ativos (D8): o
     PENDENTE trava a agenda, entao sem teto um celular verificado reservaria a semana inteira. Conta
-    todos os canais (o atendimento nao guarda a origem); a recepcao segue marcando pelo painel."""
-    ativos = Atendimento.objects.filter(
+    todos os canais (o atendimento nao guarda a origem); a recepcao segue marcando pelo painel.
+
+    ``novos``: quantos tratamentos este pedido marca. ``cliente=None`` = cadastro novo (nada marcado)."""
+    ativos = 0 if cliente is None else Atendimento.objects.filter(
         cliente=cliente, status__in=Atendimento.STATUS_ATIVOS, data_hora_inicio__gte=timezone.now(),
     ).count()
     if ativos >= MAX_ATIVOS_ONLINE:
         raise RegraDeNegocio(MSG_LIMITE_ONLINE, codigo='limite_online')
+    if ativos + novos > MAX_ATIVOS_ONLINE:
+        raise RegraDeNegocio(MSG_LIMITE_COM_PEDIDO, codigo='limite_online')
 
 
-def _termos_aceitos(pedido: PedidoAgendamento, titular: Cliente | None) -> list[VersaoTermo]:
-    """Termos de procedimento marcados no wizard (o proprio + o geral, services/termos).
+def _termos_aceitos(pedido: PedidoAgendamento, titular: Cliente | None,
+                    procedimento: Procedimento | None = None) -> list[VersaoTermo]:
+    """Termos de procedimento marcados no wizard (o proprio + o geral, services/termos) p/ um
+    tratamento do pedido (padrao: o 1o).
 
     Recusa se faltar um que a titular ainda nao aceitou; versao aceita antes nao e exigida de novo
     (o aceite fica no wizard: o link por e-mail nao chegava a quem nao informa e-mail).
     """
-    aplicaveis = list(termos.termos_aplicaveis(pedido.procedimento).filter(tipo='PROCEDIMENTO'))
+    procedimento = procedimento or pedido.procedimento
+    aplicaveis = list(termos.termos_aplicaveis(procedimento).filter(tipo='PROCEDIMENTO'))
     if not aplicaveis:
         return []
     pendentes = (
-        {t.pk for t in termos.termos_pendentes(titular, pedido.procedimento, so_procedimento=True)}
+        {t.pk for t in termos.termos_pendentes(titular, procedimento, so_procedimento=True)}
         if titular is not None else {t.pk for t in aplicaveis}
     )
     faltando = next(
@@ -339,6 +431,18 @@ def resumo_confirmacao(atendimento: Atendimento, *, reagendamento: bool = False)
         # So promete acompanhamento por e-mail se o backend entrega de fato
         'email': bool(cliente.email) and email_configurado(),
     }
+
+
+def resumo_do_pedido(atendimentos: Sequence[Atendimento]) -> dict:
+    """Dados da pagina de sucesso de um pedido com 1+ tratamentos: o resumo do 1o (as chaves de
+    sempre) + ``itens`` (um resumo por tratamento, em ordem de horario) e ``pendente`` se algum
+    ainda espera a aprovacao."""
+    ordenados = sorted(atendimentos, key=lambda a: a.data_hora_inicio)
+    itens = [resumo_confirmacao(atendimento) for atendimento in ordenados]
+    dados = dict(itens[0])
+    dados['itens'] = itens
+    dados['pendente'] = any(item['pendente'] for item in itens)
+    return dados
 
 
 @contextmanager

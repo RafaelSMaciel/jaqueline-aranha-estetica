@@ -6,7 +6,11 @@ verificado por SMS NESTA sessao) e entrega um ``PedidoAgendamento``. Regra de ne
 fichas, termos, cadastro) fica no service.
 
 A tela mostra um erro por vez (``primeiro_erro``), na ordem de sempre: campo obrigatorio vazio,
-Politica de Privacidade, celular, verificacao por SMS, e-mail, nascimento/idade, selecao.
+Politica de Privacidade, celular, verificacao por SMS, e-mail, nascimento/idade, selecao, nome.
+O wizard valida os mesmos formatos antes de enviar (static/src/js/wizard.js) — aqui e a garantia.
+
+Varios tratamentos no mesmo pedido: ``procedimento``/``profissional``/``datetime`` sao o 1o e
+``itens_extras`` (JSON: [{"procedimento", "profissional", "datetime"}]) os demais.
 """
 from __future__ import annotations
 
@@ -19,17 +23,21 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.utils import timezone
 
-from ..models import Procedimento, Profissional
-from ..services import consentimentos, sessao_cliente
-from ..services.agendamento_online import PedidoAgendamento
+from ..constants import MAX_TRATAMENTOS_POR_PEDIDO
+from ..models import Cliente, Procedimento, Profissional
+from ..services import sessao_cliente
+from ..services.agendamento_online import ItemPedido, PedidoAgendamento
 from ..utils import telefone as telefone_br
 from ..utils.datas import hoje as hoje_local, ler_data
 from ..utils.parse import id_int
-from ..validators import validate_data_nascimento
+from ..validators import normalizar_nome, validate_data_nascimento, validate_nome_completo
 
 logger = logging.getLogger(__name__)
 
 IDADE_MINIMA = 18
+IDADE_MAXIMA = 120
+# Teto do JSON dos tratamentos extras do pedido — acima disso e abuso.
+MAX_ITENS_BYTES = 2_000
 # Teto do JSON da anamnese (todos os formularios somados) — acima disso e abuso.
 MAX_ANAMNESE_BYTES = 20_000
 PREFIXO_TERMO = 'aceite_termo_'
@@ -39,7 +47,7 @@ MSG_POLITICA = 'Para agendar, confirme que leu e aceita a Política de Privacida
 MSG_CELULAR = 'Informe um celular válido com DDD, ex.: (11) 99999-9999.'
 MSG_SEM_OTP = 'Confirme seu celular com o código enviado por SMS antes de concluir.'
 MSG_EMAIL = 'Informe um e-mail válido ou deixe o campo em branco.'
-MSG_NASCIMENTO = 'Data de nascimento inválida.'
+MSG_NASCIMENTO = 'Data de nascimento inválida. Confira o dia, o mês e o ano.'
 MSG_IDADE = 'É necessário ter pelo menos 18 anos para agendar.'
 MSG_SELECAO = 'Dados do agendamento inválidos. Refaça a seleção.'
 MSG_ANAMNESE_LONGA = 'As respostas do questionário ficaram longas demais. Resuma e tente novamente.'
@@ -72,18 +80,14 @@ class AgendamentoPublicoForm(forms.Form):
     procedimento = forms.CharField(error_messages={'required': MSG_CAMPOS})
     profissional = forms.CharField(error_messages={'required': MSG_CAMPOS})
     datetime = forms.CharField(error_messages={'required': MSG_CAMPOS})
+    itens_extras = forms.CharField(required=False)
     nome = forms.CharField(error_messages={'required': MSG_CAMPOS})
     anamnese_respostas = forms.CharField(required=False)
     consent_dados_saude = Marcado()
-    # '1' = os checkboxes de comunicacao mostravam o estado do cadastro (prefill do OTP)
-    consents_sincronizados = Marcado(valor='1')
 
     def __init__(self, data=None, *, request, **kwargs):
         super().__init__(data, **kwargs)
         self.request = request
-        # Opt-ins de comunicacao: checkbox do wizard -> par finalidade x canal
-        for campo in consentimentos.PARES:
-            self.fields[campo] = Marcado()
 
     # ─── campos ───
 
@@ -93,7 +97,14 @@ class AgendamentoPublicoForm(forms.Form):
         return True
 
     def clean_nome(self) -> str:
-        return self.cleaned_data['nome'][:150]
+        nome = normalizar_nome(self.cleaned_data['nome'])[:150]
+        # Cadastro existente: o nome do POST e ignorado (D16 — vale o do cadastro), entao nao e
+        # validado: uma titular antiga com o nome so pela metade nao fica sem conseguir agendar
+        telefone = self.cleaned_data.get('telefone')
+        if telefone and Cliente.objects.filter(telefone=telefone).exists():
+            return nome
+        validate_nome_completo(nome)
+        return nome
 
     def clean_telefone(self) -> str:
         telefone = telefone_br.valido_ou_vazio(self.cleaned_data['telefone'])
@@ -120,8 +131,11 @@ class AgendamentoPublicoForm(forms.Form):
             validate_data_nascimento(nascimento)
         except (ValueError, ValidationError):
             raise ValidationError(MSG_NASCIMENTO, code='nascimento') from None
-        if _idade(nascimento, hoje_local()) < IDADE_MINIMA:
+        idade = _idade(nascimento, hoje_local())
+        if idade < IDADE_MINIMA:
             raise ValidationError(MSG_IDADE, code='idade')
+        if idade > IDADE_MAXIMA:
+            raise ValidationError(MSG_NASCIMENTO, code='nascimento')
         return nascimento
 
     def _ativo(self, model, campo):
@@ -137,14 +151,44 @@ class AgendamentoPublicoForm(forms.Form):
     def clean_profissional(self) -> Profissional:
         return self._ativo(Profissional, 'profissional')
 
-    def clean_datetime(self) -> dt.datetime:
+    @staticmethod
+    def _instante(valor) -> dt.datetime:
         try:
-            inicio = dt.datetime.fromisoformat(self.cleaned_data['datetime'])
+            inicio = dt.datetime.fromisoformat(str(valor))
             if timezone.is_naive(inicio):
                 inicio = timezone.make_aware(inicio)
             return timezone.localtime(inicio)
         except (ValueError, TypeError, OverflowError):
             raise ValidationError(MSG_SELECAO, code='selecao') from None
+
+    def clean_datetime(self) -> dt.datetime:
+        return self._instante(self.cleaned_data['datetime'])
+
+    def clean_itens_extras(self) -> tuple[ItemPedido, ...]:
+        """Os outros tratamentos do pedido (alem do 1o). Lista malformada, item incompleto ou
+        acima do teto recusa o pedido inteiro — nada de agendar "so o que deu p/ entender"."""
+        bruto = self.cleaned_data.get('itens_extras', '')
+        if not bruto:
+            return ()
+        if len(bruto) > MAX_ITENS_BYTES:
+            raise ValidationError(MSG_SELECAO, code='selecao')
+        try:
+            lista = json.loads(bruto)
+        except (TypeError, ValueError):
+            raise ValidationError(MSG_SELECAO, code='selecao') from None
+        if not isinstance(lista, list) or len(lista) > MAX_TRATAMENTOS_POR_PEDIDO - 1:
+            raise ValidationError(MSG_SELECAO, code='selecao')
+        itens = []
+        for bruto_item in lista:
+            if not isinstance(bruto_item, dict):
+                raise ValidationError(MSG_SELECAO, code='selecao')
+            proc_id, prof_id = id_int(bruto_item.get('procedimento')), id_int(bruto_item.get('profissional'))
+            procedimento = Procedimento.objects.filter(pk=proc_id, ativo=True).first() if proc_id is not None else None
+            profissional = Profissional.objects.filter(pk=prof_id, ativo=True).first() if prof_id is not None else None
+            if procedimento is None or profissional is None:
+                raise ValidationError(MSG_SELECAO, code='selecao')
+            itens.append(ItemPedido(procedimento, profissional, self._instante(bruto_item.get('datetime'))))
+        return tuple(itens)
 
     def clean_anamnese_respostas(self) -> dict:
         bruto = self.cleaned_data.get('anamnese_respostas', '')
@@ -190,8 +234,7 @@ class AgendamentoPublicoForm(forms.Form):
             procedimento=dados['procedimento'],
             profissional=dados['profissional'],
             inicio=dados['datetime'],
-            consents={campo: dados[campo] for campo in consentimentos.PARES},
-            consents_sincronizados=dados['consents_sincronizados'],
+            extras=dados['itens_extras'],
             termos_marcados=self.termos_marcados(),
             anamneses=dados['anamnese_respostas'],
             consent_saude=dados['consent_dados_saude'],

@@ -23,6 +23,7 @@ from django.utils import timezone
 from aranha_estetica.constants import (
     TERMO_LGPD_CONTEUDO, TERMO_LGPD_TITULO, TERMO_LGPD_VERSAO,
 )
+from aranha_estetica.conteudo.anamnese import ANAMNESE_PADRAO, ANAMNESE_PADRAO_NOME
 from aranha_estetica.models import (
     AgendaHorario, Atendimento, Cliente, CompraPacote, FormularioAnamnese,
     Habilitacao, ItemPacote, Pacote, Preco, Procedimento, Profissional, RegraComissao, VersaoTermo,
@@ -60,13 +61,6 @@ CATALOGO = [
 
 # dia_semana ISO (AgendaHorario): 1=segunda ... 6=sabado
 AGENDA_SEMANAL = [(dia, time(9, 0), time(18, 0)) for dia in range(1, 6)] + [(6, time(9, 0), time(15, 0))]
-
-ANAMNESE_PADRAO = [
-    {'key': 'gestante_ou_amamentando', 'tipo': 'bool', 'label': 'Está gestante ou amamentando?', 'obrigatorio': True},
-    {'key': 'alergias', 'tipo': 'text', 'label': 'Tem alergia a algum produto, cosmético ou medicamento?', 'obrigatorio': False},
-    {'key': 'uso_de_acidos', 'tipo': 'bool', 'label': 'Está usando ácidos ou retinoides na pele?', 'obrigatorio': False},
-    {'key': 'procedimentos_recentes', 'tipo': 'longtext', 'label': 'Fez algum procedimento estético nos últimos 6 meses? Qual?', 'obrigatorio': False},
-]
 
 # Perguntas extras da ficha (formulario PRONTUARIO, preenchido pela equipe).
 # So e criado se ainda nao existe nenhum questionario do prontuario.
@@ -192,15 +186,16 @@ class Command(BaseCommand):
         self.stdout.write(f'Termo LGPD {TERMO_LGPD_VERSAO} criado (resumo da Política de Privacidade).')
 
     def _anamnese(self):
-        _form, novo = FormularioAnamnese.objects.get_or_create(
-            nome='Anamnese padrão',
-            defaults={
-                'tipo': 'ANAMNESE', 'escopo': 'GLOBAL', 'schema_json': ANAMNESE_PADRAO,
-                'ativo': True, 'obrigatorio': False,
-            },
+        # filter().exists() e nao get_or_create: editar a ficha com respostas cria uma versao nova
+        # com o MESMO nome (a antiga fica desativada) — o get() acharia duas e quebraria o seed
+        if FormularioAnamnese.objects.filter(nome=ANAMNESE_PADRAO_NOME).exists():
+            return
+        # Obrigatoria: perguntas sim/nao de um toque; o texto so e pedido como detalhe de um Sim
+        FormularioAnamnese.objects.create(
+            nome=ANAMNESE_PADRAO_NOME, tipo='ANAMNESE', escopo='GLOBAL', schema_json=ANAMNESE_PADRAO,
+            ativo=True, obrigatorio=True,
         )
-        if novo:
-            self.stdout.write('Formulário de anamnese padrão criado.')
+        self.stdout.write('Formulário de anamnese padrão criado.')
 
     def _questionario_prontuario(self):
         if FormularioAnamnese.objects.filter(tipo=FormularioAnamnese.TIPO_PRONTUARIO).exists():

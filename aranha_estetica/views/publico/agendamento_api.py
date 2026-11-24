@@ -2,14 +2,19 @@
 
 Calendario: ``disponibilidade.dias_com_expediente`` (expediente, feriado/folga, bloqueio do dia
 inteiro, max_advance). Horarios: ``disponibilidade.horarios_agrupados`` sobre o SlotService
-(ocupacao no intervalo inteiro, buffer, antecedencia, bloqueios). Aqui so os parametros e o JSON
+(ocupacao no intervalo inteiro, buffer, antecedencia, bloqueios). Pedido com varios tratamentos:
+``?carrinho=`` leva os horarios ja escolhidos dos outros — os que batem com eles nao sao oferecidos. Aqui so os parametros e o JSON
 no contrato de utils/respostas: sucesso {"ok": true, ...}; erro {"ok": false, "codigo", "mensagem"}.
 """
+import json
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+
+from django.utils import timezone
 
 from django_ratelimit.decorators import ratelimit
 
+from ...constants import MAX_TRATAMENTOS_POR_PEDIDO
 from ...models import Procedimento
 from ...services.disponibilidade import dias_com_expediente, horarios_agrupados, profissionais_para
 from ...utils.datas import ler_data, ler_mes
@@ -50,11 +55,48 @@ def _profissionais(request, procedimento):
     return profissionais
 
 
-@ratelimit(key='ip', rate='30/m', method='GET', block=True)
+MAX_CARRINHO_BYTES = 600
+
+
+def _reservas_do_pedido(request) -> list[tuple]:
+    """``?carrinho=[{"p": procedimento_id, "f": profissional_id, "i": "<ISO com fuso>"}]`` — os outros
+    tratamentos ja escolhidos no mesmo pedido -> [(profissional_id, inicio, fim, buffer)].
+
+    So filtra a lista oferecida (o POST valida o conjunto de novo): item malformado e ignorado.
+    """
+    bruto = request.GET.get('carrinho', '')
+    if not bruto or len(bruto) > MAX_CARRINHO_BYTES:
+        return []
+    try:
+        itens = json.loads(bruto)
+    except ValueError:
+        return []
+    if not isinstance(itens, list):
+        return []
+    reservas = []
+    for item in itens[:MAX_TRATAMENTOS_POR_PEDIDO]:
+        if not isinstance(item, dict):
+            continue
+        proc_id, prof_id = id_int(item.get('p')), id_int(item.get('f'))
+        try:
+            inicio = datetime.fromisoformat(str(item.get('i') or ''))
+        except ValueError:
+            continue
+        procedimento = Procedimento.objects.filter(pk=proc_id, ativo=True).first() if proc_id is not None else None
+        if procedimento is None or prof_id is None or timezone.is_naive(inicio):
+            continue
+        reservas.append((
+            prof_id, inicio, inicio + timedelta(minutes=procedimento.duracao_minutos or 30),
+            timedelta(minutes=procedimento.buffer_minutos or 0),
+        ))
+    return reservas
+
+
+@ratelimit(key='ip', rate='60/m', method='GET', block=True)
 def api_horarios_disponiveis(request):
     """AJAX: horarios livres (hora local) de uma data p/ um procedimento.
 
-    GET: data (YYYY-MM-DD), procedimento_id, profissional_id (opcional).
+    GET: data (YYYY-MM-DD), procedimento_id, profissional_id (opcional), carrinho (opcional).
     """
     data_str = request.GET.get('data', '')
     if not data_str or not request.GET.get('procedimento_id'):
@@ -71,11 +113,12 @@ def api_horarios_disponiveis(request):
         data=data_str,
         procedimento=procedimento.nome,
         duracao=procedimento.duracao_minutos,
-        horarios=horarios_agrupados(procedimento, _profissionais(request, procedimento), dia),
+        horarios=horarios_agrupados(procedimento, _profissionais(request, procedimento), dia,
+                                    reservas=_reservas_do_pedido(request)),
     )
 
 
-@ratelimit(key='ip', rate='30/m', method='GET', block=True)
+@ratelimit(key='ip', rate='60/m', method='GET', block=True)
 def api_dias_disponiveis(request):
     """AJAX: dias do mes com expediente p/ o procedimento (de hoje ate o max_advance).
 

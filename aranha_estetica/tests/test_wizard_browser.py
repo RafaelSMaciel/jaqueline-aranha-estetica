@@ -2,8 +2,9 @@
 
 Regras que so existem no JS (wizard.js): obrigatoriedade da ficha de anamnese
 e do consentimento de saude (rev_booking-01), mensagem do grupo de multipla
-escolha junto da ficha (rev_booking-08) e calendario sem pular mes / sem
-resposta AJAX fora de ordem (rev_booking-07).
+escolha junto da ficha (rev_booking-08), calendario sem pular mes / sem
+resposta AJAX fora de ordem (rev_booking-07), selecao de varios tratamentos com um
+calendario para cada, erro ao lado do campo e ficha sim/nao com detalhe condicional (2026-11-24).
 
 Pulado quando o Playwright, o Chromium ou o bundle do Vite faltam (ex.: imagem Docker de
 producao). No CI (job navegador) roda com EXIGE_NAVEGADOR=1: faltou algo, reprova em vez de pular.
@@ -123,8 +124,27 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
     def _json(self, route, corpo, status=200):
         route.fulfill(status=status, content_type='application/json', body=json.dumps(corpo))
 
+    def _erros(self):
+        """Tenta enviar e devolve os ids dos erros que o wizard pintou ao lado dos campos — o
+        formulario e novalidate: quem valida e o wizard.js. O envio de verdade e barrado aqui (um
+        listener depois do do wizard), senao sem erro a pagina navegaria."""
+        return self.page.evaluate("""() => {
+            const form = document.getElementById('booking-form');
+            const barrar = (e) => e.preventDefault();
+            form.addEventListener('submit', barrar);
+            form.dataset.enviando = '';
+            form.requestSubmit();
+            form.removeEventListener('submit', barrar);
+            form.dataset.enviando = '';
+            return [...form.querySelectorAll('.form-erro:not([hidden])')].map(e => e.id);
+        }""")
+
     def _valido(self):
-        return self.page.evaluate("document.getElementById('booking-form').checkValidity()")
+        return not self._erros()
+
+    def _opcao(self, form, key, valor):
+        """Seletor do Sim/Nao (radio) de uma pergunta bool da ficha."""
+        return f'[data-form-id="{form.pk}"][data-field-key="{key}"][value="{valor}"]'
 
     def _required(self, seletor):
         return self.page.eval_on_selector(seletor, 'el => el.required')
@@ -142,51 +162,77 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
             {'key': 'obs', 'tipo': 'text', 'label': 'Observações'},
         ])
         self._ir_para_passo_3()
-        sel_gestante = f'[data-form-id="{form.pk}"][data-field-key="gestante"]'
         sel_obs = f'[data-form-id="{form.pk}"][data-field-key="obs"]'
+        erro_gestante = f'erro-an-{form.pk}-gestante'
 
         self.assertTrue(self._valido())
-        self.assertFalse(self._required(sel_gestante))
         self.assertFalse(self._required('#form-consent-saude'))
-
-        # Respondeu algo: a ficha passa a valer e o consentimento (art. 11) e exigido
-        self.page.select_option(sel_gestante, 'nao')
-        self.assertTrue(self._required('#form-consent-saude'))
-        self.assertFalse(self._valido())
-        self.page.check('#form-consent-saude')
-        self.assertTrue(self._valido())
-
-        # Desfez a resposta: volta a ser opcional
-        self.page.uncheck('#form-consent-saude')
-        self.page.select_option(sel_gestante, '')
-        self.assertFalse(self._required('#form-consent-saude'))
-        self.assertTrue(self._valido())
 
         # Comecou pela pergunta opcional: a obrigatoria da mesma ficha passa a ser exigida
         self.page.fill(sel_obs, 'Pele sensível')
-        self.assertTrue(self._required(sel_gestante))
-        self.assertFalse(self._valido())
+        self.assertIn(erro_gestante, self._erros())
+
+        # Desfez a resposta: volta a ser opcional
+        self.page.fill(sel_obs, '')
+        self.assertFalse(self._required('#form-consent-saude'))
+        self.assertTrue(self._valido())
+
+        # Respondeu a obrigatoria: a ficha passa a valer e o consentimento (art. 11) e exigido
+        self.page.check(self._opcao(form, 'gestante', 'nao'))
+        self.assertTrue(self._required('#form-consent-saude'))
+        self.assertEqual(self._erros(), ['erro-consent-saude'])
+        self.page.check('#form-consent-saude')
+        self.assertTrue(self._valido())
 
     def test_ficha_obrigatoria_exige_perguntas_obrigatorias(self):
         form = self._ficha(True, [
             {'key': 'gestante', 'tipo': 'bool', 'label': 'Está gestante?', 'obrigatorio': True},
         ])
         self._ir_para_passo_3()
-        sel = f'[data-form-id="{form.pk}"][data-field-key="gestante"]'
-        self.assertTrue(self._required(sel))
-        self.assertFalse(self._valido())
-        self.page.select_option(sel, 'sim')
+        self.assertEqual(self._erros(), [f'erro-an-{form.pk}-gestante'])
+        self.assertIn('Escolha Sim ou Não', self.page.text_content(f'#erro-an-{form.pk}-gestante'))
+        self.page.check(self._opcao(form, 'gestante', 'sim'))
+        self.assertEqual(self._erros(), ['erro-consent-saude'])
         self.page.check('#form-consent-saude')
         self.assertTrue(self._valido())
 
+    def test_detalhe_so_aparece_com_sim_e_nao_aceita_resposta_de_enfeite(self):
+        """Pergunta condicional ("se"): o texto so e pedido como detalhe de um Sim — e '...' nao e resposta."""
+        form = self._ficha(True, [
+            {'key': 'tem', 'tipo': 'bool', 'label': 'Tem alergia?', 'obrigatorio': True},
+            {'key': 'qual', 'tipo': 'text', 'label': 'A que você tem alergia?', 'obrigatorio': True, 'se': 'tem'},
+        ])
+        self._ir_para_passo_3()
+        detalhe = f'[data-form-id="{form.pk}"][data-field-key="qual"]'
+        erro_qual = f'erro-an-{form.pk}-qual'
+        self.assertFalse(self.page.is_visible(detalhe))
+
+        self.page.check(self._opcao(form, 'tem', 'sim'))
+        self.assertTrue(self.page.is_visible(detalhe))
+        self.assertEqual(self._erros(), [erro_qual, 'erro-consent-saude'])
+        self.page.fill(detalhe, '...')
+        self.assertIn(erro_qual, self._erros())
+        self.assertIn('resposta com palavras', self.page.text_content(f'#{erro_qual}'))
+        self.page.fill(detalhe, 'Lidocaína')
+        self.page.check('#form-consent-saude')
+        self.assertTrue(self._valido())
+
+        # Trocou p/ Nao: o detalhe some e o que estava escrito nao e enviado
+        self.page.check(self._opcao(form, 'tem', 'nao'))
+        self.assertFalse(self.page.is_visible(detalhe))
+        self.assertEqual(self.page.input_value(detalhe), '')
+        self.assertTrue(self._valido())
+        enviado = json.loads(self.page.input_value('#anamneseRespostasJson'))
+        self.assertEqual(enviado, {str(form.pk): {'tem': 'nao'}})
+
     # ─── rev_booking-08 ───
     def test_grupo_obrigatorio_vazio_avisa_junto_da_ficha_com_foco(self):
-        form = self._ficha(True, [
+        self._ficha(True, [
             {'key': 'areas', 'tipo': 'checkboxes', 'label': 'Áreas de interesse',
              'opcoes': ['Testa', 'Olhos'], 'obrigatorio': True},
         ])
         self._ir_para_passo_3()
-        grupo = f'[data-grupo-form-id="{form.pk}"]'
+        grupo = '.ficha-campo[data-key="areas"] [data-grupo]'
         rotulo = self.page.eval_on_selector(
             grupo, "g => document.getElementById(g.getAttribute('aria-labelledby')).textContent")
         self.assertIn('Áreas de interesse', rotulo)
@@ -291,19 +337,20 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
             'fichas_em_dia': {str(form.pk): '10/03/2026'},
         }))
         self._ir_para_passo_3()
-        sel = f'[data-form-id="{form.pk}"][data-field-key="gestante"]'
-        self.assertTrue(self._required(sel))   # antes do SMS: obrigatoria
+        sel = self._opcao(form, 'gestante', 'sim')
+        erro = f'erro-an-{form.pk}-gestante'
+        self.assertIn(erro, self._erros())   # antes do SMS: obrigatoria
         self.page.click('#btn-enviar-otp')
         self.page.wait_for_selector('#otp-field', state='visible')
         self.page.fill('#otp-codigo', '123456')
         self.page.click('#btn-verificar-otp')
         aviso = self.page.wait_for_selector('.ficha-em-dia')
         self.assertIn('Sua ficha de 10/03/2026 está em dia', aviso.text_content())
-        self.assertFalse(self._required(sel))
+        self.assertNotIn(erro, self._erros())
         self.assertFalse(self.page.is_visible(sel))
         self.page.click('.ficha-atualizar')
         self.assertTrue(self.page.is_visible(sel))
-        self.page.select_option(sel, 'sim')   # respondeu: o consentimento de saude volta a valer
+        self.page.check(sel)   # respondeu: o consentimento de saude volta a valer
         self.assertTrue(self._required('#form-consent-saude'))
 
     def test_codigo_incorreto_mostra_a_mensagem_do_servidor(self):
@@ -320,14 +367,170 @@ class WizardNavegadorTests(StaticLiveServerTestCase):
         self._drenar()
         self.assertEqual(self.page.text_content('#otp-msg'), 'Código incorreto. Tentativas restantes: 4')
 
-    # ─── tema escuro ───
+    # ─── tema: claro por padrao, escuro so por escolha (cookie) ───
     def test_card_selecionado_legivel_no_tema_escuro(self):
-        escuro = self._browser.new_context(timezone_id=TZ, locale='pt-BR', color_scheme='dark')
+        escuro = self._browser.new_context(timezone_id=TZ, locale='pt-BR')
+        escuro.add_cookies([{'name': 'tema', 'value': 'escuro', 'url': self.live_server_url}])
         self.addCleanup(escuro.close)
         pagina = escuro.new_page()
         pagina.goto(f"{self.live_server_url}{reverse('aranha:agendamento_publico')}")
+        self.assertEqual(pagina.eval_on_selector('html', 'el => el.dataset.theme'), 'escuro')
         pagina.click(f'.proc-card[data-proc-id="{self.proc.pk}"]')
         texto, fundo = pagina.eval_on_selector(
             '.proc-card.selected', """card => [getComputedStyle(card.querySelector('.proc-name')).color,
                                               getComputedStyle(card).backgroundColor]""")
         self.assertNotEqual(texto, fundo)
+
+    def test_sistema_em_modo_escuro_continua_no_tema_claro(self):
+        """O padrao do site e o claro: nao segue mais o tema do sistema (so o cookie `tema`)."""
+        sistema_escuro = self._browser.new_context(timezone_id=TZ, locale='pt-BR', color_scheme='dark')
+        self.addCleanup(sistema_escuro.close)
+        pagina = sistema_escuro.new_page()
+        pagina.goto(f"{self.live_server_url}{reverse('aranha:agendamento_publico')}")
+        tema, esquema, fundo = pagina.evaluate("""() => [
+            document.documentElement.dataset.theme || '',
+            getComputedStyle(document.documentElement).colorScheme,
+            getComputedStyle(document.body).backgroundColor,
+        ]""")
+        self.assertEqual(tema, '')
+        self.assertEqual(esquema, 'light')
+        vermelho, verde, azul = [int(v) for v in fundo[fundo.index('(') + 1:fundo.index(')')].split(',')[:3]]
+        self.assertGreater(min(vermelho, verde, azul), 200, fundo)   # fundo claro
+
+    # ─── varios tratamentos no mesmo pedido ───
+    def _abrir_lista(self):
+        self.page.goto(f"{self.live_server_url}{reverse('aranha:agendamento_publico')}")
+        self.page.wait_for_selector('#step-1.active')
+
+    def _primeiro_dia(self, bloco):
+        """Clica no 1o dia >= 2 dias a frente do calendario do bloco (avanca o mes se precisar)."""
+        minimo = (timezone.localdate() + timedelta(days=2)).isoformat()
+        for _ in range(3):
+            bloco.locator('.cal-day').first.wait_for()
+            dias = [d for d in bloco.locator('.cal-day.available').evaluate_all('els => els.map(e => e.dataset.date)')
+                    if d >= minimo]
+            if dias:
+                break
+            with self.page.expect_response(lambda r: 'dias-disponiveis' in r.url):
+                bloco.locator('.cal-nav-btn').nth(1).click()
+        self.assertTrue(dias, 'nenhum dia disponivel no calendario')
+        bloco.locator(f'.cal-day[data-date="{dias[0]}"]').click()
+        return dias[0]
+
+    def test_dois_tratamentos_um_calendario_para_cada_e_um_pedido_so(self):
+        outro = criar_procedimento('Drenagem', duracao=60, profissional=self.prof)
+        self._abrir_lista()
+        self.assertTrue(self.page.is_hidden('#carrinho-barra'))
+        self.page.click(f'.proc-card[data-proc-id="{self.proc.pk}"]')
+        # escolher NAO avanca sozinho: da p/ somar outro tratamento; o Continuar fica na barra
+        self.assertTrue(self.page.is_visible('#step-1.active'))
+        self.assertIn('1 tratamento', self.page.text_content('#carrinho-titulo'))
+        self.page.click(f'.proc-card[data-proc-id="{outro.pk}"]')
+        self.assertIn('2 tratamentos', self.page.text_content('#carrinho-titulo'))
+        self.assertEqual(self.page.locator('.proc-card[aria-pressed="true"]').count(), 2)
+        self.page.click('#btn-continuar-1')
+        self.page.wait_for_selector('#step-2.active')
+
+        blocos = self.page.locator('.agenda-item')
+        self.assertEqual(blocos.count(), 2)
+        self.assertEqual(blocos.nth(0).get_attribute('data-estado'), 'aberto')
+        self.assertEqual(blocos.nth(1).get_attribute('data-estado'), 'pendente')
+        self.assertTrue(self.page.is_disabled('#btn-continuar-2'))
+
+        dia = self._primeiro_dia(blocos.nth(0))
+        with self.page.expect_response(lambda r: 'horarios-disponiveis' in r.url and 'carrinho' in r.url):
+            blocos.nth(0).locator('.slot-btn').first.click()
+        # 1o pronto: recolhe com o resumo e o 2o abre, ja no mesmo dia
+        self.page.wait_for_selector('.agenda-item >> nth=1 >> .slot-btn')
+        self.assertEqual(blocos.nth(0).get_attribute('data-estado'), 'pronto')
+        self.assertEqual(blocos.nth(1).get_attribute('data-estado'), 'aberto')
+        self.assertEqual(blocos.nth(1).locator('.cal-day.selected').get_attribute('data-date'), dia)
+        primeiro = self.page.evaluate("JSON.parse(sessionStorage.getItem('wizard_estado')).itens[0].slot.horario")
+        horarios_do_segundo = blocos.nth(1).locator('.slot-btn').all_text_contents()
+        # mesma profissional, mesmo dia: o horario do 1o tratamento nao e oferecido p/ o 2o
+        self.assertNotIn(primeiro, horarios_do_segundo)
+        self.assertEqual(blocos.nth(1).locator('.slot-btn--seguida').count(), 1)
+
+        blocos.nth(1).locator('.slot-btn--seguida').click()
+        self.page.wait_for_selector('#step-3.active')
+        self.assertIn('2 agendamentos', self.page.text_content('#step-3-titulo'))
+        self.assertTrue(self.page.is_hidden('#recap-unico'))
+        self.assertEqual(self.page.locator('#recap-varios .recap-item').count(), 2)
+        extras = json.loads(self.page.input_value('#form-itens-extras'))
+        self.assertEqual(len(extras), 1)
+        self.assertEqual(
+            {int(self.page.input_value('#form-procedimento')), int(extras[0]['procedimento'])},
+            {self.proc.pk, outro.pk},
+        )
+
+        # Voltar (no topo da etapa) leva aos calendarios, com as escolhas guardadas
+        self.page.click('#step-3 .btn-back-step--topo')
+        self.page.wait_for_selector('#step-2.active')
+        self.assertFalse(self.page.is_disabled('#btn-continuar-2'))
+        self.assertEqual(self.page.locator('.agenda-item[data-estado="pronto"]').count() +
+                         self.page.locator('.agenda-item[data-estado="aberto"]').count(), 2)
+
+    def test_limite_de_tratamentos_por_pedido(self):
+        from aranha_estetica.constants import MAX_TRATAMENTOS_POR_PEDIDO
+
+        extras = [criar_procedimento(f'Extra {i}', profissional=self.prof) for i in range(MAX_TRATAMENTOS_POR_PEDIDO)]
+        self._abrir_lista()
+        self.page.click(f'.proc-card[data-proc-id="{self.proc.pk}"]')
+        for proc in extras:
+            self.page.click(f'.proc-card[data-proc-id="{proc.pk}"]')
+        self.assertEqual(self.page.locator('.proc-card.selected').count(), MAX_TRATAMENTOS_POR_PEDIDO)
+        self.assertTrue(self.page.is_visible('#carrinho-limite'))
+        # tirar um libera a escolha de outro
+        self.page.click(f'.proc-card[data-proc-id="{self.proc.pk}"]')
+        self.assertTrue(self.page.is_hidden('#carrinho-limite'))
+        self.assertEqual(self.page.locator('.proc-card.selected').count(), MAX_TRATAMENTOS_POR_PEDIDO - 1)
+
+    # ─── regras de qualidade: o erro aparece ao lado do campo ───
+    def test_celular_que_nao_existe_explica_o_motivo(self):
+        self._ir_para_passo_3()
+        for numero, trecho in (('20912345678', 'DDD 20 não existe'), ('11999999999', 'não parece um celular'),
+                               ('1133334444', 'Número incompleto'), ('11833334444', 'começando com 9')):
+            with self.subTest(numero=numero):
+                self.page.fill('#form-telefone', numero)
+                self.page.click('#btn-enviar-otp')
+                self.assertIn(trecho, self.page.text_content('#otp-status'))
+                self.assertTrue(self.page.is_hidden('#otp-field'))
+
+    def test_dados_pessoais_invalidos_mostram_o_erro_no_campo(self):
+        self.page.route('**/agendamento/otp/solicitar/', lambda route: self._json(route, {'ok': True, 'canal': 'SMS'}))
+        self.page.route('**/agendamento/otp/verificar/', lambda route: self._json(route, {
+            'ok': True, 'aviso': '', 'aviso_mensagem': '', 'prefill': None, 'fichas_em_dia': {},
+        }))
+        self._ir_para_passo_3()
+        self.page.click('#btn-enviar-otp')
+        self.page.wait_for_selector('#otp-field', state='visible')
+        self.page.fill('#otp-codigo', '123456')
+        self.page.click('#btn-verificar-otp')
+        self.page.wait_for_selector('#form-nome', state='visible')
+
+        self.assertEqual(self._erros(), ['erro-nome', 'erro-nascimento'])
+        self.assertIn('2 itens', self.page.text_content('#form-erro-geral'))
+        self.assertEqual(self.page.evaluate('document.activeElement.id'), 'form-nome')
+
+        hoje = timezone.localdate()
+        casos = (
+            ('#form-nome', 'Maria', '#erro-nome', 'nome e sobrenome'),
+            ('#form-nome', 'Maria 123', '#erro-nome', 'só letras'),
+            ('#form-nascimento', hoje.isoformat(), '#erro-nascimento', '18 anos'),
+            ('#form-nascimento', '1850-01-01', '#erro-nascimento', 'ano de nascimento'),
+            ('#form-email', 'maria@', '#erro-email', 'E-mail inválido'),
+        )
+        for campo, valor, erro, trecho in casos:
+            with self.subTest(campo=campo, valor=valor):
+                self.page.fill(campo, valor)
+                self.page.dispatch_event(campo, 'blur')
+                self.assertIn(trecho, self.page.text_content(erro))
+                self.assertEqual(self.page.get_attribute(campo, 'aria-invalid'), 'true')
+
+        # corrigiu: o erro some na hora e o envio passa
+        self.page.fill('#form-nome', 'Maria Teste')
+        self.page.fill('#form-nascimento', '1990-06-15')
+        self.page.fill('#form-email', 'maria@example.com')
+        self.assertTrue(self.page.is_hidden('#erro-nome'))
+        self.assertTrue(self._valido())
+        self.assertTrue(self.page.is_hidden('#form-erro-geral'))

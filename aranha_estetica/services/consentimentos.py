@@ -14,7 +14,7 @@ Fonte unica de leitura e escrita da tabela ``consentimento`` (append-only):
   (origem ESQUECIMENTO) e apaga IP/user-agent do historico, que fica.
 
 O ultimo registro manda: quem se descadastrou e depois marca o opt-in de novo
-no agendamento volta a receber (decisao D2 — reconsentimento vale). O antigo
+em "Minhas preferencias" volta a receber (decisao D2 — reconsentimento vale). O antigo
 ``cliente.aceita_comunicacao`` (opt-out geral) virou revogacoes na migracao.
 O painel so revoga; conceder pelo painel exige justificativa registrada
 (``texto``) e autor. A area da cliente (origem PORTAL) concede e revoga os 3 pares
@@ -42,8 +42,10 @@ PESQUISA_WHATSAPP = (Consentimento.PESQUISA_SATISFACAO, Consentimento.WHATSAPP)
 LEMBRETE_WHATSAPP = (Consentimento.LEMBRETE_AGENDAMENTO, Consentimento.WHATSAPP)
 PARES_VALIDOS = tuple(Consentimento.PARES)
 
-# Checkbox do wizard (name do <input>, mantido) -> par. O descadastro revoga os
-# dois primeiros; o lembrete do agendamento e aviso transacional e continua.
+# Checkbox de "Minhas preferencias" (name do <input>) -> par. O descadastro revoga os dois
+# primeiros; o lembrete do agendamento e aviso transacional e continua. Ate 2026-11-24 os mesmos
+# checkboxes apareciam no agendamento online (origem AGENDAMENTO_ONLINE no historico); hoje a
+# cliente escolhe so na area dela.
 PARES = {
     'consent_email_marketing': MARKETING_EMAIL,
     'consent_whatsapp_nps': PESQUISA_WHATSAPP,
@@ -51,7 +53,7 @@ PARES = {
 }
 PARES_DESCADASTRO = (MARKETING_EMAIL, PESQUISA_WHATSAPP)
 
-# Texto exibido ao lado de cada checkbox do agendamento (o template le daqui):
+# Texto exibido ao lado de cada checkbox de "Minhas preferencias" (o template le daqui):
 # e o que fica gravado em Consentimento.texto como prova do que foi aceito.
 TEXTOS_WIZARD = {
     'consent_email_marketing': (
@@ -107,12 +109,6 @@ def estado_atual(cliente) -> dict[tuple[str, str], bool]:
     """{par: concedido} p/ os 3 pares (sem linha = False). 1 query."""
     linhas = ultimos(cliente)
     return {par: bool(linhas[par].concedido) if par in linhas else False for par in PARES_VALIDOS}
-
-
-def estado_wizard(cliente) -> dict[str, bool]:
-    """Estado atual com as chaves dos checkboxes do agendamento (pre-fill do OTP)."""
-    estado = estado_atual(cliente)
-    return {campo: estado[par] for campo, par in PARES.items()}
 
 
 def vigente(cliente, finalidade, canal) -> bool:
@@ -184,26 +180,6 @@ def revogar_todos(cliente, *, origem, texto='', pares: Iterable[tuple[str, str]]
     for finalidade, canal in (pares or PARES_VALIDOS):
         linha = revogar(cliente, finalidade, canal, origem=origem, texto=texto,
                         request=request, usuario=usuario)
-        if linha is not None:
-            novas.append(linha)
-    return novas
-
-
-def registrar_do_wizard(cliente, marcados: dict[str, bool], *, sincronizados: bool,
-                        cadastro_novo: bool, request) -> list[Consentimento]:
-    """Checkboxes do agendamento -> historico (origem AGENDAMENTO_ONLINE).
-
-    Marcado concede (texto = rotulo exibido). Desmarcado so revoga quando o
-    checkbox mostrava o estado do cadastro (``sincronizados`` = prefill do OTP)
-    e o cadastro ja existia: sem isso o POST nunca revoga as cegas.
-    """
-    novas = []
-    for campo, (finalidade, canal) in PARES.items():
-        marcado = bool(marcados.get(campo))
-        if not marcado and (cadastro_novo or not sincronizados):
-            continue
-        linha = registrar(cliente, finalidade, canal, marcado, origem=Consentimento.ORIGEM_AGENDAMENTO_ONLINE,
-                          texto=TEXTOS_WIZARD[campo], request=request)
         if linha is not None:
             novas.append(linha)
     return novas

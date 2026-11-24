@@ -244,17 +244,15 @@ class OtpAgendamentoEndpointTests(TestCase):
                                                'inicio': inicio.isoformat()})
         self.assertEqual(list(resp.json()['fichas_em_dia']), [str(em_dia.pk)])
 
-    def test_prefill_traz_estado_dos_opt_ins(self):
-        # gap1-03: o wizard mostra os checkboxes como estao no cadastro
+    def test_prefill_nao_leva_os_opt_ins(self):
+        # os opt-ins sairam do wizard (2026-11-24): o prefill so traz os dados do cadastro
         criar_cliente(nome='Rita', telefone='17999990001', consent_whatsapp_confirmacao=True)
         self.client.post(self.url_sol, {'telefone': '17999990001'})
         codigo = self.codigos['17999990001']
         resp = self.client.post(self.url_ver, {'telefone': '17999990001', 'codigo': codigo})
-        self.assertEqual(resp.json()['prefill']['consents'], {
-            'consent_email_marketing': False,
-            'consent_whatsapp_confirmacao': True,
-            'consent_whatsapp_nps': False,
-        })
+        prefill = resp.json()['prefill']
+        self.assertEqual(prefill['nome'], 'Rita')
+        self.assertNotIn('consents', prefill)
 
     def test_codigo_de_um_telefone_nao_vale_para_outro(self):
         self.client.post(self.url_sol, {'telefone': '17900000001'})

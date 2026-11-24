@@ -523,8 +523,8 @@ class Populador:
                 continue
             vistos.add(at.cliente_id)
             alergia = 'Lidocaína' if len(vistos) == 2 else ('Dipirona' if len(vistos) == 5 else '')
-            dados = {'gestante_ou_amamentando': False, 'alergias': alergia,
-                     'uso_de_acidos': len(vistos) % 3 == 0, 'procedimentos_recentes': ''}
+            dados = {'gestante_ou_amamentando': False, 'tem_alergia': bool(alergia), 'alergias': alergia,
+                     'uso_de_acidos': len(vistos) % 3 == 0, 'fez_procedimento_recente': False}
             anamnese.convidar(form, at)
             resposta = RespostaAnamnese.objects.filter(formulario=form, atendimento=at,
                                                        respondida_em__isnull=True).first()

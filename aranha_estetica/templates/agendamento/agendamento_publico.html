@@ -5,15 +5,18 @@
 
 {# CSS da pagina: static/src/css/site.css (.pagina-agendamento) #}
 
+{# Erro do "Confirmar": aparece DENTRO do cartao, colado nas etapas (no topo da pagina, acima do #}
+{# banner, a pessoa voltava a etapa 3 e nao via o motivo da recusa) #}
+{% block mensagens %}{% endblock %}
+
 {% block conteudo %}
-{# Mensagens (erro do "Confirmar") vem do bloco global de base_v2 #}
 <div class="booking-page pagina-agendamento">
 
 <!-- Hero -->
 <div class="booking-banner">
     <div class="booking-banner-inner mx-auto max-w-5xl px-6">
         <h1>Agende seu espaço<br>de bem-estar</h1>
-        <p>Escolha seu tratamento, selecione a data e confirme — tudo sem precisar criar conta.</p>
+        <p>Escolha um ou mais tratamentos, selecione a data e confirme — tudo sem precisar criar conta.</p>
     </div>
 </div>
 
@@ -38,13 +41,23 @@
         </ol>
         <p id="wizard-aviso" class="sr-only" aria-live="polite"></p>
 
+        {% if messages %}
+        <div id="wizard-erro-servidor" class="wizard-erro-servidor" role="alert" tabindex="-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+                <strong>Não foi possível concluir o agendamento</strong>
+                {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- ═══ STEP 1: Escolher Procedimento ═══ -->
         <div class="step-panel active" id="step-1" role="region" aria-labelledby="step-1-titulo">
             <h2 id="step-1-titulo" class="step-titulo" tabindex="-1">
                 Escolha seu tratamento
             </h2>
             <p class="step-sub">
-                Selecione o tratamento para ver as datas disponíveis.
+                Toque no tratamento para escolher. Dá para agendar até {{ max_tratamentos }} de uma vez — cada um com o seu horário.
             </p>
 
             {% if not sms_disponivel %}
@@ -69,7 +82,9 @@
                 {% for proc in procedimentos %}
                 <button type="button" class="proc-card" aria-pressed="false" data-proc-id="{{ proc.id|unlocalize }}" data-proc-nome="{{ proc.nome }}"
                      data-proc-preco="{{ proc.preco_base|unlocalize }}" data-proc-duracao="{{ proc.duracao_minutos|unlocalize }}"
+                     data-proc-buffer="{{ proc.buffer_minutos|unlocalize }}"
                      data-categoria="{{ proc.categoria }}" data-proc-categoria="{{ proc.categoria }}">
+                    <span class="proc-check" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
                     <div class="proc-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 16l.6 1.6L20 18l-1.4.6L18 20l-.6-1.4L16 18l1.4-.4z"/></svg></div>
                     <div class="proc-name">{{ proc.nome }}</div>
                     {% if proc.descricao %}
@@ -95,9 +110,19 @@
                 </button>
                 {% endfor %}
             </div>
-            <button type="button" class="btn-confirm-booking btn-continuar" id="btn-continuar-1" disabled>
-                Continuar
-            </button>
+            {# Barra da selecao: gruda no rodape da tela enquanto a lista rola (o "Continuar" ficava la #}
+            {# embaixo, depois de 20 e poucos cards). Some sem nada escolhido. #}
+            <div class="carrinho-barra" id="carrinho-barra" hidden>
+                <div class="carrinho-resumo">
+                    <strong id="carrinho-titulo">Nenhum tratamento</strong>
+                    <span id="carrinho-detalhe"></span>
+                </div>
+                <button type="button" class="btn-confirm-booking btn-continuar" id="btn-continuar-1" disabled>
+                    Continuar
+                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </div>
+            <p id="carrinho-limite" class="carrinho-limite" role="status" hidden>Dá para agendar até {{ max_tratamentos }} tratamentos de uma vez. Tire um para escolher outro.</p>
             {% else %}
             <div class="empty-procs">
                 <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="empty-procs__icone"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>
@@ -113,68 +138,92 @@
             {% endif %}
         </div>
 
-        <!-- ═══ STEP 2: Calendário + Horários ═══ -->
+        <!-- ═══ STEP 2: Calendário + Horários (um bloco por tratamento) ═══ -->
         <div class="step-panel" id="step-2" role="region" aria-labelledby="step-2-titulo">
-            <h2 id="step-2-titulo" class="step-titulo sr-only" tabindex="-1">Escolha a data e o horário</h2>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- Calendário -->
-                <div>
-                    <div class="cal-header">
-                        <span class="cal-title" id="cal-month-label">—</span>
-                        <div class="cal-nav">
-                            <button class="cal-nav-btn" id="cal-prev" type="button" aria-label="Mês anterior"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-                            <button class="cal-nav-btn" id="cal-next" type="button" aria-label="Próximo mês"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
-                        </div>
-                    </div>
-                    <div class="cal-weekdays">
-                        <div class="cal-weekday">Dom</div>
-                        <div class="cal-weekday">Seg</div>
-                        <div class="cal-weekday">Ter</div>
-                        <div class="cal-weekday">Qua</div>
-                        <div class="cal-weekday">Qui</div>
-                        <div class="cal-weekday">Sex</div>
-                        <div class="cal-weekday">Sáb</div>
-                    </div>
-                    <div class="cal-days" id="cal-days-grid" role="group" aria-labelledby="cal-month-label"></div>
+            <button class="btn-back-step btn-back-step--topo" type="button" data-goto="1">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Voltar aos tratamentos
+            </button>
+            <h2 id="step-2-titulo" class="step-titulo" tabindex="-1">Escolha a data e o horário</h2>
+            <p class="step-sub" id="step-2-sub">Escolha o dia no calendário e depois o horário.</p>
 
-                    <button class="btn-back-step" type="button" data-goto="1">
-                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Voltar aos serviços
-                    </button>
-                </div>
+            {# wizard.js monta aqui um bloco por tratamento escolhido (clone do <template> abaixo): #}
+            {# cada um com o seu calendario e os seus horarios; o proximo abre quando o anterior fecha #}
+            <div id="agenda-itens" class="agenda-itens"></div>
 
-                <!-- Horários -->
-                <div>
-                    <div class="slots-container" id="slots-container">
-                        <div class="slots-loading">
-                            <svg class="slots-icone" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            <span>Selecione uma data no calendário</span>
-                        </div>
-                    </div>
-
-                    <!-- Profissional (aparece após selecionar horário) -->
-                    <div id="prof-section" class="prof-section" hidden>
-                        <div class="slots-title">
-                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Escolha a profissional
-                        </div>
-                        <div class="prof-options" id="prof-options" role="group" aria-label="Profissional"></div>
-                    </div>
-                    <button type="button" class="btn-confirm-booking btn-continuar" id="btn-continuar-2" disabled>
-                        Continuar
-                    </button>
-                </div>
-            </div>
+            <button type="button" class="btn-confirm-booking btn-continuar" id="btn-continuar-2" disabled>
+                Continuar
+            </button>
         </div>
+
+        <template id="tpl-agenda-item">
+            <section class="agenda-item" data-estado="aberto">
+                <header class="agenda-item-cabecalho">
+                    <span class="agenda-item-num" aria-hidden="true"></span>
+                    <div class="agenda-item-info">
+                        <h3 class="agenda-item-nome"></h3>
+                        <p class="agenda-item-meta"></p>
+                    </div>
+                    <button type="button" class="agenda-item-alterar" hidden>Alterar</button>
+                </header>
+                <div class="agenda-item-corpo">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Calendário -->
+                        <div>
+                            <div class="cal-header">
+                                <span class="cal-title" data-ref="mes">—</span>
+                                <div class="cal-nav">
+                                    <button class="cal-nav-btn" data-ref="anterior" type="button" aria-label="Mês anterior"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+                                    <button class="cal-nav-btn" data-ref="proximo" type="button" aria-label="Próximo mês"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
+                                </div>
+                            </div>
+                            <div class="cal-weekdays" aria-hidden="true">
+                                <div class="cal-weekday">Dom</div>
+                                <div class="cal-weekday">Seg</div>
+                                <div class="cal-weekday">Ter</div>
+                                <div class="cal-weekday">Qua</div>
+                                <div class="cal-weekday">Qui</div>
+                                <div class="cal-weekday">Sex</div>
+                                <div class="cal-weekday">Sáb</div>
+                            </div>
+                            <div class="cal-days" data-ref="dias" role="group"></div>
+                        </div>
+
+                        <!-- Horários -->
+                        <div>
+                            <div class="slots-container" data-ref="horarios">
+                                <div class="slots-loading">
+                                    <svg class="slots-icone" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                    <span>Selecione uma data no calendário</span>
+                                </div>
+                            </div>
+
+                            <!-- Profissional (aparece após selecionar horário) -->
+                            <div data-ref="prof-secao" class="prof-section" hidden>
+                                <div class="slots-title">
+                                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Escolha a profissional
+                                </div>
+                                <div class="prof-options" data-ref="profs" role="group" aria-label="Profissional"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </template>
 
         <!-- ═══ STEP 3: Dados + Confirmação ═══ -->
         <div class="step-panel" id="step-3" role="region" aria-labelledby="step-3-titulo">
             <div class="flex justify-center">
                 <div class="w-full max-w-lg">
+                    {# Voltar no TOPO da etapa: o formulario e longo e o botao la no fim ninguem achava #}
+                    <button class="btn-back-step btn-back-step--topo" type="button" data-goto="2">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Voltar e trocar data ou horário
+                    </button>
                     <h2 id="step-3-titulo" class="step-titulo step-titulo--centro" tabindex="-1">
                         Confirme seu agendamento
                     </h2>
 
-                    <!-- Resumo -->
-                    <div class="booking-recap">
+                    <!-- Resumo: 1 tratamento = as 4 linhas; varios = um cartao por tratamento + total (wizard.js) -->
+                    <div class="booking-recap" id="recap-unico">
                         <div class="recap-row">
                             <span class="recap-label">Tratamento</span>
                             <span class="recap-value" id="sum-proc">—</span>
@@ -192,14 +241,17 @@
                             <span class="recap-value" id="sum-price">—</span>
                         </div>
                     </div>
+                    <div class="booking-recap recap-varios" id="recap-varios" hidden></div>
 
-                    <form id="booking-form" action="{% url 'aranha:confirmar_agendamento' %}" method="POST">
+                    {# novalidate: quem valida e o wizard.js, com a mensagem ao lado de cada campo (o balao #}
+                    {# do navegador some sozinho e nao diz o que corrigir); o servidor valida tudo de novo #}
+                    <form id="booking-form" action="{% url 'aranha:confirmar_agendamento' %}" method="POST" novalidate>
                         {% csrf_token %}
+                        {# 1o tratamento do pedido; os demais vao em itens_extras (JSON) #}
                         <input type="hidden" name="procedimento" id="form-procedimento">
                         <input type="hidden" name="profissional" id="form-profissional">
                         <input type="hidden" name="datetime" id="form-datetime">
-                        {# '1' = checkboxes de comunicacao mostram o estado do cadastro (desmarcar revoga) #}
-                        <input type="hidden" name="consents_sincronizados" id="form-consents-sincronizados" value="">
+                        <input type="hidden" name="itens_extras" id="form-itens-extras" value="">
                         {# honeypot — humano não ve, bot preenche #}
                         <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="campo-isca">
 
@@ -224,7 +276,7 @@
                         <div class="form-field">
                             <label for="form-telefone"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>Celular</label>
                             <div class="otp-row">
-                                <input type="tel" name="telefone" class="form-input" placeholder="(11) 99999-9999" required id="form-telefone" aria-describedby="dica-celular" inputmode="tel" autocomplete="tel">
+                                <input type="tel" name="telefone" class="form-input" placeholder="(11) 91234-5678" required id="form-telefone" aria-describedby="dica-celular otp-status" inputmode="tel" autocomplete="tel" maxlength="16">
                                 <button type="button" id="btn-enviar-otp"{% if not sms_disponivel %} disabled{% endif %} class="otp-btn border border-borda rounded-lg px-3 py-2 text-sm font-semibold text-texto-suave bg-superficie hover:border-marca-forte cursor-pointer">
                                     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="7" y1="9" x2="15" y2="9"/><line x1="7" y1="13" x2="12" y2="13"/></svg><span class="otp-btn-text">Enviar SMS</span>
                                 </button>
@@ -252,7 +304,8 @@
 
                             <div class="form-field">
                                 <label for="form-nome"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Nome completo</label>
-                                <input type="text" name="nome" class="form-input" placeholder="Nome completo" id="form-nome" aria-label="Nome completo" aria-describedby="nome-titular-aviso">
+                                <input type="text" name="nome" class="form-input" placeholder="Nome e sobrenome" id="form-nome" aria-label="Nome completo" aria-describedby="nome-titular-aviso erro-nome" autocomplete="name" maxlength="150">
+                                <small class="form-erro" id="erro-nome" role="alert" hidden></small>
                                 {# D16: o agendamento e da titular do celular verificado (cadastro existente: nome so leitura) #}
                                 <small id="nome-titular-aviso" hidden class="form-dica">
                                     Vai agendar para outra pessoa? Use o celular dela ou fale conosco pelo WhatsApp.
@@ -262,34 +315,18 @@
                             <div class="field-row">
                                 <div class="form-field">
                                     <label for="form-nascimento"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 18.5l-2.3-2.2a1.6 1.6 0 0 1 2.3-2.3 1.6 1.6 0 0 1 2.3 2.3z"/></svg>Nascimento</label>
-                                    <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" aria-label="Data de nascimento">
+                                    <input type="date" name="data_nascimento" class="form-input" id="form-nascimento" aria-label="Data de nascimento" aria-describedby="erro-nascimento" autocomplete="bday" min="{{ nascimento_min }}" max="{{ nascimento_max }}">
+                                    <small class="form-erro" id="erro-nascimento" role="alert" hidden></small>
                                 </div>
                                 <div class="form-field">
-                                    <label for="form-email"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>E-mail</label>
-                                    <input type="email" name="email" class="form-input" placeholder="seu@email.com" id="form-email" aria-label="E-mail" autocomplete="email">
+                                    <label for="form-email"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>E-mail <span class="form-opcional">(opcional)</span></label>
+                                    <input type="email" name="email" class="form-input" placeholder="seu@email.com" id="form-email" aria-label="E-mail (opcional)" aria-describedby="erro-email" autocomplete="email" maxlength="254">
+                                    <small class="form-erro" id="erro-email" role="alert" hidden></small>
                                 </div>
                             </div>
 
-                            <div class="form-field form-field--consent">
-                                <label class="consent-check">
-                                    <input type="checkbox" name="consent_email_marketing" id="form-consent-email">
-                                    <span>{{ textos_consentimento.consent_email_marketing }}</span>
-                                </label>
-                            </div>
-
-                            <div class="form-field form-field--consent">
-                                <label class="consent-check">
-                                    <input type="checkbox" name="consent_whatsapp_confirmacao" id="form-consent-wa-d1">
-                                    <span>{{ textos_consentimento.consent_whatsapp_confirmacao }}</span>
-                                </label>
-                            </div>
-
-                            <div class="form-field form-field--consent">
-                                <label class="consent-check">
-                                    <input type="checkbox" name="consent_whatsapp_nps" id="form-consent-nps">
-                                    <span>{{ textos_consentimento.consent_whatsapp_nps }}</span>
-                                </label>
-                            </div>
+                            {# Avisos por WhatsApp/e-mail (lembrete, pesquisa, promocoes) nao sao pedidos aqui: a #}
+                            {# cliente escolhe em Meus agendamentos > Minhas preferencias (decisao do dono, 2026-11-24) #}
                         </div>
 
                         <!-- Anamnese dinamica (preenchida via JS conforme procedimento) -->
@@ -305,9 +342,10 @@
                             <div class="aceite-box destaque" id="consent-saude-box">
                                 <p class="aceite-titulo">Autorização para uso das suas informações de saúde</p>
                                 <label class="aceite-check" for="form-consent-saude">
-                                    <input type="checkbox" name="consent_dados_saude" id="form-consent-saude">
+                                    <input type="checkbox" name="consent_dados_saude" id="form-consent-saude" aria-describedby="erro-consent-saude">
                                     <span>{{ texto_consentimento_saude }}</span>
                                 </label>
+                                <small class="form-erro" id="erro-consent-saude" role="alert" hidden></small>
                             </div>
                         </div>
 
@@ -320,9 +358,10 @@
                         <!-- Politica de Privacidade (aceite obrigatorio) -->
                         <div class="aceite-box" id="aceite-politica-box">
                             <label class="aceite-check" for="form-aceite-politica">
-                                <input type="checkbox" name="aceite_politica" id="form-aceite-politica" required>
+                                <input type="checkbox" name="aceite_politica" id="form-aceite-politica" required aria-describedby="erro-politica">
                                 <span>Li e aceito a <a href="{% url 'aranha:politica_privacidade' %}" target="_blank" rel="noopener">Política de Privacidade</a>{% if termo_lgpd %} (versão {{ termo_lgpd.versao }}){% endif %}: meus dados são usados para organizar e cuidar do meu atendimento.</span>
                             </label>
+                            <small class="form-erro" id="erro-politica" role="alert" hidden></small>
                             {% if termo_lgpd %}
                             <details class="aceite-resumo">
                                 <summary>Ler o resumo</summary>
@@ -330,6 +369,9 @@
                             </details>
                             {% endif %}
                         </div>
+
+                        {# Resumo do que falta, junto do botao (cada campo mostra o seu erro; o foco vai p/ o 1o) #}
+                        <p id="form-erro-geral" class="form-erro-geral" role="alert" tabindex="-1" hidden></p>
 
                         <button type="submit" class="btn-confirm-booking" id="btn-confirmar" disabled title="Verifique o código enviado por SMS ao seu telefone primeiro">
                             <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Confirmar agendamento
@@ -339,11 +381,6 @@
                         </small>
                     </form>
 
-                    <div class="text-center">
-                        <button class="btn-back-step" type="button" data-goto="2">
-                            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Voltar
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -372,7 +409,8 @@
     otpTitular:      {% if otp_titular %}true{% else %}false{% endif %},
     rehidratar:      {% if rehidratar %}true{% else %}false{% endif %},
     whatsappNumero:  "{{ WHATSAPP_NUMERO|escapejs }}",
-    urlListaEspera:  "{% url 'aranha:lista_espera_publica' %}"
+    urlListaEspera:  "{% url 'aranha:lista_espera_publica' %}",
+    maxTratamentos:  {{ max_tratamentos|unlocalize }}
   };
 </script>
 {% vite_asset 'aranha_estetica/static/src/js/wizard.js' %}

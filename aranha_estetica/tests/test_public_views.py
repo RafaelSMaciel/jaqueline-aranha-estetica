@@ -987,5 +987,5 @@ class ContratoErroApiAgendamentoTests(TestCase):
         js = (Path(settings.BASE_DIR) / 'aranha_estetica' / 'static' / 'src' / 'js' / 'wizard.js').read_text(encoding='utf-8')
         self.assertIn('if (!res.ok)', js)
         self.assertIn('data.mensagem ||', js)
-        self.assertNotIn('.erro', js)
+        self.assertNotIn('data.erro', js)   # contrato antigo ({erro: ...}); `.form-erro` e classe de CSS
 

@@ -77,8 +77,11 @@ def _renderizar(request, resposta: RespostaAnamnese, erros=None, valores=None):
     if resposta.formulario.tipo != 'PESQUISA':
         _termo_saude, texto_saude = VersaoTermo.texto_saude_vigente()
     # template nao indexa dict por variavel: valor vai junto de cada campo
+    # pergunta de detalhe ("se"): sem `required` no HTML — so e exigida (no servidor) quando a
+    # pergunta sim/nao de controle foi respondida Sim
     schema = [
-        dict(c, valor=valores.get(c.get('key'), [] if c.get('tipo') == 'checkboxes' else ''))
+        dict(c, valor=valores.get(c.get('key'), [] if c.get('tipo') == 'checkboxes' else ''),
+             condicional=bool(c.get('se')), obrigatorio=bool(c.get('obrigatorio')) and not c.get('se'))
         for c in (resposta.formulario.schema_json or [])
     ]
     return render(request, template, {

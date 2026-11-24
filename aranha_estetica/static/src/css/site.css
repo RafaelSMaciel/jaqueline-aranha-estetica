@@ -138,7 +138,10 @@
 .booking-banner p { font-size: 1.05rem; max-width: 30rem; margin: 0 auto; color: var(--cor-texto-suave); }
 .booking-float { margin-top: -4.5rem; padding: 0 1.5rem 3rem; position: relative; z-index: 10; }
 .booking-card {
-  background: var(--cor-superficie); border-radius: 24px; overflow: hidden; max-width: 1000px; margin: 0 auto;
+  background: var(--cor-superficie); border-radius: 24px; max-width: 1000px; margin: 0 auto;
+  /* clip (e nao hidden): recorta os cantos sem virar area de rolagem — com hidden o position: sticky
+     de dentro (barra da selecao, "Continuar") nunca grudava no pe da tela. hidden = navegador antigo. */
+  overflow: hidden; overflow: clip;
   box-shadow: 0 16px 60px rgb(0 0 0 / .12), 0 4px 16px rgb(0 0 0 / .06);
 }
 @media (max-width: 768px) {
@@ -407,8 +410,6 @@
     & .proc-grid { grid-template-columns: 1fr; }
     & .proc-card { padding: 1.1rem 1.25rem; }
     & .proc-icon { width: 40px; height: 40px; margin-bottom: .6rem; }
-    /* Continuar fica a vista (a lista de servicos e longa): preso ao pe da tela enquanto a etapa esta aberta */
-    & .btn-continuar { position: sticky; bottom: calc(.75rem + env(safe-area-inset-bottom)); z-index: 5; }
   }
 }
 /* no celular o botao flutuante do WhatsApp e o "voltar ao topo" cobririam o Continuar preso ao pe */
@@ -422,6 +423,156 @@
   .pagina-agendamento {
     & .otp-row { grid-template-columns: 1fr 112px; }
     & .otp-btn { min-width: 112px; max-width: 112px; padding: .45rem .55rem; font-size: .8125rem; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Agendamento online — varios tratamentos num pedido, erros junto do campo e ficha sim/nao
+   (2026-11-24; complementa o bloco .pagina-agendamento acima)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.pagina-agendamento {
+  /* ─── erro do servidor (recusa do "Confirmar"): dentro do cartao, colado nas etapas ─── */
+  & .wizard-erro-servidor {
+    display: flex; align-items: flex-start; gap: .75rem; margin: 1rem 1.25rem 0; padding: .9rem 1rem;
+    border: 1.5px solid var(--cor-erro); border-radius: 12px; background: var(--cor-erro-fundo); color: var(--cor-erro);
+    font-size: .9rem; line-height: 1.45;
+  }
+  & .wizard-erro-servidor svg { flex-shrink: 0; margin-top: .1rem; }
+  & .wizard-erro-servidor strong { display: block; }
+  & .wizard-erro-servidor p { margin: .15rem 0 0; color: var(--cor-texto); }
+  & .wizard-erro-servidor:focus { outline: none; }
+
+  /* ─── etapa 1: cartao escolhido (marca no canto) + barra da selecao presa ao pe da tela ─── */
+  & .proc-card { position: relative; }
+  & .proc-check {
+    position: absolute; top: .9rem; right: .9rem; width: 1.6rem; height: 1.6rem; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 2px solid var(--cor-borda-campo); background: var(--cor-superficie); color: transparent; transition: all .2s;
+  }
+  & .proc-card.selected .proc-check { background: var(--gold); border-color: var(--gold); color: var(--cor-sobre-marca); }
+  & .proc-card[aria-disabled="true"] { opacity: .55; }
+  & .proc-name { padding-right: 2.2rem; }
+  & .carrinho-barra {
+    position: sticky; bottom: calc(.75rem + env(safe-area-inset-bottom)); z-index: 6;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.5rem;
+    padding: .75rem .75rem .75rem 1.25rem; border-radius: 999px;
+    background: var(--cor-superficie); border: 1.5px solid var(--gold); box-shadow: var(--sombra-flutuante);
+  }
+  & .carrinho-barra[hidden] { display: none; }
+  /* 1a visita: o aviso de cookies ocupa o pe da tela — a barra da selecao fica logo acima dele */
+  body:has(.aviso-cookies) & .carrinho-barra { bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
+  & .carrinho-resumo { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+  & .carrinho-resumo strong { color: var(--earth); font-size: .95rem; }
+  & .carrinho-resumo span { color: var(--cor-texto-suave); font-size: .8125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  & .carrinho-barra .btn-continuar {
+    position: static; width: auto; flex-shrink: 0; margin-top: 0; padding: .75rem 1.5rem;
+    display: inline-flex; align-items: center; gap: .4rem; box-shadow: none;
+  }
+  & .carrinho-barra .btn-continuar svg { margin-right: 0; }
+  & .carrinho-limite { margin: .75rem 0 0; text-align: center; font-size: .8125rem; font-weight: 600; color: var(--cor-aviso); }
+
+  /* ─── etapa 2: um bloco (calendario + horarios) por tratamento ─── */
+  & .agenda-itens { display: flex; flex-direction: column; gap: 1rem; }
+  /* scroll-margin: ao rolar ate o bloco/etapa, o cabecalho fixo do site nao cobre o titulo */
+  & .steps-bar { scroll-margin-top: 4.5rem; }
+  & .agenda-item { border: 1.5px solid var(--cor-borda); border-radius: 16px; background: var(--cor-superficie); scroll-margin-top: 5rem; }
+  & .agenda-item[data-estado="aberto"] { border-color: var(--gold); }
+  & .agenda-item-cabecalho { display: flex; align-items: center; gap: .85rem; padding: .9rem 1.1rem; }
+  & .agenda-item-num {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 2rem; height: 2rem; border-radius: 50%; background: var(--cor-borda); color: var(--cor-texto-suave);
+    font-size: .8125rem; font-weight: 800;
+  }
+  & .agenda-item[data-estado="aberto"] .agenda-item-num,
+  & .agenda-item[data-estado="pronto"] .agenda-item-num { background: var(--gold); color: var(--cor-sobre-marca); }
+  & .agenda-item-info { flex: 1; min-width: 0; }
+  & .agenda-item-nome { font-weight: 700; font-size: 1rem; color: var(--earth); margin: 0; }
+  & .agenda-item-meta { margin: .1rem 0 0; font-size: .8125rem; color: var(--cor-texto-suave); }
+  & .agenda-item[data-estado="pronto"] .agenda-item-meta { color: var(--cor-sucesso); font-weight: 700; }
+  & .agenda-item-alterar {
+    flex-shrink: 0; padding: .45rem 1rem; border-radius: 999px; border: 1.5px solid var(--cor-borda-campo);
+    background: var(--cor-superficie); color: var(--earth); font-size: .8125rem; font-weight: 700; cursor: pointer;
+  }
+  & .agenda-item-alterar:hover { border-color: var(--gold); background: var(--gold-light); }
+  & .agenda-item-alterar:focus-visible { outline: 2px solid var(--cor-marca); outline-offset: 2px; }
+  & .agenda-item-corpo { padding: .5rem 1.25rem 1.5rem; border-top: 1px solid var(--cor-borda); }
+  & .agenda-item:not([data-estado="aberto"]) .agenda-item-corpo { display: none; }
+  /* um tratamento so: sem moldura nem cabecalho numerado (igual a tela de sempre) */
+  & .agenda-itens--unico .agenda-item { border: none; background: transparent; }
+  & .agenda-itens--unico .agenda-item-cabecalho { padding: 0 0 1rem; }
+  & .agenda-itens--unico .agenda-item-num { display: none; }
+  & .agenda-itens--unico .agenda-item-corpo { padding: 0; border-top: none; }
+  & .agenda-item-aviso { margin: 0 0 1rem; padding: .6rem .85rem; border-radius: 10px; background: var(--cor-aviso-fundo); color: var(--cor-aviso); font-size: .8125rem; font-weight: 600; }
+  & .slot-btn--seguida { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-light); }
+  & .slots-dica { margin: .75rem 0 0; font-size: .8125rem; color: var(--cor-texto-suave); }
+
+  /* ─── voltar no topo da etapa ─── */
+  & .btn-back-step--topo { margin: 0 0 1.1rem; padding: .5rem 1.1rem; font-size: .8125rem; }
+
+  /* ─── etapa 3: resumo de varios tratamentos ─── */
+  & .recap-varios[hidden] { display: none; }
+  & .recap-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-bottom: 1px solid var(--cor-borda); }
+  & .recap-item-nome { display: block; font-weight: 700; color: var(--earth); }
+  & .recap-item-quando { display: block; margin-top: .15rem; font-size: .8125rem; color: var(--cor-texto-suave); }
+  & .recap-item > div { min-width: 0; }
+  & .recap-item-valor { flex-shrink: 0; max-width: 45%; font-weight: 700; color: var(--earth); text-align: right; }
+  & .recap-item-valor .recap-cheio { display: block; font-size: .75rem; font-weight: 600; color: var(--cor-texto-suave); text-decoration: line-through; }
+  & .recap-item-valor .recap-promo { display: block; font-size: .7rem; font-weight: 700; color: var(--cor-marca); }
+  & .recap-total { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-top: .9rem; }
+  & .recap-total span:first-child { color: var(--cor-texto-suave); font-size: .8125rem; font-weight: 700; }
+  & .recap-total span:last-child { font-family: var(--heading-font); font-size: 1.35rem; font-weight: 700; color: var(--cor-marca); }
+
+  /* ─── erro junto do campo ─── */
+  & .form-erro { display: block; margin-top: .35rem; font-size: .8125rem; font-weight: 600; color: var(--cor-erro); line-height: 1.4; }
+  & .form-erro[hidden] { display: none; }
+  & .form-input[aria-invalid="true"], & .ficha-entrada[aria-invalid="true"] { border-color: var(--cor-erro); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-erro) 16%, transparent); }
+  & .form-opcional { font-weight: 500; color: var(--cor-texto-suave); }
+  & .aceite-box.com-erro { border-color: var(--cor-erro); }
+  & .form-erro-geral {
+    margin: 1rem 0 0; padding: .7rem .9rem; border-radius: 10px; border: 1.5px solid var(--cor-erro);
+    background: var(--cor-erro-fundo); color: var(--cor-erro); font-size: .875rem; font-weight: 700; text-align: center;
+  }
+  & .form-erro-geral[hidden] { display: none; }
+  & .form-erro-geral:focus { outline: none; }
+
+  /* ─── ficha de anamnese: sim/nao de um toque + detalhe so quando Sim ─── */
+  & .ficha-legenda { margin: 0 0 .6rem; font-size: .75rem; color: var(--cor-texto-suave); }
+  & .ficha-campo { margin-bottom: .85rem; }
+  & .ficha-campo[hidden] { display: none; }
+  & .ficha--em-dia .ficha-campo, & .ficha--em-dia .ficha-legenda { display: none; }
+  & .ficha-rotulo { color: var(--cor-texto); font-size: .875rem; margin-bottom: .4rem; }
+  & .ficha-campo--detalhe { margin-left: .25rem; padding-left: .85rem; border-left: 3px solid var(--gold); }
+  & .ficha-simnao { display: flex; gap: .5rem; }
+  & .simnao-opcao { position: relative; flex: 1; max-width: 9rem; }
+  & .simnao-opcao input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  & .simnao-opcao span {
+    display: flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: .5rem 1rem;
+    border: 1.5px solid var(--cor-borda-campo); border-radius: 999px; background: var(--cor-superficie);
+    color: var(--cor-texto); font-size: .9rem; font-weight: 700; transition: all .15s;
+  }
+  & .simnao-opcao input:checked + span { background: var(--gold); border-color: var(--gold); color: var(--cor-sobre-marca); }
+  & .simnao-opcao input:focus-visible + span { outline: 2px solid var(--cor-marca); outline-offset: 2px; }
+  & .ficha-simnao[aria-invalid="true"] .simnao-opcao span { border-color: var(--cor-erro); }
+  & .ficha-entrada { padding: .65rem .75rem; border-radius: 10px; font-size: 1rem; }
+}
+
+@media (max-width: 768px) {
+  .pagina-agendamento {
+    /* cartao compacto no celular: icone ao lado do texto (23 tratamentos = muita rolagem) */
+    & .proc-card { display: grid; grid-template-columns: auto 1fr; column-gap: .85rem; align-items: start; padding: .9rem 1rem; }
+    & .proc-icon { grid-row: 1 / span 4; margin-bottom: 0; }
+    & .proc-card > :not(.proc-icon):not(.proc-check) { grid-column: 2; }
+    & .proc-desc { margin-bottom: .45rem; }
+    & .proc-promo { justify-self: start; }
+    & .carrinho-barra { border-radius: 18px; padding: .65rem .65rem .65rem 1rem; }
+    & .carrinho-barra .btn-continuar { padding: .7rem 1.1rem; }
+    & .agenda-item-corpo { padding: .5rem .9rem 1.25rem; }
+    & .agenda-item-cabecalho { padding: .8rem .9rem; }
+    & .wizard-erro-servidor { margin: .85rem .85rem 0; }
+    /* alvos de toque: dia do calendario e horario com 44px de altura */
+    & .slot-btn, & .prof-btn { min-height: 2.75rem; }
+    & .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr)); }
+    & .simnao-opcao { max-width: none; }
   }
 }
 
@@ -635,7 +786,10 @@
     & .agend-card-body { flex-direction: column; gap: .75rem; }
     & .agend-date-block { display: flex; align-items: center; gap: .5rem; min-width: unset; padding: .5rem .75rem; }
     & .agend-date-day { font-size: 1.2rem; }
-    & .summary-row { grid-template-columns: repeat(2, 1fr); }
+    /* 3 cartoes lado a lado tambem no celular (com 2 colunas o 3o ficava sozinho na linha de baixo) */
+    & .summary-row { grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+    & .summary-card { padding: .85rem .4rem; }
+    & .summary-number--data { font-size: 1rem; }
     & .agend-card-footer { flex-direction: column; align-items: stretch; }
   }
 }

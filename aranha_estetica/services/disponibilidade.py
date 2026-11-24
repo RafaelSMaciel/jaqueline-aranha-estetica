@@ -188,8 +188,27 @@ def _preco_json(procedimento, profissional, dia) -> dict:
     }
 
 
-def horarios_agrupados(procedimento, profissionais, dia, ignorar_atendimento_id=None, com_preco=True) -> list[dict]:
+def _cabe_no_pedido(inicio, fim, buffer, prof_id, reservas) -> bool:
+    """O horario [inicio, fim) convive com os outros tratamentos ja escolhidos no mesmo pedido?
+
+    ``reservas``: [(profissional_id, inicio, fim, buffer)] — ainda nao estao no banco, entao o
+    SlotService nao as ve. A cliente nao faz dois tratamentos ao mesmo tempo (qualquer
+    profissional); com a MESMA profissional vale tambem o intervalo entre sessoes, a mesma conta do
+    SlotService p/ um atendimento marcado (e de ``agendamento_online.validar_conjunto``, no POST).
+    """
+    for r_prof, r_inicio, r_fim, r_buffer in reservas:
+        mesma = r_prof == prof_id
+        if inicio < r_fim + (r_buffer if mesma else timedelta(0)) and r_inicio < fim + (buffer if mesma else timedelta(0)):
+            return False
+    return True
+
+
+def horarios_agrupados(procedimento, profissionais, dia, ignorar_atendimento_id=None, com_preco=True,
+                       reservas=()) -> list[dict]:
     """[{'horario', 'datetime_iso', 'profissionais': [...]}] ordenado por horario (SlotService).
+
+    reservas: os outros tratamentos do mesmo pedido (wizard com varios tratamentos) — os horarios
+    que batem com eles saem da lista (``_cabe_no_pedido``).
 
     ignorar_atendimento_id: o atendimento sendo reagendado nao ocupa o proprio horario (mesma
     regra do POST do reagendamento). com_preco: preco NA DATA p/ cada profissional (promocao
@@ -197,6 +216,8 @@ def horarios_agrupados(procedimento, profissionais, dia, ignorar_atendimento_id=
     (mantem o valor combinado).
     """
     agrupados: dict[str, dict] = {}
+    duracao = timedelta(minutes=procedimento.duracao_minutos or 30)
+    buffer = timedelta(minutes=procedimento.buffer_minutos or 0)
     for prof in profissionais:
         slots = SlotService.slots_livres(prof, dia, procedimento, ignorar_atendimento_id=ignorar_atendimento_id)
         if not slots:
@@ -205,8 +226,10 @@ def horarios_agrupados(procedimento, profissionais, dia, ignorar_atendimento_id=
         if com_preco:
             info.update(_preco_json(procedimento, prof, dia))
         for hhmm in slots:
+            inicio = timezone.make_aware(datetime.combine(dia, time.fromisoformat(hhmm)))
+            if reservas and not _cabe_no_pedido(inicio, inicio + duracao, buffer, prof.pk, reservas):
+                continue
             if hhmm not in agrupados:
-                inicio = timezone.make_aware(datetime.combine(dia, time.fromisoformat(hhmm)))
                 agrupados[hhmm] = {'horario': hhmm, 'datetime_iso': inicio.isoformat(), 'profissionais': []}
             agrupados[hhmm]['profissionais'].append(info)
     return [agrupados[k] for k in sorted(agrupados)]

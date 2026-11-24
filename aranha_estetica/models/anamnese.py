@@ -49,6 +49,8 @@ class FormularioAnamnese(models.Model):
       "alerta_saude": true  -> resposta positiva sempre vira alerta de saude
       "alerta_saude": false -> nunca vira alerta
       ausente               -> heuristica de utils/saude (_RISCO_RX sobre key + label)
+      "se": "<key>"         -> pergunta de detalhe: so vale (aparece e e exigida) quando a pergunta
+                               bool <key>, que vem antes, foi respondida Sim (services/anamnese)
 
     Tipo do formulario:
       ANAMNESE   — pre-atendimento, respondida pela cliente (RespostaAnamnese)
@@ -173,6 +175,7 @@ class FormularioAnamnese(models.Model):
         if not isinstance(schema, list):
             raise ValidationError({'schema_json': 'schema_json deve ser uma lista de campos.'})
         keys_vistas: set[str] = set()
+        tipos_vistos: dict[str, str] = {}
         for idx, campo in enumerate(schema):
             if not isinstance(campo, dict):
                 raise ValidationError({
@@ -212,6 +215,16 @@ class FormularioAnamnese(models.Model):
                 raise ValidationError({
                     'schema_json': f'campo[{idx}].alerta_saude deve ser true ou false.',
                 })
+            # "se": pergunta condicional — so aparece (e so e exigida) quando a pergunta sim/nao
+            # de controle, que vem ANTES dela, foi respondida Sim (services/anamnese)
+            if 'se' in campo:
+                controle = campo['se']
+                if not isinstance(controle, str) or tipos_vistos.get(controle) != 'bool':
+                    raise ValidationError({
+                        'schema_json':
+                            f'campo[{idx}].se deve ser a key de uma pergunta "bool" que vem antes dela.',
+                    })
+            tipos_vistos[key] = tipo
 
 
 def _gen_resposta_token():

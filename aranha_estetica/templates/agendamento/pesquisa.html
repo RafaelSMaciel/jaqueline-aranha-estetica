@@ -77,6 +77,7 @@ Cada campo do schema traz `valor` (o que foi digitado) p/ nao apagar a ficha no 
         <label class="block text-sm font-semibold text-texto mb-2" for="f-{{ campo.key }}">
           {{ forloop.counter }}. {{ campo.label }}
           {% if campo.obrigatorio %}<span class="text-erro" aria-hidden="true">*</span>{% endif %}
+          {% if campo.condicional %}<span class="font-normal text-texto-suave">(se respondeu Sim na pergunta anterior)</span>{% endif %}
         </label>
         {% endif %}
 

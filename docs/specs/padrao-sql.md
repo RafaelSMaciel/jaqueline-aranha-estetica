@@ -2194,8 +2194,9 @@ ação "Revogar", `origem='PAINEL'`, autor = usuário); `domain/handlers.py` (do
   `consent_x=False` com data; subir de novo grava a revogação).
 - **Serviço** (`services/consentimentos.py`), além de `estado_atual/vigente/registrar/
   anotar_vigente`: `com_consentimento(qs, …)` (anota + filtra; usado pelos jobs/painel),
-  `estado_wizard` (pré-preenchimento do OTP com as chaves dos checkboxes), `registrar_do_wizard`
-  (marcado concede; desmarcado só revoga com `consents_sincronizados` e cadastro existente),
+  `preferencias_portal`/`registrar_do_portal` (área da cliente: o formulário mostra o estado
+  vigente; marcado concede, desmarcado revoga — desde 2026-11-24 é o **único** lugar em que a
+  cliente escolhe os avisos; `estado_wizard` e `registrar_do_wizard`, do agendamento online, saíram),
   `revogar`/`revogar_todos`, `historico` (DSAR), `resumo_painel`, `esquecer` (revoga
   `ESQUECIMENTO` + `minimizar_dados_de_origem()` = o passo 2 do `sp_anonimizar_cliente`).
   `registrar` trava a linha do cliente (`select_for_update`) e é no-op quando o vigente já é o

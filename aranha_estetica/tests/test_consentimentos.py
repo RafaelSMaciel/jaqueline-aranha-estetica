@@ -256,10 +256,11 @@ class ListaEsperaWhatsAppTests(TestCase):
 
 
 class PrefillWizardTests(TestCase):
-    def test_estado_wizard_usa_as_chaves_dos_checkboxes(self):
+    def test_preferencias_do_portal_mostram_o_estado_vigente(self):
         cli = criar_cliente(consent_whatsapp_confirmacao=True, consent_email_marketing=True)
         consentimentos.revogar(cli, *MKT, origem='DESCADASTRO')
-        self.assertEqual(consentimentos.estado_wizard(cli), {
+        estado = {p['campo']: p['concedido'] for p in consentimentos.preferencias_portal(cli)}
+        self.assertEqual(estado, {
             'consent_email_marketing': False,
             'consent_whatsapp_nps': False,
             'consent_whatsapp_confirmacao': True,

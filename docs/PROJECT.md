@@ -1,7 +1,7 @@
 # Jaqueline Aranha Estética — Documentação do Projeto
 
 > **Fonte viva textual do projeto.** Reflete o código do branch `dev`
-> (migrations `0001`–`0079`). Mudou model, rota, env var, job ou deploy? Atualize aqui
+> (migrations `0001`–`0080`). Mudou model, rota, env var, job ou deploy? Atualize aqui
 > no mesmo commit. Regras funcionais detalhadas: [`REGRAS-DE-NEGOCIO.md`](REGRAS-DE-NEGOCIO.md).
 > Acesso/login: [`AUTENTICACAO-E-ACESSO.md`](AUTENTICACAO-E-ACESSO.md). Decisões e
 > pendências: [`ARCHITECTURE.md`](ARCHITECTURE.md). Documentos do TCC (só os arquivos gerados) em
@@ -282,18 +282,45 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   `Cliente.registrar_cancelamento_tardio` soma 1 falta sem virar FALTOU; recusas `nao_encontrado`,
   `passado`, `nao_cancelavel`). O que é só de uma porta fica nela (o pedido do wizard, a validação
   do formulário do painel em `forms/agenda`, e-mails do portal).
-- **Pedido online** (caso de uso, `services/agendamento_online.solicitar(PedidoAgendamento,
-  request=)`): o `forms/agendamento.AgendamentoPublicoForm` lê o POST do wizard, valida formato,
-  idade e o gate do OTP (o celular tem de ser o verificado **nesta** sessão) e entrega um
-  `PedidoAgendamento`; o service tem a regra inteira, testável sem HTTP — termo LGPD vigente →
-  `validar_horario` → fichas (validade de 12 meses; consentimento de saúde se houver resposta) →
-  termos do procedimento → e-mail de outro cadastro → trava do horário no cache → numa transação:
-  cadastro da **titular** do celular, bloqueio online, teto de 3 horários ativos, opt-ins,
-  `reservar`, e-mail (APROVACAO ou CONFIRMACAO), aceites com prova e fichas com a trilha do art. 11.
-  Toda recusa é `RegraDeNegocio` com `codigo` (`sem_termo_lgpd`, `ficha_invalida`,
-  `consent_saude_ausente`, `termo_pendente`, `email_de_outro_cadastro`, `horario_em_confirmacao`,
-  `bloqueado_online`, `limite_online`, `horario_ocupado`...); a view (`views/publico/agendamento`)
-  só faz honeypot, form, service e a página de sucesso.
+- **Pedido online** (caso de uso, `services/agendamento_online.solicitar_varios(PedidoAgendamento,
+  request=)`; `solicitar` devolve só o primeiro atendimento): o
+  `forms/agendamento.AgendamentoPublicoForm` lê o POST do wizard, valida formato e qualidade dos
+  dados (nome e sobrenome só com letras — `validators.validate_nome_completo`, só para cadastro
+  novo; idade de 18 a 120 anos; celular com DDD que existe e que não seja número de enfeite —
+  `utils/telefone`; e-mail) e o gate do OTP (o celular tem de ser o verificado **nesta** sessão) e
+  entrega um `PedidoAgendamento`. **Um pedido leva de 1 a 3 tratamentos**
+  (`MAX_TRATAMENTOS_POR_PEDIDO`; `procedimento`/`profissional`/`datetime` são o primeiro e
+  `itens_extras`, JSON, os demais — `PedidoAgendamento.itens`): cada um vira um `Atendimento` com o
+  seu horário e a sua profissional, todos na mesma transação (ou entram todos ou nenhum). O service
+  tem a regra inteira, testável sem HTTP — termo LGPD vigente → `validar_conjunto` (sem tratamento
+  repetido e sem horários que se sobreponham: a cliente não faz dois ao mesmo tempo e, com a mesma
+  profissional, vale o intervalo entre sessões) → `validar_horario` de cada item → fichas (validade
+  de 12 meses no último horário do pedido; cada ficha gravada uma vez; consentimento de saúde se
+  houver resposta) → termos de cada procedimento → e-mail de outro cadastro → trava de cada horário
+  no cache → numa transação: cadastro da **titular** do celular, bloqueio online, teto de 3
+  horários ativos contando os do pedido, `reservar`, e-mail (APROVACAO ou CONFIRMACAO), aceites com
+  prova e fichas com a trilha do art. 11. Toda recusa é `RegraDeNegocio` com `codigo`
+  (`sem_termo_lgpd`, `tratamentos_demais`, `tratamento_repetido`, `horarios_sobrepostos`,
+  `ficha_invalida`, `consent_saude_ausente`, `termo_pendente`, `email_de_outro_cadastro`,
+  `horario_em_confirmacao`, `bloqueado_online`, `limite_online`, `horario_ocupado`...); a view
+  (`views/publico/agendamento`) só faz honeypot, form, service e a página de sucesso (um item por
+  tratamento, `resumo_do_pedido`). Os opt-ins de comunicação **não** são pedidos no agendamento
+  (decisão de 2026-11-24): ficam só em "Meus agendamentos › Minhas preferências", e a página de
+  sucesso aponta para lá.
+- **Wizard** (`static/src/js/wizard.js`, `templates/agendamento/agendamento_publico.html`): etapa 1
+  = seleção (tocar marca, tocar de novo tira; barra presa ao pé da tela com o total e o
+  "Continuar"); etapa 2 = **um bloco com calendário e horários por tratamento** — ao fechar um, o
+  próximo abre já no mesmo dia, e `/ajax/horarios-disponiveis/?carrinho=` tira da lista o que bate
+  com os tratamentos já escolhidos (`disponibilidade.horarios_agrupados(reservas=)`, a mesma conta
+  do `validar_conjunto`); escolher o último horário abre a confirmação. Etapa 3: "Voltar" no topo,
+  resumo com total, formulário `novalidate` — quem valida é o wizard, com a **mensagem ao lado de
+  cada campo** (ao sair do campo e ao enviar; foco no primeiro erro e resumo junto do botão) — e o
+  servidor valida tudo de novo; a recusa do servidor aparece dentro do cartão, colada nas etapas.
+- **Ficha de anamnese** (`conteudo/anamnese.py`, `services/anamnese.validar_respostas`): a ficha
+  padrão é obrigatória, com perguntas sim/não (um toque cada). O texto só aparece — e só então é
+  exigido — como detalhe de um Sim: pergunta com `"se": "<key de uma pergunta bool anterior>"` no
+  `schema_json` (validado no `clean()` do model; documentado na tela do formulário). Resposta
+  escrita precisa ter palavras (`texto_plausivel`: barra `.`, `---`, `123`, `aaaa`).
 - **Catálogo** (`services/catalogo`): o preço base muda abrindo uma vigência nova a partir de hoje
   (só quando o valor muda; o histórico fica) e tirar a habilitação de quem ainda tem atendimento
   futuro do procedimento é recusado (`habilitacao_em_uso`).
@@ -363,7 +390,11 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   roda em segundo plano).
 - **Front**: `static/src/js/app.js` registra componentes Alpine CSP-safe (`temaToggle`,
   `modal`, `navMenu`, `cookieConsent`, `adminShell`, `alertaDismiss`, `anotacaoModal`,
-  `pacoteCriar`) + `data-confirm` global. As telas da equipe (painel e portal da profissional)
+  `pacoteCriar`) + `data-confirm` global: qualquer elemento com `data-confirm="Pergunta? Detalhe."`
+  abre o **diálogo de confirmação do design system** (`static/src/js/lib/confirmar.js`: `<dialog>`
+  nativo, botão com o nome da ação — "Aprovar", "Excluir", nunca "OK" —, vermelho e com o foco em
+  "Voltar" nas ações destrutivas; `confirmar()`/`avisar()` também nas telas de status e do
+  calendário) — `confirm()`/`alert()` nativos do navegador não são mais usados. As telas da equipe (painel e portal da profissional)
   carregam também `painel.js` — **vanilla, por delegação no `document`, sem Alpine**: abas no padrão
   WAI-ARIA (setas, Home/End, aba lembrada por página, aba com erro do servidor abre sozinha), menu
   "⋯" (`<details>` nativo: fecha os outros, no clique fora e no Esc devolvendo o foco), modais
@@ -411,8 +442,9 @@ Navegador ──HTTPS──▶ gunicorn (1 worker × 4 threads)
   página e cor crua em classe. Títulos, botões e rótulos em caixa de frase.
   Menu do painel numa lista só, `templatetags/painel_tags.MENU_PAINEL` (Operação: visão geral,
   agenda, calendário, retornos, clientes, prontuário, notificações; Cadastros; Relatórios:
-  financeiro, comissões, NPS; Sistema). Tema: sem escolha segue o sistema (`prefers-color-scheme`); o
-  botão grava o cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
+  financeiro, comissões, NPS; Sistema). Tema: **o padrão é o claro** (site, painel e portal; não
+  segue o tema do sistema — decisão de 2026-11-24); o escuro só entra por escolha: o botão grava o
+  cookie `tema` (`data-theme="claro|escuro"`) sem FOUC.
   Tokens em `tokens.css` (contraste AA conferido nos 2 temas): texto, `--cor-borda-campo` (3:1 nos
   inputs), `--cor-foco` (anel `:focus-visible` global), erro/sucesso/aviso/info/destaque com `-fundo`,
   o status do atendimento (`--st-<status>-fundo/-texto`, classes `.status-<STATUS>`) e os do design
@@ -492,7 +524,7 @@ W006), `makemigrations --check --dry-run`, `createsuperuser` (cria ADMIN), `axes
 ### 5.1 Resumo
 
 - **37 tabelas de domínio** (+ tabelas do Django, django-otp, django-axes). PK `BigAutoField`.
-- Migrations `0001`–`0079`. Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
+- Migrations `0001`–`0080` (a 0080 é só dado: a ficha "Anamnese padrão" passa a obrigatória, com perguntas sim/não e detalhe condicional). Ainda não há produção: o primeiro deploy cria o banco do zero (§14).
   O Postgres do ambiente de desenvolvimento no Railway (na `0026`) está em stand-by. Histórico em
   [`specs/remodelagem-banco-v2.md`](specs/remodelagem-banco-v2.md) e, da `0048` em diante, o padrão
   SQL em [`specs/padrao-sql.md`](specs/padrao-sql.md).
@@ -825,7 +857,9 @@ advogado) revisa antes do primeiro deploy de produção (§14 a, [`LGPD.md`](LGP
   passam a mostrar a revogação; o registro feito fica pelo prazo (§9.4). Aceite SAÚDE novo
   reativa (`AceiteTermo.registrar` limpa a data). A ficha ainda em dia (12 meses) continua valendo
   no wizard depois da revogação (pendência no [`ARCHITECTURE.md`](ARCHITECTURE.md) §6.2).
-- **Comunicação:** três opt-ins no wizard — promoções por e-mail (MARKETING/EMAIL), lembrete
+- **Comunicação:** três opt-ins, escolhidos **só em "Meus agendamentos › Minhas preferências"**
+  (até 2026-11-24 também no wizard; as linhas com origem AGENDAMENTO_ONLINE do histórico são dessa
+  época) — promoções por e-mail (MARKETING/EMAIL), lembrete
   D-1 e aviso de vaga por WhatsApp (LEMBRETE_AGENDAMENTO/WHATSAPP) e pesquisa de satisfação por
   WhatsApp (PESQUISA_SATISFACAO/WHATSAPP) — nunca pré-marcados. Cada concessão/revogação é uma
   linha nova em `consentimento` (append-only) com o texto exibido, IP, user-agent e data; o
@@ -864,7 +898,7 @@ advogado) revisa antes do primeiro deploy de produção (§14 a, [`LGPD.md`](LGP
 |---|---|
 | Confirmação, acesso, portabilidade | **"Baixar meus dados"** no portal (código de até 10 min) ou `/lgpd/meus-dados/` (telefone → OTP DSAR): JSON por seção (`services/lgpd.SECOES_DSAR`) — cadastro, preferências (bloqueio, faltas, revogação de saúde), consentimentos (estado e histórico), atendimentos, NPS, aceites, pacotes, carteira, lista de espera (inclusive a anônima pelo mesmo celular), notificações — e `sobre_o_tratamento` (art. 19 II: finalidades e bases, operadores e prazos efetivos, da mesma fonte da política). **Sem a ficha de saúde** (prontuário, versões, anotações, fichas): o arquivo diz que ela sai por e-mail ou na clínica, a pedido; o export completo é `LgpdService.exportar_dados_cliente` (sem tela no painel). Resposta idêntica exista ou não o cadastro; auditado (`DSAR: exportacao de dados`) |
 | Correção / exclusão | Pedido no portal (`POST /meus-agendamentos/pedido/`): trilha `LGPD: pedido de correcao` ou `de exclusao` com o prazo (15 dias) + e-mail à clínica (encarregado > `email_admin` > `ADMIN_EMAIL` > e-mail da marca) com a descrição. A equipe corrige na ficha (`/painel/clientes/<pk>/`) ou pseudonimiza no Django admin |
-| Revogação de consentimento | Portal (preferências e saúde); link de descadastro; "PARAR" no WhatsApp; desmarcar no wizard; equipe na ficha do cliente (comunicação) ou no Django admin (comunicação e saúde) |
+| Revogação de consentimento | Portal (preferências e saúde); link de descadastro; "PARAR" no WhatsApp; equipe na ficha do cliente (comunicação) ou no Django admin (comunicação e saúde) |
 | Pseudonimização ("esquecimento") | Ação "Pseudonimizar" no Django admin (`LgpdService.esquecer_cliente`, lote tudo ou nada) e job semanal (§9.4) |
 | Revisão de decisão automatizada (art. 20) | Pausa do online por faltas (o cancelamento tardio conta): o wizard dá o motivo e o caminho (WhatsApp); a recepção revisa |
 
@@ -1833,7 +1867,8 @@ no requirements; `settings/base.py` liga o app e monta `ANYMAIL` quando `EMAIL_B
 | 2026-11-03 | SMS pré-pago: `utils/sms` com dois provedores, **SMSGo** por padrão (`SMS_PROVEDOR=smsgo`, `SMSGO_API_KEY`; chave trocada por token Bearer de 48 h no cache, renovado no 401) e Zenvia como opção; política e `LGPD.md` com a SMSGo como operadora e sem o jsDelivr. **Sessão única da cliente verificada** (`services/sessao_cliente`): o código do wizard abre a área da cliente e o do portal libera agendar; cada pedido online gasta a verificação. **2FA** conferido em qualquer sessão autenticada (saiu o marcador `usuario_id`; suite com a obrigatoriedade desligada). Link do termo sem `mailto:` (e-mail do cadastro não é verificado). **Catálogo de regras** (`aranha_estetica/regras.py`) gera a tabela §24 do `REGRAS-DE-NEGOCIO.md` (`manage.py gerar_docs_regras`, teste contra drift); spec do registry reescrita como implementada |
 | 2026-11-06 | Varredura de segurança da `dev` (autenticação, sessão, permissões, injeção, XSS, webhooks, cripto, logs; histórico do git sem segredo): nenhuma vulnerabilidade de alta confiança. Ajustes: assinatura de push só para push services conhecidos; corpo de erro do provedor de SMS no log sem números longos (o código não vaza se o provedor ecoar a mensagem); teste que trava o axes gravando a conta da tentativa. GitHub: secret scanning, push protection e Dependabot ligados. |
 | 2026-11-20 | `main` igualada à `dev` (fast-forward até `86f41e4`, CI verde). A proteção da `main` travava todo push: os 6 checks obrigatórios estavam com nomes que nenhum job do CI publica (4 com o travessão gravado com codificação errada e o da imagem com o nome antigo "Imagem de producao (Dockerfile)"); corrigidos para os nomes atuais dos jobs, mesmas 6 exigências. |
+| 2026-11-24 | Agendamento online revisto para a apresentação (0080): **vários tratamentos no mesmo pedido** (até 3; seleção com barra presa ao pé da tela, um calendário por tratamento, horários que batem entre si fora da lista, tudo ou nada no servidor); regras de qualidade dos dados com o **erro ao lado do campo** (nome e sobrenome, idade de 18 a 120, DDD que existe, número de enfeite, e-mail); ficha de anamnese obrigatória com sim/não e detalhe só no Sim (`"se"` no schema; texto de enfeite recusado); "Voltar" no topo da confirmação; opt-ins de comunicação saem do agendamento e ficam só em Minhas preferências. Site: **tema claro por padrão** (não segue o sistema), "Entrar"/"Meus agendamentos" no cabeçalho. Painel: confirmações no diálogo do design system no lugar do `confirm()` do navegador (Aprovar mostra tratamento, data e profissional) e linha da visão geral que não espreme o nome em notebook. |
 | 2026-11-16 | Clínica em **Osasco/SP**: endereço padrão `Osasco - SP` (rua e número na tela Identidade visual), SEO e textos, exemplos de celular com DDD 11. Varredura manual de todo o site, painel, portal e PWA (offline e celular): CSS como entrada própria do Vite (`estilos`) ligado por `<link>` nas cascas — no dev a tela piscava sem estilo a cada troca de página; abas sem barra de rolagem vertical sobrando; menu lateral do painel guarda a rolagem entre telas (o item aberto fica visível); semana do portal da profissional com cancelado/reagendado/falta riscado e com o status escrito; telefone formatado no e-mail do contato; a carga de feriados (`services/feriados.carregar`, job mensal) acentua os nomes que a 0012 semeou sem acento em 2026–2027. 2026-11-17: no ambiente de testes e no dev local (SMS simulado) o código aparece na tela já preenchido, para demonstração |
 | 2026-09-23 | Auditoria pré-produção completa (~450 correções em ~30 commits, `b5fd681..182e2e9`): OTP preso ao telefone em todo agendamento, consentimentos LGPD/art. 11 com prova, 2FA obrigatório do ADMIN, histórico do prontuário, prova de aceite imutável, deploy por Dockerfile + `migrate_atomico`, retenção LGPD efetiva, migrations 0040–0046. Detalhe em [`ARCHITECTURE.md`](ARCHITECTURE.md#6-progresso-checkpoint) |
 
-**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-11-16
+**Mantenedor:** Rafael Maciel · **Última atualização:** 2026-11-24

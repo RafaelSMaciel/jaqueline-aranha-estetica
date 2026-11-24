@@ -1,4 +1,4 @@
-"""Fluxo publico de agendamento — 3 passos (procedimento, data/horario, confirmar).
+"""Fluxo publico de agendamento — 3 passos (tratamentos, data/horario de cada um, confirmar).
 
 Porta HTTP do caso de uso ``services/agendamento_online.solicitar``: o GET monta o wizard; o POST
 passa pelo ``AgendamentoPublicoForm`` (campos + celular verificado por SMS NESTA sessao, exigido de
@@ -14,17 +14,19 @@ from django.shortcuts import redirect, render
 from django_ratelimit.decorators import ratelimit
 
 from ...excecoes import RegraDeNegocio
-from ...forms.agendamento import AgendamentoPublicoForm
+from ...forms.agendamento import IDADE_MAXIMA, IDADE_MINIMA, AgendamentoPublicoForm
 from ...models import (
     Cliente,
     FormularioAnamnese,
     Profissional,
     VersaoTermo,
 )
-from ...services import agendamento_online, consentimentos, sessao_cliente, termos
+from ...constants import MAX_TRATAMENTOS_POR_PEDIDO
+from ...services import agendamento_online, sessao_cliente, termos
 from ...services.disponibilidade import procedimentos_agendaveis
 from ...services.precos import precos_de_vitrine
 from ...utils.captcha import turnstile_enabled, turnstile_site_key
+from ...utils.datas import hoje as hoje_local
 from ...utils.parse import id_int
 from ...utils.pii import mask_email, mask_telefone
 from ...utils.seguranca import client_ip as _client_ip
@@ -35,6 +37,14 @@ logger = logging.getLogger(__name__)
 SESSAO_REHIDRATAR = 'booking_rehidratar'
 SESSAO_SUCESSO = 'agendamento_sucesso'
 MSG_FALHA = 'Ocorreu um erro ao confirmar o agendamento. Tente novamente.'
+
+
+def _anos_atras(dia, anos):
+    """O mesmo dia, `anos` antes (29/02 em ano nao bissexto vira 28/02)."""
+    try:
+        return dia.replace(year=dia.year - anos)
+    except ValueError:
+        return dia.replace(year=dia.year - anos, day=28)
 
 
 def _voltar_com_erro(request, mensagem):
@@ -57,6 +67,7 @@ def _cards(procedimentos):
             'nome': proc.nome,
             'descricao': proc.descricao or '',
             'duracao_minutos': proc.duracao_minutos,
+            'buffer_minutos': proc.buffer_minutos or 0,
             'preco': float(preco.final) if preco else 0,
             # cheio sem promo: fallback do resumo (o valor real vem por data/profissional)
             'preco_base': float(preco.cheio) if preco else 0,
@@ -117,6 +128,7 @@ def agendamento_publico(request):
     # Consentimento art. 11: o texto exibido e o da versao SAUDE que o POST grava
     _termo_saude, texto_consentimento_saude = VersaoTermo.texto_saude_vigente()
     otp_telefone = sessao_cliente.telefone_para_agendamento(request)
+    hoje = hoje_local()
     titular = Cliente.objects.filter(telefone=otp_telefone).first() if otp_telefone else None
     context = {
         'procedimentos': cards,
@@ -125,8 +137,10 @@ def agendamento_publico(request):
         'termo_lgpd': VersaoTermo.lgpd_vigente(),
         'termos_procedimento_data': _termos(procedimentos),
         'texto_consentimento_saude': texto_consentimento_saude,
-        # Rotulo de cada opt-in de comunicacao = texto gravado como prova no consentimento
-        'textos_consentimento': consentimentos.TEXTOS_WIZARD,
+        'max_tratamentos': MAX_TRATAMENTOS_POR_PEDIDO,
+        # limites do <input type="date"> do nascimento (o wizard e o form validam de novo)
+        'nascimento_min': f'{hoje.year - IDADE_MAXIMA:04d}-01-01',
+        'nascimento_max': _anos_atras(hoje, IDADE_MINIMA).isoformat(),
         'proc_preselect': proc_preselect,
         'prof_preselect': prof_preselect,
         # Telefone ja verificado nesta sessao (reidratar sem exigir novo SMS) e se ja tem cadastro
@@ -162,7 +176,7 @@ def confirmar_agendamento(request):
     pedido = form.pedido()
 
     try:
-        atendimento = agendamento_online.solicitar(pedido, request=request)
+        atendimentos = agendamento_online.solicitar_varios(pedido, request=request)
     except RegraDeNegocio as recusa:
         if recusa.codigo == 'horario_ocupado':
             logger.info('booking_slot_corrida_perdida', extra={'telefone': mask_telefone(pedido.telefone)})
@@ -179,14 +193,14 @@ def confirmar_agendamento(request):
         )
         return _voltar_com_erro(request, MSG_FALHA)
 
-    return _concluir(request, atendimento)
+    return _concluir(request, atendimentos)
 
 
-def _concluir(request, atendimento):
-    """Ponto unico depois de um pedido aceito: resumo p/ a pagina de sucesso e a verificacao do
-    celular gasta (o proximo agendamento pede outro SMS). A sessao da cliente segue aberta: a area
-    "Meus agendamentos" abre sem novo SMS (decisao 39)."""
-    request.session[SESSAO_SUCESSO] = agendamento_online.resumo_confirmacao(atendimento)
+def _concluir(request, atendimentos):
+    """Ponto unico depois de um pedido aceito: resumo p/ a pagina de sucesso (um item por
+    tratamento) e a verificacao do celular gasta (o proximo agendamento pede outro SMS). A sessao da
+    cliente segue aberta: a area "Meus agendamentos" abre sem novo SMS (decisao 39)."""
+    request.session[SESSAO_SUCESSO] = agendamento_online.resumo_do_pedido(atendimentos)
     sessao_cliente.registrar_agendamento(request)
     request.session.pop(SESSAO_REHIDRATAR, None)
     return redirect('aranha:agendamento_sucesso')

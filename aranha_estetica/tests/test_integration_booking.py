@@ -259,8 +259,9 @@ class IntegrationBookingFlowTests(TestCase):
             'No Atendimento should be created for a past datetime',
         )
 
-    def test_consent_email_marketing_captura(self, mock_email):
-        """POST com consent_email_marketing=on salva True + timestamp + IP."""
+    def test_consent_no_post_do_agendamento_e_ignorado(self, mock_email):
+        """Os opt-ins sairam do agendamento (2026-11-24): o POST com o checkbox antigo agenda e nao
+        grava consentimento — a cliente escolhe em Meus agendamentos > Minhas preferencias."""
         resp = self._post(
             telefone='17988883333',
             consent_email_marketing='on',
@@ -268,10 +269,8 @@ class IntegrationBookingFlowTests(TestCase):
         )
         self.assertEqual(resp.status_code, 302)
         cli = Cliente.objects.get(telefone='17988883333')
-        self.assertTrue(consentimentos.vigente(cli, 'MARKETING', 'EMAIL'))
-        linha = cli.consentimentos.get()
-        self.assertIsNotNone(linha.registrado_em)
-        self.assertEqual(linha.origem, 'AGENDAMENTO_ONLINE')
+        self.assertFalse(consentimentos.vigente(cli, 'MARKETING', 'EMAIL'))
+        self.assertFalse(cli.consentimentos.exists())
 
     def test_consent_whatsapp_nps_opt_out_default(self, mock_email):
         """POST sem consent_whatsapp_nps mantem False (opt-in required)."""
