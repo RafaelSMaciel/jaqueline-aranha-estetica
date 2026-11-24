@@ -1,14 +1,22 @@
-# Atualizacoes semanais em PR p/ a dev (fluxo do repo: dev -> main). Actions e imagens ficam
-# fixadas por SHA/digest; o Dependabot reescreve o pin e o comentario da versao.
-# Python: requirements*.txt (diretas). Ao aceitar um PR, regerar o requirements.lock (ver o
-# cabecalho dele) — o CI instala com -c requirements.lock.
+# Dependabot SEM PRs de atualizacao de versao: `open-pull-requests-limit: 0` em todo ecossistema.
+# O dono pediu o repositorio so com as branches `main` e `dev` (2026-11-24) — os PRs semanais
+# criavam uma branch `dependabot/...` por dependencia.
+#
+# O que continua valendo (Settings > Code security, ligado em 2026-11-06): os ALERTAS do Dependabot
+# e as correcoes de seguranca — dependencia com vulnerabilidade ainda abre PR (e a branch dele),
+# que e o caso em que vale a pena. O CI tambem barra vulnerabilidade conhecida (pip-audit e
+# npm audit no job de auditoria).
+#
+# Para voltar aos PRs semanais: troque o 0 por 5. Atualizar a mao: requirements*.txt (diretas) e
+# regerar o requirements.lock (ver o cabecalho dele) — o CI instala com -c requirements.lock;
+# Actions e imagens ficam fixadas por SHA/digest.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /
     target-branch: dev
     schedule: {interval: weekly, day: monday}
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       ferramentas-dev:
         patterns: [pytest*, ruff, mypy, django-stubs*, import-linter, coverage, tblib, playwright, pre-commit, pip-audit]
@@ -17,7 +25,7 @@ updates:
     directory: /
     target-branch: dev
     schedule: {interval: weekly, day: monday}
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       front:
         patterns: ['*']
@@ -26,6 +34,7 @@ updates:
     directory: /
     target-branch: dev
     schedule: {interval: weekly, day: monday}
+    open-pull-requests-limit: 0
     groups:
       actions:
         patterns: ['*']
@@ -34,8 +43,10 @@ updates:
     directory: /
     target-branch: dev
     schedule: {interval: weekly, day: monday}
+    open-pull-requests-limit: 0
 
   - package-ecosystem: docker-compose
     directory: /
     target-branch: dev
     schedule: {interval: weekly, day: monday}
+    open-pull-requests-limit: 0
