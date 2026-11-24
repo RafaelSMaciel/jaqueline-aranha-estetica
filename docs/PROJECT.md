@@ -1309,7 +1309,10 @@ Falta, da dona da conta (nenhum desses passa por código):
    de **demonstração** já existe (2026-11-03): `ADMIN_EMAIL`/`ADMIN_PASSWORD` no `web` do `dev`
    (cópia no `.env` local, `DEV_RAILWAY_ADMIN_*`) e `ADMIN_2FA_OBRIGATORIO=false` +
    `PROFISSIONAL_2FA_OBRIGATORIO=false` **só no `dev`**, para a apresentação (aviso W008 no deploy;
-   dados fictícios do `seed --demo`). Depois da apresentação: apagar as duas variáveis de 2FA.
+   dados fictícios do `seed --demo`). Em 2026-11-24 a conta de demonstração passou a ser
+   `admin@admin.com` (pedido do dono, para os professores testarem; senha no `.env` local — passa nos
+   validadores de senha, que não foram afrouxados); a anterior segue ativa. Depois da apresentação:
+   apagar as duas variáveis de 2FA e desativar as duas contas de demonstração (Painel › Usuários).
    E-mail de contato e WhatsApp da clínica em Painel › Marca (avisos W004/W007 do deploy).
 3. Nos dois `web`: ligar **Wait for CI** (Settings › Source) e apagar as variáveis legadas `DEBUG` e
    `STATIC_ROOT` (inofensivas: o `prod.py` força `DEBUG=False` e ignora o `STATIC_ROOT`; o
